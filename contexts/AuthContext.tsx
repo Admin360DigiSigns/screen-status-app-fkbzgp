@@ -29,53 +29,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Set up the 10-second interval when user is authenticated
   useEffect(() => {
+    console.log('Auth state changed:', { isAuthenticated, deviceId, screenName, username });
+    
+    // Clear any existing interval first
+    if (statusIntervalRef.current) {
+      console.log('Clearing existing interval');
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+
+    // Only set up interval if all required data is available and user is authenticated
     if (isAuthenticated && deviceId && screenName && username) {
-      console.log('Starting 10-second status update interval');
+      console.log('Setting up 10-second status update interval');
       
+      // Define the status update function inside useEffect to avoid stale closures
+      const sendStatusUpdate = async () => {
+        try {
+          console.log('Executing scheduled status update at:', new Date().toISOString());
+          
+          // Get current network state
+          const networkState = await Network.getNetworkStateAsync();
+          const status = networkState.isConnected ? 'online' : 'offline';
+          
+          const payload = {
+            deviceId,
+            screenName,
+            screen_username: username,
+            status,
+            timestamp: new Date().toISOString(),
+          };
+
+          console.log('Sending scheduled status update:', payload);
+          const success = await apiService.sendDeviceStatus(payload);
+          
+          if (success) {
+            console.log('✓ Status update sent successfully');
+          } else {
+            console.log('✗ Status update failed');
+          }
+        } catch (error) {
+          console.error('Error sending scheduled status update:', error);
+        }
+      };
+
       // Send initial status immediately
+      console.log('Sending initial status update');
       sendStatusUpdate();
       
-      // Set up interval to send status every 10 seconds
+      // Set up interval to send status every 10 seconds (10000 milliseconds)
       statusIntervalRef.current = setInterval(() => {
+        console.log('Interval triggered - sending status update');
         sendStatusUpdate();
-      }, 10000); // 10 seconds
+      }, 10000);
       
-      // Cleanup function to clear interval
+      console.log('Interval set up successfully with ID:', statusIntervalRef.current);
+      
+      // Cleanup function to clear interval when dependencies change or component unmounts
       return () => {
         if (statusIntervalRef.current) {
-          console.log('Clearing status update interval');
+          console.log('Cleaning up interval on unmount/dependency change');
           clearInterval(statusIntervalRef.current);
           statusIntervalRef.current = null;
         }
       };
+    } else {
+      console.log('Not setting up interval - missing required data or not authenticated');
     }
   }, [isAuthenticated, deviceId, screenName, username]);
-
-  const sendStatusUpdate = async () => {
-    if (!deviceId || !screenName || !username) {
-      console.log('Missing required data for status update');
-      return;
-    }
-
-    try {
-      // Get current network state
-      const networkState = await Network.getNetworkStateAsync();
-      const status = networkState.isConnected ? 'online' : 'offline';
-      
-      const payload = {
-        deviceId,
-        screenName,
-        screen_username: username,
-        status,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log('Sending scheduled status update:', payload);
-      await apiService.sendDeviceStatus(payload);
-    } catch (error) {
-      console.error('Error sending scheduled status update:', error);
-    }
-  };
 
   const initializeAuth = async () => {
     try {
@@ -149,14 +169,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      console.log('Logout initiated');
+      
       // Clear the interval before logging out
       if (statusIntervalRef.current) {
+        console.log('Clearing interval during logout');
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
       }
 
       // Send offline status before logging out
       if (deviceId && screenName && username) {
+        console.log('Sending offline status before logout');
         await apiService.sendDeviceStatus({
           deviceId,
           screenName,
