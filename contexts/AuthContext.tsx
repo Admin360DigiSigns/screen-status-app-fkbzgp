@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as apiService from '@/utils/apiService';
+import { getDeviceId } from '@/utils/deviceUtils';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -52,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.success) {
         // Store credentials on successful login
         await AsyncStorage.setItem('username', inputUsername);
+        await AsyncStorage.setItem('password', inputPassword);
         await AsyncStorage.setItem('screenName', inputScreenName);
         
         setUsername(inputUsername);
@@ -59,6 +61,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAuthenticated(true);
         
         console.log('Login successful, credentials stored');
+        
+        // Send display status after successful login
+        try {
+          const deviceId = await getDeviceId();
+          console.log('Sending display status with device ID:', deviceId);
+          
+          const statusResponse = await apiService.sendDisplayStatus(
+            deviceId,
+            inputScreenName,
+            inputUsername,
+            inputPassword
+          );
+          
+          if (statusResponse.success) {
+            console.log('Display status sent successfully');
+          } else {
+            console.error('Failed to send display status:', statusResponse.error);
+          }
+        } catch (statusError) {
+          console.error('Error sending display status:', statusError);
+          // Don't fail the login if status update fails
+        }
+        
         return { success: true };
       } else {
         console.log('Login failed:', response.error);
@@ -76,6 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await AsyncStorage.removeItem('username');
+      await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
       setUsername(null);
