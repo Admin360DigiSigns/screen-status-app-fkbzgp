@@ -47,26 +47,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Define the status update function inside useEffect to avoid stale closures
       const sendStatusUpdate = async () => {
         try {
+          console.log('===========================================');
           console.log('Executing scheduled status update at:', new Date().toISOString());
+          console.log('Current auth state:', {
+            deviceId,
+            screenName,
+            username,
+            hasPassword: !!password,
+          });
           
           // Get current network state
           const networkState = await Network.getNetworkStateAsync();
           const status = networkState.isConnected ? 'online' : 'offline';
           
-          const payload = {
-            deviceId,
-            screenName,
+          console.log('Network status:', status);
+          
+          // Construct payload with all required fields
+          const payload: apiService.DeviceStatusPayload = {
+            deviceId: deviceId,
+            screenName: screenName,
             screen_username: username,
             screen_password: password,
             screen_name: screenName,
-            status,
+            status: status,
             timestamp: new Date().toISOString(),
           };
 
-          console.log('Sending scheduled status update:', {
-            ...payload,
-            screen_password: '***' // Hide password in logs
+          console.log('Constructed payload (before sending):', {
+            deviceId: payload.deviceId,
+            screenName: payload.screenName,
+            screen_username: payload.screen_username,
+            screen_password: '***',
+            screen_name: payload.screen_name,
+            status: payload.status,
+            timestamp: payload.timestamp,
           });
+          
+          console.log('Verifying all required fields are present:');
+          console.log('- deviceId:', !!payload.deviceId);
+          console.log('- screenName:', !!payload.screenName);
+          console.log('- screen_username:', !!payload.screen_username);
+          console.log('- screen_password:', !!payload.screen_password);
+          console.log('- screen_name:', !!payload.screen_name);
+          console.log('- status:', !!payload.status);
+          console.log('- timestamp:', !!payload.timestamp);
+
           const success = await apiService.sendDeviceStatus(payload);
           
           if (success) {
@@ -74,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             console.log('✗ Status update failed');
           }
+          console.log('===========================================');
         } catch (error) {
           console.error('Error sending scheduled status update:', error);
         }
@@ -101,6 +127,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     } else {
       console.log('Not setting up interval - missing required data or not authenticated');
+      console.log('Missing:', {
+        isAuthenticated,
+        hasDeviceId: !!deviceId,
+        hasScreenName: !!screenName,
+        hasUsername: !!username,
+        hasPassword: !!password,
+      });
     }
   }, [isAuthenticated, deviceId, screenName, username, password]);
 
