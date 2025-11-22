@@ -88,10 +88,11 @@ export const sendDisplayStatus = async (
   deviceId: string,
   screenName: string,
   username: string,
-  password: string
+  password: string,
+  status: 'online' | 'offline' = 'online'
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    console.log('Sending display status:', { deviceId, screenName, username });
+    console.log('Sending display status:', { deviceId, screenName, username, status });
     
     const API_ENDPOINT = `https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status?screen_username=${encodeURIComponent(username)}&screen_password=${encodeURIComponent(password)}&screen_name=${encodeURIComponent(screenName)}`;
     
@@ -100,8 +101,8 @@ export const sendDisplayStatus = async (
       screen_name: screenName,
       screen_username: username,
       location: 'Building A - Lobby',
-      status: 'online',
-      is_active: true,
+      status: status,
+      is_active: status === 'online',
       last_connected_at: new Date().toISOString(),
       assigned_solution_id: 'uuid',
       organization_id: 'uuid',
