@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 export interface DeviceStatusPayload {
   deviceId: string;
   screenName: string;
+  screen_username: string;
   status: 'online' | 'offline';
   timestamp: string;
 }
@@ -12,6 +13,7 @@ export interface LoginPayload {
   screen_username: string;
   screen_password: string;
   screen_name: string;
+  device_id: string;
 }
 
 export interface LoginResponse {
@@ -23,10 +25,11 @@ export interface LoginResponse {
 export const login = async (
   username: string,
   password: string,
-  screenName: string
+  screenName: string,
+  deviceId: string
 ): Promise<LoginResponse> => {
   try {
-    console.log('Attempting login with API:', { username, screenName });
+    console.log('Attempting login with API:', { username, screenName, deviceId });
     
     const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
     
@@ -34,6 +37,7 @@ export const login = async (
       screen_username: username,
       screen_password: password,
       screen_name: screenName,
+      device_id: deviceId,
     };
 
     console.log('Sending login request to:', API_ENDPOINT);
@@ -76,8 +80,8 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
   try {
     console.log('Sending device status to API:', payload);
     
-    // Replace this URL with your actual API endpoint
-    const API_ENDPOINT = 'https://your-api-endpoint.com/device-status';
+    // Using the same Supabase endpoint for status updates
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status';
     
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
@@ -92,6 +96,8 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
       return true;
     } else {
       console.error('Failed to send device status:', response.status);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Status error details:', errorData);
       return false;
     }
   } catch (error) {

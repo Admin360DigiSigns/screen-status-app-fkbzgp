@@ -3,43 +3,32 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDeviceId } from '@/utils/deviceUtils';
 import { sendDeviceStatus } from '@/utils/apiService';
 import { colors } from '@/styles/commonStyles';
 import { Redirect } from 'expo-router';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, logout } = useAuth();
+  const { isAuthenticated, screenName, username, deviceId, logout } = useAuth();
   const networkState = useNetworkState();
-  const [deviceId, setDeviceId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
 
   useEffect(() => {
-    initializeDevice();
-  }, []);
-
-  useEffect(() => {
-    if (deviceId && screenName && networkState.isConnected !== undefined) {
-      syncDeviceStatus();
-    }
-  }, [deviceId, screenName, networkState.isConnected]);
-
-  const initializeDevice = async () => {
-    try {
-      const id = await getDeviceId();
-      setDeviceId(id);
-      console.log('Device initialized with ID:', id);
-    } catch (error) {
-      console.error('Error initializing device:', error);
-    } finally {
+    if (deviceId) {
       setIsLoading(false);
     }
-  };
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (deviceId && screenName && username && networkState.isConnected !== undefined) {
+      syncDeviceStatus();
+    }
+  }, [deviceId, screenName, username, networkState.isConnected]);
 
   const syncDeviceStatus = async () => {
-    if (!deviceId || !screenName) {
-      console.log('Missing device ID or screen name, skipping sync');
+    if (!deviceId || !screenName || !username) {
+      console.log('Missing required data for sync:', { deviceId, screenName, username });
       return;
     }
 
@@ -47,18 +36,40 @@ export default function HomeScreen() {
     const payload = {
       deviceId,
       screenName,
+      screen_username: username,
       status,
       timestamp: new Date().toISOString(),
     };
 
+    console.log('Syncing device status with payload:', payload);
     const success = await sendDeviceStatus(payload);
+    
     if (success) {
       setLastSyncTime(new Date());
+      setSyncStatus('success');
+      console.log('Status sync successful');
+    } else {
+      setSyncStatus('failed');
+      console.log('Status sync failed');
     }
   };
 
   const handleLogout = async () => {
+    // Send offline status before logging out
+    if (deviceId && screenName && username) {
+      await sendDeviceStatus({
+        deviceId,
+        screenName,
+        screen_username: username,
+        status: 'offline',
+        timestamp: new Date().toISOString(),
+      });
+    }
     await logout();
+  };
+
+  const handleManualSync = () => {
+    syncDeviceStatus();
   };
 
   if (!isAuthenticated) {
@@ -91,6 +102,11 @@ export default function HomeScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Username:</Text>
+            <Text style={styles.infoValue}>{username}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Screen Name:</Text>
             <Text style={styles.infoValue}>{screenName}</Text>
           </View>
@@ -117,7 +133,27 @@ export default function HomeScreen() {
               </Text>
             </View>
           )}
+
+          {syncStatus && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Sync Status:</Text>
+              <Text style={[
+                styles.infoValue,
+                { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+              ]}>
+                {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+              </Text>
+            </View>
+          )}
         </View>
+
+        <TouchableOpacity 
+          style={styles.syncButton}
+          onPress={handleManualSync}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.syncButtonText}>Sync Status Now</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.logoutButton}
@@ -127,9 +163,14 @@ export default function HomeScreen() {
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
 
-        <Text style={styles.footerText}>
-          Status updates are sent automatically when network state changes
-        </Text>
+        <View style={styles.infoBox}>
+          <Text style={styles.footerText}>
+            ℹ️ Each device sends its own status independently
+          </Text>
+          <Text style={styles.footerText}>
+            Multiple devices can be logged in with different credentials simultaneously
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -214,12 +255,25 @@ const styles = StyleSheet.create({
     flex: 2,
     textAlign: 'right',
   },
+  syncButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  syncButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
   logoutButton: {
     backgroundColor: colors.secondary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    marginTop: 16,
     minWidth: 200,
     alignItems: 'center',
   },
@@ -228,11 +282,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  footerText: {
+  infoBox: {
     marginTop: 24,
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 16,
+    maxWidth: 500,
+  },
+  footerText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.text,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingVertical: 4,
+    lineHeight: 20,
   },
 });
