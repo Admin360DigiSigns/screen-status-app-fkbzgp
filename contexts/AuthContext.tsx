@@ -1,12 +1,13 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as apiService from '@/utils/apiService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   username: string | null;
   screenName: string | null;
-  login: (username: string, password: string, screenName: string) => Promise<boolean>;
+  login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -41,14 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     inputUsername: string,
     inputPassword: string,
     inputScreenName: string
-  ): Promise<boolean> => {
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Mock authentication - replace with real authentication
-      // For demo purposes, accept any username/password combination
       console.log('Login attempt:', { inputUsername, inputScreenName });
       
-      // In a real app, you would validate credentials against a backend
-      if (inputUsername && inputPassword && inputScreenName) {
+      // Call the API service to authenticate
+      const response = await apiService.login(inputUsername, inputPassword, inputScreenName);
+      
+      if (response.success) {
+        // Store credentials on successful login
         await AsyncStorage.setItem('username', inputUsername);
         await AsyncStorage.setItem('screenName', inputScreenName);
         
@@ -56,15 +58,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setScreenName(inputScreenName);
         setIsAuthenticated(true);
         
-        console.log('Login successful');
-        return true;
+        console.log('Login successful, credentials stored');
+        return { success: true };
+      } else {
+        console.log('Login failed:', response.error);
+        return { success: false, error: response.error };
       }
-      
-      console.log('Login failed - missing credentials');
-      return false;
     } catch (error) {
       console.error('Error during login:', error);
-      return false;
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+      };
     }
   };
 

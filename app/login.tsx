@@ -47,15 +47,15 @@ export default function LoginScreen() {
     console.log('Attempting login...');
 
     try {
-      const success = await login(username, password, screenName);
+      const result = await login(username, password, screenName);
       
-      if (success) {
+      if (result.success) {
         console.log('Login successful, navigating to home');
         router.replace('/(tabs)/(home)');
       } else {
         Alert.alert(
           'Login Failed',
-          'Please check your credentials and try again.',
+          result.error || 'Please check your credentials and try again.',
           [{ text: 'OK' }]
         );
       }
@@ -133,7 +133,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>Screen Name</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g., Living Room TV"
+                placeholder="e.g., Main Lobby Display"
                 placeholderTextColor={colors.textSecondary}
                 value={screenName}
                 onChangeText={setScreenName}
