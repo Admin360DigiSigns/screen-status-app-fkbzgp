@@ -8,6 +8,7 @@ import * as Network from 'expo-network';
 interface AuthContextType {
   isAuthenticated: boolean;
   username: string | null;
+  password: string | null;
   screenName: string | null;
   deviceId: string | null;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -27,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, []);
 
-  // Set up the 10-second interval when user is authenticated
+  // Set up the 1-minute interval when user is authenticated
   useEffect(() => {
     console.log('Auth state changed:', { isAuthenticated, deviceId, screenName, username });
     
@@ -39,8 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     // Only set up interval if all required data is available and user is authenticated
-    if (isAuthenticated && deviceId && screenName && username) {
-      console.log('Setting up 10-second status update interval');
+    if (isAuthenticated && deviceId && screenName && username && password) {
+      console.log('Setting up 1-minute status update interval');
       
       // Define the status update function inside useEffect to avoid stale closures
       const sendStatusUpdate = async () => {
@@ -55,11 +57,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             deviceId,
             screenName,
             screen_username: username,
+            screen_password: password,
+            screen_name: screenName,
             status,
             timestamp: new Date().toISOString(),
           };
 
-          console.log('Sending scheduled status update:', payload);
+          console.log('Sending scheduled status update:', {
+            ...payload,
+            screen_password: '***' // Hide password in logs
+          });
           const success = await apiService.sendDeviceStatus(payload);
           
           if (success) {
@@ -76,11 +83,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Sending initial status update');
       sendStatusUpdate();
       
-      // Set up interval to send status every 10 seconds (10000 milliseconds)
+      // Set up interval to send status every 1 minute (60000 milliseconds)
       statusIntervalRef.current = setInterval(() => {
         console.log('Interval triggered - sending status update');
         sendStatusUpdate();
-      }, 10000);
+      }, 60000);
       
       console.log('Interval set up successfully with ID:', statusIntervalRef.current);
       
@@ -95,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       console.log('Not setting up interval - missing required data or not authenticated');
     }
-  }, [isAuthenticated, deviceId, screenName, username]);
+  }, [isAuthenticated, deviceId, screenName, username, password]);
 
   const initializeAuth = async () => {
     try {
@@ -114,10 +121,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadAuthState = async () => {
     try {
       const storedUsername = await AsyncStorage.getItem('username');
+      const storedPassword = await AsyncStorage.getItem('password');
       const storedScreenName = await AsyncStorage.getItem('screenName');
       
-      if (storedUsername && storedScreenName) {
+      if (storedUsername && storedPassword && storedScreenName) {
         setUsername(storedUsername);
+        setPassword(storedPassword);
         setScreenName(storedScreenName);
         setIsAuthenticated(true);
         console.log('Loaded auth state:', { storedUsername, storedScreenName });
@@ -146,9 +155,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.success) {
         // Store credentials on successful login
         await AsyncStorage.setItem('username', inputUsername);
+        await AsyncStorage.setItem('password', inputPassword);
         await AsyncStorage.setItem('screenName', inputScreenName);
         
         setUsername(inputUsername);
+        setPassword(inputPassword);
         setScreenName(inputScreenName);
         setIsAuthenticated(true);
         
@@ -179,21 +190,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Send offline status before logging out
-      if (deviceId && screenName && username) {
+      if (deviceId && screenName && username && password) {
         console.log('Sending offline status before logout');
         await apiService.sendDeviceStatus({
           deviceId,
           screenName,
           screen_username: username,
+          screen_password: password,
+          screen_name: screenName,
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
       }
 
       await AsyncStorage.removeItem('username');
+      await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
       setUsername(null);
+      setPassword(null);
       setScreenName(null);
       setIsAuthenticated(false);
       
@@ -204,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, screenName, deviceId, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, username, password, screenName, deviceId, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

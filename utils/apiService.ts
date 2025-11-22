@@ -5,6 +5,8 @@ export interface DeviceStatusPayload {
   deviceId: string;
   screenName: string;
   screen_username: string;
+  screen_password: string;
+  screen_name: string;
   status: 'online' | 'offline';
   timestamp: string;
 }
@@ -78,7 +80,11 @@ export const login = async (
 
 export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<boolean> => {
   try {
-    console.log('Sending device status to API:', payload);
+    // Log payload with hidden password for security
+    console.log('Sending device status to API:', {
+      ...payload,
+      screen_password: '***'
+    });
     
     // Using the same Supabase endpoint for status updates
     const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status';

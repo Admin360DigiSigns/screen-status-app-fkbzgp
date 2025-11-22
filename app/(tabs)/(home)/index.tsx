@@ -8,7 +8,7 @@ import { colors } from '@/styles/commonStyles';
 import { Redirect } from 'expo-router';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, username, deviceId, logout } = useAuth();
+  const { isAuthenticated, screenName, username, password, deviceId, logout } = useAuth();
   const networkState = useNetworkState();
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -21,14 +21,14 @@ export default function HomeScreen() {
   }, [deviceId]);
 
   useEffect(() => {
-    if (deviceId && screenName && username && networkState.isConnected !== undefined) {
+    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
       syncDeviceStatus();
     }
-  }, [deviceId, screenName, username, networkState.isConnected]);
+  }, [deviceId, screenName, username, password, networkState.isConnected]);
 
   const syncDeviceStatus = async () => {
-    if (!deviceId || !screenName || !username) {
-      console.log('Missing required data for sync:', { deviceId, screenName, username });
+    if (!deviceId || !screenName || !username || !password) {
+      console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
       return;
     }
 
@@ -37,11 +37,13 @@ export default function HomeScreen() {
       deviceId,
       screenName,
       screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
       status,
       timestamp: new Date().toISOString(),
     };
 
-    console.log('Syncing device status with payload:', payload);
+    console.log('Syncing device status with payload (password hidden)');
     const success = await sendDeviceStatus(payload);
     
     if (success) {
@@ -56,11 +58,13 @@ export default function HomeScreen() {
 
   const handleLogout = async () => {
     // Send offline status before logging out
-    if (deviceId && screenName && username) {
+    if (deviceId && screenName && username && password) {
       await sendDeviceStatus({
         deviceId,
         screenName,
         screen_username: username,
+        screen_password: password,
+        screen_name: screenName,
         status: 'offline',
         timestamp: new Date().toISOString(),
       });
@@ -165,7 +169,10 @@ export default function HomeScreen() {
 
         <View style={styles.infoBox}>
           <Text style={styles.footerText}>
-            ℹ️ Each device sends its own status independently
+            ℹ️ Status updates sent every 1 minute
+          </Text>
+          <Text style={styles.footerText}>
+            Each device sends its own status independently
           </Text>
           <Text style={styles.footerText}>
             Multiple devices can be logged in with different credentials simultaneously
