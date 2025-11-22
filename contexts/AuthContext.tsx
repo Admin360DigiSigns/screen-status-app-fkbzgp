@@ -66,12 +66,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     inputScreenName: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
+      console.log('=== AUTH CONTEXT LOGIN START ===');
       console.log('Login attempt:', { inputUsername, inputScreenName });
       
       // Call the API service to authenticate
       const response = await apiService.login(inputUsername, inputPassword, inputScreenName);
       
+      console.log('API response received:', { success: response.success, hasData: !!response.data });
+      
+      // Only proceed with login if the API response is successful (status 200-299)
       if (response.success) {
+        console.log('✅ API returned success - proceeding with login');
+        
         // Store credentials on successful login
         await AsyncStorage.setItem('username', inputUsername);
         await AsyncStorage.setItem('password', inputPassword);
@@ -79,17 +85,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Store additional data from the response if available
         if (response.data) {
+          console.log('Storing response data:', response.data);
+          
           if (response.data.display_id) {
             await AsyncStorage.setItem('displayId', response.data.display_id);
             setDisplayId(response.data.display_id);
+            console.log('Stored display_id:', response.data.display_id);
           }
           if (response.data.location) {
             await AsyncStorage.setItem('location', response.data.location);
             setLocation(response.data.location);
+            console.log('Stored location:', response.data.location);
           }
           if (response.data.solution) {
-            // Store solution data if needed
             console.log('Solution data received:', response.data.solution);
+            
+            // Store solution IDs if available
+            if (response.data.solution.id) {
+              await AsyncStorage.setItem('assignedSolutionId', response.data.solution.id);
+              setAssignedSolutionId(response.data.solution.id);
+            }
+            if (response.data.solution.organization_id) {
+              await AsyncStorage.setItem('organizationId', response.data.solution.organization_id);
+              setOrganizationId(response.data.solution.organization_id);
+            }
           }
         }
         
@@ -97,12 +116,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setScreenName(inputScreenName);
         setIsAuthenticated(true);
         
-        console.log('Login successful, credentials stored');
+        console.log('✅ Login successful, credentials stored, user authenticated');
         
         // Send display status after successful login
         try {
           const deviceId = await getDeviceId();
-          console.log('Sending display status with device ID:', deviceId);
+          console.log('Sending initial display status with device ID:', deviceId);
           
           const statusResponse = await apiService.sendDisplayStatus(
             deviceId,
@@ -116,22 +135,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
           
           if (statusResponse.success) {
-            console.log('Display status sent successfully');
+            console.log('✅ Initial display status sent successfully');
           } else {
-            console.error('Failed to send display status:', statusResponse.error);
+            console.error('❌ Failed to send initial display status:', statusResponse.error);
           }
         } catch (statusError) {
-          console.error('Error sending display status:', statusError);
+          console.error('❌ Error sending initial display status:', statusError);
           // Don't fail the login if status update fails
         }
         
+        console.log('=== AUTH CONTEXT LOGIN END (SUCCESS) ===');
         return { success: true };
       } else {
-        console.log('Login failed:', response.error);
-        return { success: false, error: response.error };
+        // API returned an error or non-2xx status code
+        console.log('❌ API returned failure - login denied');
+        console.log('Error from API:', response.error);
+        console.log('=== AUTH CONTEXT LOGIN END (FAILED) ===');
+        return { success: false, error: response.error || 'Login failed' };
       }
     } catch (error) {
-      console.error('Error during login:', error);
+      console.error('❌ Exception during login:', error);
+      console.log('=== AUTH CONTEXT LOGIN END (EXCEPTION) ===');
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'An unexpected error occurred' 
@@ -141,6 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      console.log('=== LOGOUT START ===');
+      
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
@@ -157,9 +183,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setOrganizationId(null);
       setIsAuthenticated(false);
       
-      console.log('Logout successful');
+      console.log('✅ Logout successful - all data cleared');
+      console.log('=== LOGOUT END ===');
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('❌ Error during logout:', error);
     }
   };
 

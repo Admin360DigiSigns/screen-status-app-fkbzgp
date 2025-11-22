@@ -95,9 +95,10 @@ export const login = async (
     console.log('Response body length:', responseText.length);
     console.log('Response body:', responseText);
 
-    // Check if response is successful (2xx status codes)
-    if (response.ok) {
-      console.log('✅ Login request successful (status 2xx)');
+    // Check if response status is in the 200-299 range (successful)
+    if (response.ok && response.status >= 200 && response.status < 300) {
+      console.log('✅ Login request successful (status code:', response.status, ')');
+      console.log('✅ Response is OK - proceeding with login');
       
       // Try to parse JSON response
       if (responseText && responseText.trim().length > 0) {
@@ -121,7 +122,7 @@ export const login = async (
             data: responseData,
           };
         } catch (parseError) {
-          console.log('Response is not JSON, but request was successful');
+          console.log('Response is not JSON, but request was successful (status', response.status, ')');
           console.log('Parse error:', parseError);
           return {
             success: true,
@@ -129,16 +130,17 @@ export const login = async (
           };
         }
       } else {
-        console.log('Empty response body, but request was successful');
+        console.log('Empty response body, but request was successful (status', response.status, ')');
         return {
           success: true,
           message: 'Login successful',
         };
       }
     } else {
-      // Handle error responses
+      // Handle error responses (status code outside 200-299 range)
       console.error('❌ Login request failed');
       console.error('Status code:', response.status);
+      console.error('Response is NOT OK - login denied');
       
       let errorMessage = `Login failed with status ${response.status}`;
       let errorData: any = {};
@@ -235,12 +237,13 @@ export const sendDisplayStatus = async (
     });
 
     console.log('Display status response status:', response.status);
+    console.log('Display status response ok:', response.ok);
 
     const responseText = await response.text();
     console.log('Display status response:', responseText);
 
-    if (response.ok) {
-      console.log('✅ Display status sent successfully');
+    if (response.ok && response.status >= 200 && response.status < 300) {
+      console.log('✅ Display status sent successfully (status code:', response.status, ')');
       
       if (responseText && responseText.trim().length > 0) {
         try {
@@ -255,7 +258,7 @@ export const sendDisplayStatus = async (
         success: true,
       };
     } else {
-      console.error('❌ Failed to send display status');
+      console.error('❌ Failed to send display status (status code:', response.status, ')');
       
       let errorMessage = `Failed with status ${response.status}`;
       
