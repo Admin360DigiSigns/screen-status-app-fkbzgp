@@ -49,6 +49,7 @@ export const login = async (
     };
 
     console.log('Sending login request to:', API_ENDPOINT);
+    console.log('Login payload:', payload);
     
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
@@ -59,20 +60,37 @@ export const login = async (
     });
 
     console.log('Login response status:', response.status);
+    console.log('Login response headers:', response.headers);
+
+    const responseText = await response.text();
+    console.log('Login response text:', responseText);
 
     if (response.ok) {
-      const data = await response.json();
-      console.log('Login successful:', data);
-      return {
-        success: true,
-        message: data.message || 'Login successful',
-      };
+      try {
+        const data = responseText ? JSON.parse(responseText) : {};
+        console.log('Login successful:', data);
+        return {
+          success: true,
+          message: data.message || 'Login successful',
+        };
+      } catch (parseError) {
+        console.log('Response is not JSON, treating as success');
+        return {
+          success: true,
+          message: 'Login successful',
+        };
+      }
     } else {
-      const errorData = await response.json().catch(() => ({}));
+      let errorData: any = {};
+      try {
+        errorData = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Could not parse error response');
+      }
       console.error('Login failed:', response.status, errorData);
       return {
         success: false,
-        error: errorData.error || errorData.message || 'Login failed',
+        error: errorData.error || errorData.message || `Login failed with status ${response.status}`,
       };
     }
   } catch (error) {
@@ -94,7 +112,14 @@ export const sendDisplayStatus = async (
   try {
     console.log('Sending display status:', { deviceId, screenName, username, status });
     
-    const API_ENDPOINT = `https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status?screen_username=${encodeURIComponent(username)}&screen_password=${encodeURIComponent(password)}&screen_name=${encodeURIComponent(screenName)}`;
+    // Build the URL with query parameters
+    const params = new URLSearchParams({
+      screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
+    });
+    
+    const API_ENDPOINT = `https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status?${params.toString()}`;
     
     const payload: DisplayStatusPayload = {
       device_id: deviceId,
@@ -111,8 +136,9 @@ export const sendDisplayStatus = async (
     console.log('Sending display status request to:', API_ENDPOINT);
     console.log('Payload:', payload);
     
+    // Changed from GET to POST since we're sending a body
     const response = await fetch(API_ENDPOINT, {
-      method: 'GET',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -121,18 +147,33 @@ export const sendDisplayStatus = async (
 
     console.log('Display status response status:', response.status);
 
+    const responseText = await response.text();
+    console.log('Display status response text:', responseText);
+
     if (response.ok) {
-      const data = await response.json().catch(() => ({}));
-      console.log('Display status sent successfully:', data);
-      return {
-        success: true,
-      };
+      try {
+        const data = responseText ? JSON.parse(responseText) : {};
+        console.log('Display status sent successfully:', data);
+        return {
+          success: true,
+        };
+      } catch (parseError) {
+        console.log('Response is not JSON, treating as success');
+        return {
+          success: true,
+        };
+      }
     } else {
-      const errorData = await response.json().catch(() => ({}));
+      let errorData: any = {};
+      try {
+        errorData = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Could not parse error response');
+      }
       console.error('Failed to send display status:', response.status, errorData);
       return {
         success: false,
-        error: errorData.error || errorData.message || 'Failed to send display status',
+        error: errorData.error || errorData.message || `Failed to send display status with status ${response.status}`,
       };
     }
   } catch (error) {
