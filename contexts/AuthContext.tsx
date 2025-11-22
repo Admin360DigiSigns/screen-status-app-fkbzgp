@@ -8,6 +8,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   username: string | null;
   screenName: string | null;
+  displayId: string | null;
+  location: string | null;
+  assignedSolutionId: string | null;
+  organizationId: string | null;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -18,6 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
+  const [displayId, setDisplayId] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [assignedSolutionId, setAssignedSolutionId] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAuthState();
@@ -27,12 +35,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const storedUsername = await AsyncStorage.getItem('username');
       const storedScreenName = await AsyncStorage.getItem('screenName');
+      const storedDisplayId = await AsyncStorage.getItem('displayId');
+      const storedLocation = await AsyncStorage.getItem('location');
+      const storedAssignedSolutionId = await AsyncStorage.getItem('assignedSolutionId');
+      const storedOrganizationId = await AsyncStorage.getItem('organizationId');
       
       if (storedUsername && storedScreenName) {
         setUsername(storedUsername);
         setScreenName(storedScreenName);
+        setDisplayId(storedDisplayId);
+        setLocation(storedLocation);
+        setAssignedSolutionId(storedAssignedSolutionId);
+        setOrganizationId(storedOrganizationId);
         setIsAuthenticated(true);
-        console.log('Loaded auth state:', { storedUsername, storedScreenName });
+        console.log('Loaded auth state:', { 
+          storedUsername, 
+          storedScreenName, 
+          storedDisplayId,
+          storedLocation 
+        });
       }
     } catch (error) {
       console.error('Error loading auth state:', error);
@@ -56,6 +77,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await AsyncStorage.setItem('password', inputPassword);
         await AsyncStorage.setItem('screenName', inputScreenName);
         
+        // Store additional data from the response if available
+        if (response.data) {
+          if (response.data.display_id) {
+            await AsyncStorage.setItem('displayId', response.data.display_id);
+            setDisplayId(response.data.display_id);
+          }
+          if (response.data.location) {
+            await AsyncStorage.setItem('location', response.data.location);
+            setLocation(response.data.location);
+          }
+          if (response.data.solution) {
+            // Store solution data if needed
+            console.log('Solution data received:', response.data.solution);
+          }
+        }
+        
         setUsername(inputUsername);
         setScreenName(inputScreenName);
         setIsAuthenticated(true);
@@ -71,7 +108,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             deviceId,
             inputScreenName,
             inputUsername,
-            inputPassword
+            inputPassword,
+            'online',
+            response.data?.location,
+            response.data?.solution?.id,
+            response.data?.solution?.organization_id
           );
           
           if (statusResponse.success) {
@@ -103,9 +144,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
+      await AsyncStorage.removeItem('displayId');
+      await AsyncStorage.removeItem('location');
+      await AsyncStorage.removeItem('assignedSolutionId');
+      await AsyncStorage.removeItem('organizationId');
       
       setUsername(null);
       setScreenName(null);
+      setDisplayId(null);
+      setLocation(null);
+      setAssignedSolutionId(null);
+      setOrganizationId(null);
       setIsAuthenticated(false);
       
       console.log('Logout successful');
@@ -115,7 +164,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, screenName, login, logout }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      username, 
+      screenName, 
+      displayId,
+      location,
+      assignedSolutionId,
+      organizationId,
+      login, 
+      logout 
+    }}>
       {children}
     </AuthContext.Provider>
   );

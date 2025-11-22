@@ -10,7 +10,7 @@ import { Redirect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, username, logout } = useAuth();
+  const { isAuthenticated, screenName, username, location, displayId, logout } = useAuth();
   const networkState = useNetworkState();
   const [deviceId, setDeviceId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -111,6 +111,10 @@ export default function HomeScreen() {
 
     try {
       const password = await AsyncStorage.getItem('password');
+      const storedLocation = await AsyncStorage.getItem('location');
+      const storedAssignedSolutionId = await AsyncStorage.getItem('assignedSolutionId');
+      const storedOrganizationId = await AsyncStorage.getItem('organizationId');
+      
       if (!password) {
         console.error('Password not found in storage');
         return;
@@ -126,7 +130,10 @@ export default function HomeScreen() {
         screenName,
         username,
         password,
-        status
+        status,
+        storedLocation || location || undefined,
+        storedAssignedSolutionId || undefined,
+        storedOrganizationId || undefined
       );
 
       if (response.success) {
@@ -148,6 +155,10 @@ export default function HomeScreen() {
 
     try {
       const password = await AsyncStorage.getItem('password');
+      const storedLocation = await AsyncStorage.getItem('location');
+      const storedAssignedSolutionId = await AsyncStorage.getItem('assignedSolutionId');
+      const storedOrganizationId = await AsyncStorage.getItem('organizationId');
+      
       if (!password) {
         console.error('Password not found in storage');
         return;
@@ -160,7 +171,10 @@ export default function HomeScreen() {
         screenName,
         username,
         password,
-        'offline'
+        'offline',
+        storedLocation || location || undefined,
+        storedAssignedSolutionId || undefined,
+        storedOrganizationId || undefined
       );
     } catch (error) {
       console.error('Error sending offline status:', error);
@@ -214,12 +228,30 @@ export default function HomeScreen() {
             <Text style={styles.infoValue}>{screenName}</Text>
           </View>
           
+          {displayId && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Display ID:</Text>
+              <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
+                {displayId}
+              </Text>
+            </View>
+          )}
+          
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Device ID:</Text>
             <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
               {deviceId}
             </Text>
           </View>
+          
+          {location && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Location:</Text>
+              <Text style={styles.infoValue}>
+                {location}
+              </Text>
+            </View>
+          )}
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Connection:</Text>

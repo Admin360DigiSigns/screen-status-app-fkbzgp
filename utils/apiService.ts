@@ -18,6 +18,12 @@ export interface LoginResponse {
   success: boolean;
   message?: string;
   error?: string;
+  data?: {
+    display_id: string;
+    screen_name: string;
+    location: string;
+    solution: any;
+  };
 }
 
 export interface DisplayStatusPayload {
@@ -98,9 +104,21 @@ export const login = async (
         try {
           const data = JSON.parse(responseText);
           console.log('Parsed JSON response:', data);
+          
+          // Extract the expected fields from the response
+          const responseData = {
+            display_id: data.display_id,
+            screen_name: data.screen_name,
+            location: data.location,
+            solution: data.solution,
+          };
+          
+          console.log('Extracted response data:', responseData);
+          
           return {
             success: true,
-            message: data.message || 'Login successful',
+            message: 'Login successful',
+            data: responseData,
           };
         } catch (parseError) {
           console.log('Response is not JSON, but request was successful');
@@ -171,7 +189,10 @@ export const sendDisplayStatus = async (
   screenName: string,
   username: string,
   password: string,
-  status: 'online' | 'offline' = 'online'
+  status: 'online' | 'offline' = 'online',
+  location?: string,
+  assignedSolutionId?: string,
+  organizationId?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log('=== SENDING DISPLAY STATUS ===');
@@ -193,12 +214,12 @@ export const sendDisplayStatus = async (
       device_id: deviceId,
       screen_name: screenName,
       screen_username: username,
-      location: 'Building A - Lobby',
+      location: location || 'Building A - Lobby',
       status: status,
       is_active: status === 'online',
       last_connected_at: new Date().toISOString(),
-      assigned_solution_id: 'uuid',
-      organization_id: 'uuid',
+      assigned_solution_id: assignedSolutionId || 'uuid',
+      organization_id: organizationId || 'uuid',
     };
 
     console.log('API Endpoint:', API_ENDPOINT);
