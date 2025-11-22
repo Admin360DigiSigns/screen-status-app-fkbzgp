@@ -5,14 +5,27 @@ import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus } from '@/utils/apiService';
 import { colors } from '@/styles/commonStyles';
-import { Redirect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, username, password, deviceId, logout } = useAuth();
+  const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
   const networkState = useNetworkState();
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
+
+  // Track when the screen is focused/unfocused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Home screen focused - activating status updates');
+      setScreenActive(true);
+
+      return () => {
+        console.log('Home screen unfocused - deactivating status updates');
+        setScreenActive(false);
+      };
+    }, [setScreenActive])
+  );
 
   useEffect(() => {
     if (deviceId) {
@@ -172,7 +185,7 @@ export default function HomeScreen() {
             ℹ️ Status updates sent every 1 minute
           </Text>
           <Text style={styles.footerText}>
-            Each device sends its own status independently
+            Updates only sent when logged in and on this screen
           </Text>
           <Text style={styles.footerText}>
             Multiple devices can be logged in with different credentials simultaneously

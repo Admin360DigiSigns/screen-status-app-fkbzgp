@@ -13,6 +13,7 @@ interface AuthContextType {
   deviceId: string | null;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
+  setScreenActive: (active: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,15 +24,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [password, setPassword] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [isScreenActive, setIsScreenActive] = useState(false);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     initializeAuth();
   }, []);
 
-  // Set up the 1-minute interval when user is authenticated
+  // Set up the 1-minute interval when user is authenticated AND screen is active
   useEffect(() => {
-    console.log('Auth state changed:', { isAuthenticated, deviceId, screenName, username });
+    console.log('Auth/Screen state changed:', { 
+      isAuthenticated, 
+      isScreenActive,
+      deviceId: !!deviceId, 
+      screenName: !!screenName, 
+      username: !!username 
+    });
     
     // Clear any existing interval first
     if (statusIntervalRef.current) {
@@ -40,9 +48,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       statusIntervalRef.current = null;
     }
 
-    // Only set up interval if all required data is available and user is authenticated
-    if (isAuthenticated && deviceId && screenName && username && password) {
-      console.log('Setting up 1-minute status update interval');
+    // Only set up interval if:
+    // 1. User is authenticated
+    // 2. Screen is active (user is on the home screen)
+    // 3. All required data is available
+    if (isAuthenticated && isScreenActive && deviceId && screenName && username && password) {
+      console.log('✓ Setting up 1-minute status update interval (user logged in and on screen)');
       
       // Define the status update function inside useEffect to avoid stale closures
       const sendStatusUpdate = async () => {
@@ -73,25 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             timestamp: new Date().toISOString(),
           };
 
-          console.log('Constructed payload (before sending):', {
-            deviceId: payload.deviceId,
-            screenName: payload.screenName,
-            screen_username: payload.screen_username,
-            screen_password: '***',
-            screen_name: payload.screen_name,
-            status: payload.status,
-            timestamp: payload.timestamp,
-          });
+          console.log('Sending status update...');
           
-          console.log('Verifying all required fields are present:');
-          console.log('- deviceId:', !!payload.deviceId);
-          console.log('- screenName:', !!payload.screenName);
-          console.log('- screen_username:', !!payload.screen_username);
-          console.log('- screen_password:', !!payload.screen_password);
-          console.log('- screen_name:', !!payload.screen_name);
-          console.log('- status:', !!payload.status);
-          console.log('- timestamp:', !!payload.timestamp);
-
           const success = await apiService.sendDeviceStatus(payload);
           
           if (success) {
@@ -115,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sendStatusUpdate();
       }, 60000);
       
-      console.log('Interval set up successfully with ID:', statusIntervalRef.current);
+      console.log('Interval set up successfully');
       
       // Cleanup function to clear interval when dependencies change or component unmounts
       return () => {
@@ -126,16 +120,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
     } else {
-      console.log('Not setting up interval - missing required data or not authenticated');
-      console.log('Missing:', {
+      console.log('✗ Not setting up interval - conditions not met');
+      console.log('Conditions:', {
         isAuthenticated,
+        isScreenActive,
         hasDeviceId: !!deviceId,
         hasScreenName: !!screenName,
         hasUsername: !!username,
         hasPassword: !!password,
       });
     }
-  }, [isAuthenticated, deviceId, screenName, username, password]);
+  }, [isAuthenticated, isScreenActive, deviceId, screenName, username, password]);
 
   const initializeAuth = async () => {
     try {
@@ -244,6 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPassword(null);
       setScreenName(null);
       setIsAuthenticated(false);
+      setIsScreenActive(false);
       
       console.log('Logout successful');
     } catch (error) {
@@ -251,8 +247,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const setScreenActive = (active: boolean) => {
+    console.log('Screen active state changed:', active);
+    setIsScreenActive(active);
+  };
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, username, password, screenName, deviceId, login, logout }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated, 
+      username, 
+      password, 
+      screenName, 
+      deviceId, 
+      login, 
+      logout,
+      setScreenActive 
+    }}>
       {children}
     </AuthContext.Provider>
   );
