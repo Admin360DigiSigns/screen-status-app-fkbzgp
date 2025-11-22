@@ -1,8 +1,9 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
+import * as Network from 'expo-network';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -20,10 +21,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [username, setUsername] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     initializeAuth();
   }, []);
+
+  // Set up the 10-second interval when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && deviceId && screenName && username) {
+      console.log('Starting 10-second status update interval');
+      
+      // Send initial status immediately
+      sendStatusUpdate();
+      
+      // Set up interval to send status every 10 seconds
+      statusIntervalRef.current = setInterval(() => {
+        sendStatusUpdate();
+      }, 10000); // 10 seconds
+      
+      // Cleanup function to clear interval
+      return () => {
+        if (statusIntervalRef.current) {
+          console.log('Clearing status update interval');
+          clearInterval(statusIntervalRef.current);
+          statusIntervalRef.current = null;
+        }
+      };
+    }
+  }, [isAuthenticated, deviceId, screenName, username]);
+
+  const sendStatusUpdate = async () => {
+    if (!deviceId || !screenName || !username) {
+      console.log('Missing required data for status update');
+      return;
+    }
+
+    try {
+      // Get current network state
+      const networkState = await Network.getNetworkStateAsync();
+      const status = networkState.isConnected ? 'online' : 'offline';
+      
+      const payload = {
+        deviceId,
+        screenName,
+        screen_username: username,
+        status,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log('Sending scheduled status update:', payload);
+      await apiService.sendDeviceStatus(payload);
+    } catch (error) {
+      console.error('Error sending scheduled status update:', error);
+    }
+  };
 
   const initializeAuth = async () => {
     try {
@@ -97,6 +149,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      // Clear the interval before logging out
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+        statusIntervalRef.current = null;
+      }
+
+      // Send offline status before logging out
+      if (deviceId && screenName && username) {
+        await apiService.sendDeviceStatus({
+          deviceId,
+          screenName,
+          screen_username: username,
+          status: 'offline',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('screenName');
       
