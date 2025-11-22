@@ -1,58 +1,29 @@
 
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, AppState, AppStateStatus } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { getDeviceId } from '@/utils/deviceUtils';
-import { sendDisplayStatus } from '@/utils/apiService';
+import { sendDeviceStatus } from '@/utils/apiService';
 import { colors } from '@/styles/commonStyles';
 import { Redirect } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, username, location, displayId, logout } = useAuth();
+  const { isAuthenticated, screenName, logout } = useAuth();
   const networkState = useNetworkState();
   const [deviceId, setDeviceId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
-  
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
-  // Initialize device ID
   useEffect(() => {
     initializeDevice();
   }, []);
 
-  // Handle AppState changes
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
-    return () => {
-      subscription.remove();
-    };
-  }, []);
-
-  // Start/stop periodic status updates based on auth and app state
-  useEffect(() => {
-    if (isAuthenticated && deviceId && screenName && appState === 'active') {
-      console.log('Starting periodic status updates (every 10 seconds)');
-      startPeriodicStatusUpdates();
-    } else {
-      console.log('Stopping periodic status updates');
-      stopPeriodicStatusUpdates();
-      
-      // Send offline status when stopping
-      if (isAuthenticated && deviceId && screenName && appState !== 'active') {
-        sendOfflineStatus();
-      }
+    if (deviceId && screenName && networkState.isConnected !== undefined) {
+      syncDeviceStatus();
     }
-
-    return () => {
-      stopPeriodicStatusUpdates();
-    };
-  }, [isAuthenticated, deviceId, screenName, appState]);
+  }, [deviceId, screenName, networkState.isConnected]);
 
   const initializeDevice = async () => {
     try {
@@ -66,131 +37,27 @@ export default function HomeScreen() {
     }
   };
 
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    console.log('App state changed from', appStateRef.current, 'to', nextAppState);
-    
-    if (appStateRef.current === 'active' && nextAppState.match(/inactive|background/)) {
-      console.log('App went to background');
-    } else if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
-      console.log('App came to foreground');
-    }
-    
-    appStateRef.current = nextAppState;
-    setAppState(nextAppState);
-  };
-
-  const startPeriodicStatusUpdates = () => {
-    // Clear any existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    // Send initial status immediately
-    sendCurrentStatus();
-
-    // Set up interval to send status every 10 seconds
-    intervalRef.current = setInterval(() => {
-      console.log('Periodic status update triggered');
-      sendCurrentStatus();
-    }, 10000); // 10 seconds
-  };
-
-  const stopPeriodicStatusUpdates = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-      console.log('Periodic status updates stopped');
-    }
-  };
-
-  const sendCurrentStatus = async () => {
-    if (!deviceId || !screenName || !username) {
-      console.log('Missing required data for status update');
+  const syncDeviceStatus = async () => {
+    if (!deviceId || !screenName) {
+      console.log('Missing device ID or screen name, skipping sync');
       return;
     }
 
-    try {
-      const password = await AsyncStorage.getItem('password');
-      const storedLocation = await AsyncStorage.getItem('location');
-      const storedAssignedSolutionId = await AsyncStorage.getItem('assignedSolutionId');
-      const storedOrganizationId = await AsyncStorage.getItem('organizationId');
-      
-      if (!password) {
-        console.error('Password not found in storage');
-        return;
-      }
+    const status = networkState.isConnected ? 'online' : 'offline';
+    const payload = {
+      deviceId,
+      screenName,
+      status,
+      timestamp: new Date().toISOString(),
+    };
 
-      const isOnline = networkState.isConnected === true && appState === 'active';
-      const status = isOnline ? 'online' : 'offline';
-
-      console.log('Sending status update:', { status, deviceId, screenName });
-
-      const response = await sendDisplayStatus(
-        deviceId,
-        screenName,
-        username,
-        password,
-        status,
-        storedLocation || location || undefined,
-        storedAssignedSolutionId || undefined,
-        storedOrganizationId || undefined
-      );
-
-      if (response.success) {
-        setLastSyncTime(new Date());
-        console.log('Status update sent successfully');
-      } else {
-        console.error('Failed to send status update:', response.error);
-      }
-    } catch (error) {
-      console.error('Error sending status update:', error);
-    }
-  };
-
-  const sendOfflineStatus = async () => {
-    if (!deviceId || !screenName || !username) {
-      console.log('Missing required data for offline status');
-      return;
-    }
-
-    try {
-      const password = await AsyncStorage.getItem('password');
-      const storedLocation = await AsyncStorage.getItem('location');
-      const storedAssignedSolutionId = await AsyncStorage.getItem('assignedSolutionId');
-      const storedOrganizationId = await AsyncStorage.getItem('organizationId');
-      
-      if (!password) {
-        console.error('Password not found in storage');
-        return;
-      }
-
-      console.log('Sending offline status');
-
-      await sendDisplayStatus(
-        deviceId,
-        screenName,
-        username,
-        password,
-        'offline',
-        storedLocation || location || undefined,
-        storedAssignedSolutionId || undefined,
-        storedOrganizationId || undefined
-      );
-    } catch (error) {
-      console.error('Error sending offline status:', error);
+    const success = await sendDeviceStatus(payload);
+    if (success) {
+      setLastSyncTime(new Date());
     }
   };
 
   const handleLogout = async () => {
-    console.log('Logout initiated');
-    
-    // Stop periodic updates
-    stopPeriodicStatusUpdates();
-    
-    // Send offline status before logging out
-    await sendOfflineStatus();
-    
-    // Perform logout
     await logout();
   };
 
@@ -207,7 +74,7 @@ export default function HomeScreen() {
     );
   }
 
-  const isOnline = networkState.isConnected === true && appState === 'active';
+  const isOnline = networkState.isConnected === true;
   const statusColor = isOnline ? colors.accent : colors.secondary;
 
   return (
@@ -228,15 +95,6 @@ export default function HomeScreen() {
             <Text style={styles.infoValue}>{screenName}</Text>
           </View>
           
-          {displayId && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Display ID:</Text>
-              <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
-                {displayId}
-              </Text>
-            </View>
-          )}
-          
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Device ID:</Text>
             <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
@@ -244,26 +102,10 @@ export default function HomeScreen() {
             </Text>
           </View>
           
-          {location && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Location:</Text>
-              <Text style={styles.infoValue}>
-                {location}
-              </Text>
-            </View>
-          )}
-          
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Connection:</Text>
             <Text style={styles.infoValue}>
               {networkState.type || 'Unknown'}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>App State:</Text>
-            <Text style={styles.infoValue}>
-              {appState}
             </Text>
           </View>
 
@@ -286,7 +128,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <Text style={styles.footerText}>
-          Status updates are sent every 10 seconds while app is active
+          Status updates are sent automatically when network state changes
         </Text>
       </View>
     </View>
