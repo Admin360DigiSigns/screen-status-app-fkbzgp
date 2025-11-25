@@ -7,6 +7,7 @@ import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@
 import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
 import ContentPlayer from '@/components/ContentPlayer';
+import ScreenShareReceiver from '@/components/ScreenShareReceiver';
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -15,6 +16,7 @@ export default function HomeScreen() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isScreenShareMode, setIsScreenShareMode] = useState(false);
   const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -125,6 +127,16 @@ export default function HomeScreen() {
     setDisplayContent(null);
   };
 
+  const handleScreenShare = () => {
+    console.log('Opening screen share receiver');
+    setIsScreenShareMode(true);
+  };
+
+  const handleCloseScreenShare = () => {
+    console.log('Closing screen share receiver');
+    setIsScreenShareMode(false);
+  };
+
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
   }
@@ -214,6 +226,14 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity 
+          style={styles.screenShareButton}
+          onPress={handleScreenShare}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={styles.syncButton}
           onPress={handleManualSync}
           activeOpacity={0.7}
@@ -264,6 +284,16 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
+      </Modal>
+
+      {/* Screen Share Modal */}
+      <Modal
+        visible={isScreenShareMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseScreenShare}
+      >
+        <ScreenShareReceiver onClose={handleCloseScreenShare} />
       </Modal>
     </View>
   );
@@ -360,6 +390,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  screenShareButton: {
+    backgroundColor: '#9333EA',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  screenShareButtonText: {
     color: colors.card,
     fontSize: 18,
     fontWeight: '600',
