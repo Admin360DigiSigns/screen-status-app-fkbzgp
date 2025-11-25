@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
@@ -158,6 +158,7 @@ export default function HomeScreen() {
 
   const isOnline = networkState.isConnected === true;
   const statusColor = isOnline ? colors.accent : colors.secondary;
+  const isWebPlatform = Platform.OS === 'web';
 
   return (
     <View style={styles.container}>
@@ -231,13 +232,16 @@ export default function HomeScreen() {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.screenShareButton}
-          onPress={handleScreenShare}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
-        </TouchableOpacity>
+        {/* Only show Screen Share button on native platforms */}
+        {!isWebPlatform && (
+          <TouchableOpacity 
+            style={styles.screenShareButton}
+            onPress={handleScreenShare}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity 
           style={styles.syncButton}
@@ -265,6 +269,11 @@ export default function HomeScreen() {
           <Text style={styles.footerText}>
             Multiple devices can be logged in with different credentials simultaneously
           </Text>
+          {isWebPlatform && (
+            <Text style={[styles.footerText, { color: colors.secondary, marginTop: 8 }]}>
+              ⚠️ Screen Share feature is only available on Android/iOS devices
+            </Text>
+          )}
         </View>
       </View>
 
@@ -292,15 +301,17 @@ export default function HomeScreen() {
         )}
       </Modal>
 
-      {/* Screen Share Modal */}
-      <Modal
-        visible={isScreenShareMode}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={handleCloseScreenShare}
-      >
-        <ScreenShareReceiver onClose={handleCloseScreenShare} />
-      </Modal>
+      {/* Screen Share Modal - Only render on native platforms */}
+      {!isWebPlatform && (
+        <Modal
+          visible={isScreenShareMode}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleCloseScreenShare}
+        >
+          <ScreenShareReceiver onClose={handleCloseScreenShare} />
+        </Modal>
+      )}
     </View>
   );
 }
