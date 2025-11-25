@@ -24,6 +24,46 @@ export interface LoginResponse {
   error?: string;
 }
 
+export interface PlaylistItem {
+  id: string;
+  media_type: 'image' | 'video';
+  media_url: string;
+  duration: number;
+  display_order: number;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+  transition_type: string;
+  transition_duration: number;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  schedule_days: string[];
+  schedule_start_time: string;
+  schedule_end_time: string;
+  items: PlaylistItem[];
+}
+
+export interface Solution {
+  id: string;
+  name: string;
+  duration: number;
+  canvas_settings: Record<string, any>;
+  playlists: Playlist[];
+}
+
+export interface DisplayConnectResponse {
+  display_id: string;
+  screen_name: string;
+  location: string;
+  solution: Solution;
+}
+
 export const login = async (
   username: string,
   password: string,
@@ -133,5 +173,57 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
       console.error('Error stack:', error.stack);
     }
     return false;
+  }
+};
+
+export const fetchDisplayContent = async (
+  username: string,
+  password: string,
+  screenName: string
+): Promise<{ success: boolean; data?: DisplayConnectResponse; error?: string }> => {
+  try {
+    console.log('Fetching display content for:', { username, screenName });
+    
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    
+    const payload = {
+      screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
+    };
+
+    console.log('Sending display-connect request to:', API_ENDPOINT);
+    
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('Display-connect response status:', response.status);
+
+    if (response.ok) {
+      const data: DisplayConnectResponse = await response.json();
+      console.log('Display content fetched successfully:', data);
+      return {
+        success: true,
+        data,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to fetch display content:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || errorData.message || 'Failed to fetch content',
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching display content:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
   }
 };

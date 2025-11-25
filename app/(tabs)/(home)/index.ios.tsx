@@ -1,45 +1,51 @@
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
-import { getDeviceId } from '@/utils/deviceUtils';
-import { sendDeviceStatus } from '@/utils/apiService';
+import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
 import { colors } from '@/styles/commonStyles';
-import { Redirect } from 'expo-router';
+import { Redirect, useFocusEffect } from 'expo-router';
+import ContentPlayer from '@/components/ContentPlayer';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, logout } = useAuth();
+  const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
   const networkState = useNetworkState();
-  const [deviceId, setDeviceId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  // Track when the screen is focused/unfocused
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('Home screen focused - activating status updates');
+      setScreenActive(true);
+
+      return () => {
+        console.log('Home screen unfocused - deactivating status updates');
+        setScreenActive(false);
+      };
+    }, [setScreenActive])
+  );
 
   useEffect(() => {
-    initializeDevice();
-  }, []);
-
-  useEffect(() => {
-    if (deviceId && screenName && networkState.isConnected !== undefined) {
-      syncDeviceStatus();
-    }
-  }, [deviceId, screenName, networkState.isConnected]);
-
-  const initializeDevice = async () => {
-    try {
-      const id = await getDeviceId();
-      setDeviceId(id);
-      console.log('Device initialized with ID:', id);
-    } catch (error) {
-      console.error('Error initializing device:', error);
-    } finally {
+    if (deviceId) {
       setIsLoading(false);
     }
-  };
+  }, [deviceId]);
+
+  useEffect(() => {
+    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
+      syncDeviceStatus();
+    }
+  }, [deviceId, screenName, username, password, networkState.isConnected]);
 
   const syncDeviceStatus = async () => {
-    if (!deviceId || !screenName) {
-      console.log('Missing device ID or screen name, skipping sync');
+    if (!deviceId || !screenName || !username || !password) {
+      console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
       return;
     }
 
@@ -47,18 +53,76 @@ export default function HomeScreen() {
     const payload = {
       deviceId,
       screenName,
+      screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
       status,
       timestamp: new Date().toISOString(),
     };
 
+    console.log('Syncing device status with payload (password hidden)');
     const success = await sendDeviceStatus(payload);
+    
     if (success) {
       setLastSyncTime(new Date());
+      setSyncStatus('success');
+      console.log('Status sync successful');
+    } else {
+      setSyncStatus('failed');
+      console.log('Status sync failed');
     }
   };
 
   const handleLogout = async () => {
+    // Send offline status before logging out
+    if (deviceId && screenName && username && password) {
+      await sendDeviceStatus({
+        deviceId,
+        screenName,
+        screen_username: username,
+        screen_password: password,
+        screen_name: screenName,
+        status: 'offline',
+        timestamp: new Date().toISOString(),
+      });
+    }
     await logout();
+  };
+
+  const handleManualSync = () => {
+    syncDeviceStatus();
+  };
+
+  const handlePreview = async () => {
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for preview');
+      return;
+    }
+
+    setIsLoadingPreview(true);
+    console.log('Fetching preview content...');
+
+    try {
+      const result = await fetchDisplayContent(username, password, screenName);
+      
+      if (result.success && result.data) {
+        console.log('Preview content loaded successfully');
+        setDisplayContent(result.data);
+        setIsPreviewMode(true);
+      } else {
+        Alert.alert('Preview Error', result.error || 'Failed to load preview content');
+      }
+    } catch (error) {
+      console.error('Error loading preview:', error);
+      Alert.alert('Preview Error', 'An unexpected error occurred');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewMode(false);
+    setDisplayContent(null);
   };
 
   if (!isAuthenticated) {
@@ -91,6 +155,11 @@ export default function HomeScreen() {
 
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Username:</Text>
+            <Text style={styles.infoValue}>{username}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Screen Name:</Text>
             <Text style={styles.infoValue}>{screenName}</Text>
           </View>
@@ -117,7 +186,40 @@ export default function HomeScreen() {
               </Text>
             </View>
           )}
+
+          {syncStatus && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Sync Status:</Text>
+              <Text style={[
+                styles.infoValue,
+                { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+              ]}>
+                {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+              </Text>
+            </View>
+          )}
         </View>
+
+        <TouchableOpacity 
+          style={styles.previewButton}
+          onPress={handlePreview}
+          activeOpacity={0.7}
+          disabled={isLoadingPreview}
+        >
+          {isLoadingPreview ? (
+            <ActivityIndicator size="small" color={colors.card} />
+          ) : (
+            <Text style={styles.previewButtonText}>Preview Content</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.syncButton}
+          onPress={handleManualSync}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.syncButtonText}>Sync Status Now</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.logoutButton}
@@ -127,10 +229,42 @@ export default function HomeScreen() {
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
 
-        <Text style={styles.footerText}>
-          Status updates are sent automatically when network state changes
-        </Text>
+        <View style={styles.infoBox}>
+          <Text style={styles.footerText}>
+            ℹ️ Status updates sent every 1 minute
+          </Text>
+          <Text style={styles.footerText}>
+            Updates only sent when logged in and on this screen
+          </Text>
+          <Text style={styles.footerText}>
+            Multiple devices can be logged in with different credentials simultaneously
+          </Text>
+        </View>
       </View>
+
+      {/* Preview Modal */}
+      <Modal
+        visible={isPreviewMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClosePreview}
+      >
+        {displayContent && displayContent.solution && displayContent.solution.playlists ? (
+          <ContentPlayer
+            playlists={displayContent.solution.playlists}
+            onClose={handleClosePreview}
+          />
+        ) : (
+          <View style={styles.container}>
+            <View style={styles.content}>
+              <Text style={styles.errorText}>No content available</Text>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleClosePreview}>
+                <Text style={styles.logoutButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </Modal>
     </View>
   );
 }
@@ -213,12 +347,41 @@ const styles = StyleSheet.create({
     flex: 2,
     textAlign: 'right',
   },
+  previewButton: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  previewButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  syncButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  syncButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
   logoutButton: {
     backgroundColor: colors.secondary,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    marginTop: 16,
     minWidth: 200,
     alignItems: 'center',
   },
@@ -227,11 +390,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  footerText: {
+  infoBox: {
     marginTop: 24,
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 16,
+    maxWidth: 500,
+  },
+  footerText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.text,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingVertical: 4,
+    lineHeight: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });

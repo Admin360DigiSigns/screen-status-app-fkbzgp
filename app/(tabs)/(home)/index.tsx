@@ -1,11 +1,12 @@
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendDeviceStatus } from '@/utils/apiService';
+import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
 import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
+import ContentPlayer from '@/components/ContentPlayer';
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -13,6 +14,9 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   // Track when the screen is focused/unfocused
   useFocusEffect(
@@ -87,6 +91,38 @@ export default function HomeScreen() {
 
   const handleManualSync = () => {
     syncDeviceStatus();
+  };
+
+  const handlePreview = async () => {
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for preview');
+      return;
+    }
+
+    setIsLoadingPreview(true);
+    console.log('Fetching preview content...');
+
+    try {
+      const result = await fetchDisplayContent(username, password, screenName);
+      
+      if (result.success && result.data) {
+        console.log('Preview content loaded successfully');
+        setDisplayContent(result.data);
+        setIsPreviewMode(true);
+      } else {
+        Alert.alert('Preview Error', result.error || 'Failed to load preview content');
+      }
+    } catch (error) {
+      console.error('Error loading preview:', error);
+      Alert.alert('Preview Error', 'An unexpected error occurred');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewMode(false);
+    setDisplayContent(null);
   };
 
   if (!isAuthenticated) {
@@ -165,6 +201,19 @@ export default function HomeScreen() {
         </View>
 
         <TouchableOpacity 
+          style={styles.previewButton}
+          onPress={handlePreview}
+          activeOpacity={0.7}
+          disabled={isLoadingPreview}
+        >
+          {isLoadingPreview ? (
+            <ActivityIndicator size="small" color={colors.card} />
+          ) : (
+            <Text style={styles.previewButtonText}>Preview Content</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={styles.syncButton}
           onPress={handleManualSync}
           activeOpacity={0.7}
@@ -192,6 +241,30 @@ export default function HomeScreen() {
           </Text>
         </View>
       </View>
+
+      {/* Preview Modal */}
+      <Modal
+        visible={isPreviewMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClosePreview}
+      >
+        {displayContent && displayContent.solution && displayContent.solution.playlists ? (
+          <ContentPlayer
+            playlists={displayContent.solution.playlists}
+            onClose={handleClosePreview}
+          />
+        ) : (
+          <View style={styles.container}>
+            <View style={styles.content}>
+              <Text style={styles.errorText}>No content available</Text>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleClosePreview}>
+                <Text style={styles.logoutButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </Modal>
     </View>
   );
 }
@@ -275,6 +348,22 @@ const styles = StyleSheet.create({
     flex: 2,
     textAlign: 'right',
   },
+  previewButton: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  previewButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
   syncButton: {
     backgroundColor: colors.primary,
     paddingHorizontal: 32,
@@ -315,5 +404,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 4,
     lineHeight: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });
