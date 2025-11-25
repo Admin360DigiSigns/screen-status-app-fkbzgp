@@ -8,12 +8,17 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // Conditionally import RTCView only on native platforms
 let RTCView: any = null;
+let isWebRTCAvailable = false;
+
 if (Platform.OS !== 'web') {
   try {
     const webrtc = require('react-native-webrtc');
     RTCView = webrtc.RTCView;
+    isWebRTCAvailable = true;
+    console.log('WebRTC loaded successfully');
   } catch (error) {
     console.error('Failed to load react-native-webrtc:', error);
+    console.log('WebRTC requires a development build. It does not work in Expo Go.');
   }
 }
 
@@ -21,6 +26,11 @@ if (Platform.OS !== 'web') {
  * ScreenShareReceiver Component
  * 
  * This component receives screen share streams from a web app using WebRTC.
+ * 
+ * IMPORTANT: This feature requires a DEVELOPMENT BUILD and will NOT work in Expo Go.
+ * To use this feature:
+ * 1. Run: npx expo prebuild
+ * 2. Run: npx expo run:android (or run:ios)
  * 
  * SETUP REQUIREMENTS:
  * 1. Update utils/supabaseClient.ts with your Supabase anon key
@@ -62,6 +72,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
   useEffect(() => {
     console.log('ScreenShareReceiver mounted');
+    console.log('Platform:', Platform.OS);
+    console.log('WebRTC available:', isWebRTCAvailable);
     
     // Check if WebRTC is available
     if (Platform.OS === 'web') {
@@ -70,8 +82,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       return;
     }
 
-    if (!RTCView) {
-      setErrorMessage('WebRTC is not available on this device');
+    if (!isWebRTCAvailable || !RTCView) {
+      setErrorMessage('WebRTC requires a development build. Please run:\n\n1. npx expo prebuild\n2. npx expo run:android (or run:ios)\n\nWebRTC does not work in Expo Go.');
       setConnectionState('failed');
       return;
     }
@@ -122,6 +134,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const subscribeToScreenShareSessions = async () => {
     try {
       console.log('Subscribing to screen share sessions...');
+      console.log('Device ID:', deviceId);
 
       // Create a channel for screen share sessions
       const channel = supabase.channel('screen-share-sessions');
@@ -355,17 +368,19 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
               </>
             ) : errorMessage ? (
               <>
-                <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
-                {!errorMessage.includes('not supported') && !errorMessage.includes('not available') && (
-                  <TouchableOpacity
-                    style={styles.retryButton}
-                    onPress={() => {
-                      setErrorMessage(null);
-                      initializeScreenShare();
-                    }}
-                  >
-                    <Text style={styles.retryButtonText}>Retry</Text>
-                  </TouchableOpacity>
+                <Text style={styles.warningIcon}>⚠️</Text>
+                <Text style={styles.errorTitle}>WebRTC Not Available</Text>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+                {errorMessage.includes('development build') && (
+                  <View style={styles.instructionsBox}>
+                    <Text style={styles.instructionsTitle}>To enable WebRTC:</Text>
+                    <Text style={styles.instructionsStep}>1. Stop Expo Go</Text>
+                    <Text style={styles.instructionsStep}>2. Run: npx expo prebuild</Text>
+                    <Text style={styles.instructionsStep}>3. Run: npx expo run:android</Text>
+                    <Text style={styles.instructionsNote}>
+                      (or npx expo run:ios for iOS)
+                    </Text>
+                  </View>
                 )}
               </>
             ) : (
@@ -381,9 +396,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         {sessionId && (
           <Text style={styles.infoText}>Session: {sessionId.substring(0, 8)}...</Text>
         )}
-        <Text style={styles.infoText}>
-          ℹ️ Make sure Supabase anon key is configured in utils/supabaseClient.ts
-        </Text>
       </View>
     </View>
   );
@@ -446,6 +458,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
   },
+  warningIcon: {
+    fontSize: 64,
+    marginBottom: 20,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
   placeholderText: {
     fontSize: 18,
     color: colors.text,
@@ -461,22 +484,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   errorText: {
-    fontSize: 18,
-    color: colors.secondary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginTop: 12,
-  },
-  retryButtonText: {
-    color: colors.card,
     fontSize: 16,
-    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  instructionsBox: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  instructionsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  instructionsStep: {
+    fontSize: 14,
+    color: colors.text,
+    marginVertical: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  instructionsNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   infoFooter: {
     backgroundColor: colors.card,
