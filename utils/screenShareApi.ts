@@ -63,6 +63,18 @@ export const getScreenShareOffer = async (
     if (response.status === 200) {
       const data: ScreenShareOfferResponse = await response.json();
       console.log('Offer response:', data.session ? 'Session available' : 'No session available');
+      
+      if (data.session) {
+        console.log('Session details:', {
+          id: data.session.id,
+          status: data.session.status,
+          offerLength: data.session.offer?.length || 0,
+          iceCandidatesCount: Array.isArray(data.session.ice_candidates) 
+            ? data.session.ice_candidates.length 
+            : 0,
+        });
+      }
+      
       return {
         success: true,
         data,
@@ -87,6 +99,9 @@ export const getScreenShareOffer = async (
     }
   } catch (error) {
     console.error('Error getting screen share offer:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',
@@ -102,13 +117,34 @@ export const sendScreenShareAnswer = async (
 ): Promise<{ success: boolean; data?: ScreenShareAnswerResponse; error?: string; status?: number }> => {
   try {
     console.log('Sending screen share answer for session:', request.session_id);
+    console.log('Answer length:', request.answer.length);
+    console.log('Answer ICE candidates:', request.answer_ice_candidates.length);
+    
+    // Ensure ICE candidates are properly formatted
+    const formattedRequest = {
+      ...request,
+      answer_ice_candidates: request.answer_ice_candidates.map((candidate) => {
+        // Ensure each candidate is a proper object
+        if (typeof candidate === 'string') {
+          try {
+            return JSON.parse(candidate);
+          } catch (e) {
+            console.error('Failed to parse ICE candidate:', e);
+            return candidate;
+          }
+        }
+        return candidate;
+      }),
+    };
+    
+    console.log('Formatted request ICE candidates:', formattedRequest.answer_ice_candidates.length);
     
     const response = await fetch(`${BASE_URL}/screen-share-send-answer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(formattedRequest),
     });
 
     console.log('Send answer response status:', response.status);
@@ -148,6 +184,9 @@ export const sendScreenShareAnswer = async (
     }
   } catch (error) {
     console.error('Error sending screen share answer:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',

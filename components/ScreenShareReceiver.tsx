@@ -55,10 +55,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   
   const webrtcServiceRef = useRef<WebRTCService | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isProcessingOfferRef = useRef(false);
+  const connectionAttempts = useRef(0);
 
   useEffect(() => {
     console.log('ScreenShareReceiver mounted');
@@ -97,6 +99,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     try {
       console.log('Initializing screen share receiver...');
       setConnectionState('waiting');
+      connectionAttempts.current = 0;
 
       // Initialize WebRTC service
       webrtcServiceRef.current = new WebRTCService();
@@ -105,18 +108,50 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       await webrtcServiceRef.current.createPeerConnection(
         (stream) => {
           console.log('Remote stream received in component');
+          console.log('Stream active:', stream.active);
+          console.log('Stream tracks:', stream.getTracks().length);
           setRemoteStream(stream);
           setConnectionState('connected');
+          updateDebugInfo('Connected - Stream received');
         },
         (state) => {
           console.log('Connection state updated:', state);
           setConnectionState(state);
+          updateDebugInfo(`Connection state: ${state}`);
           
-          if (state === 'failed' || state === 'disconnected') {
-            setErrorMessage('Connection lost. Please try again.');
-            // Resume polling if connection fails
+          if (state === 'failed') {
+            connectionAttempts.current++;
+            setErrorMessage(`Connection failed (attempt ${connectionAttempts.current}). This may be due to network/firewall restrictions.`);
+            
+            // Log detailed state for debugging
+            if (webrtcServiceRef.current) {
+              console.error('Connection failed - Debug info:');
+              console.error('ICE connection state:', webrtcServiceRef.current.getIceConnectionState());
+              console.error('ICE gathering state:', webrtcServiceRef.current.getIceGatheringState());
+              console.error('Signaling state:', webrtcServiceRef.current.getSignalingState());
+              console.error('Local candidates:', webrtcServiceRef.current.getLocalCandidatesCount());
+            }
+            
+            // Retry after a delay if not too many attempts
+            if (connectionAttempts.current < 3) {
+              setTimeout(() => {
+                console.log('Retrying connection...');
+                cleanup();
+                initializeScreenShare();
+              }, 3000);
+            } else {
+              // Resume polling after max retries
+              if (!isPolling) {
+                startPolling();
+              }
+            }
+          } else if (state === 'disconnected') {
+            setErrorMessage('Connection lost. Waiting for reconnection...');
+            // Resume polling if connection is lost
             if (!isPolling) {
-              startPolling();
+              setTimeout(() => {
+                startPolling();
+              }, 2000);
             }
           }
         }
@@ -127,9 +162,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
     } catch (error) {
       console.error('Error initializing screen share:', error);
-      setErrorMessage('Failed to initialize screen share receiver');
+      setErrorMessage('Failed to initialize screen share receiver: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setConnectionState('failed');
     }
+  };
+
+  const updateDebugInfo = (info: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(`[${timestamp}] ${info}`);
   };
 
   const startPolling = () => {
@@ -140,6 +180,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
     console.log('Starting polling for screen share offers (every 2.5 seconds)');
     setIsPolling(true);
+    updateDebugInfo('Polling started');
 
     const credentials: ScreenShareCredentials = {
       screen_username: username,
@@ -159,6 +200,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const stopPolling = () => {
     console.log('Stopping polling');
     setIsPolling(false);
+    updateDebugInfo('Polling stopped');
     
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -192,6 +234,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       // Check if there's a session available
       if (response.data?.session) {
         console.log('New screen share session available:', response.data.session.id);
+        updateDebugInfo(`Session found: ${response.data.session.id.substring(0, 8)}`);
         isProcessingOfferRef.current = true;
         stopPolling(); // Stop polling while processing
         await handleNewSession(response.data.session);
@@ -202,14 +245,20 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       }
     } catch (error) {
       console.error('Error polling for offer:', error);
+      updateDebugInfo('Polling error: ' + (error instanceof Error ? error.message : 'Unknown'));
     }
   };
 
   const handleNewSession = async (session: any) => {
     try {
-      console.log('Handling new screen share session:', session.id);
+      console.log('=== Handling new screen share session ===');
+      console.log('Session ID:', session.id);
+      console.log('Offer length:', session.offer?.length || 0);
+      console.log('ICE candidates:', session.ice_candidates?.length || 0);
+      
       setSessionId(session.id);
       setConnectionState('connecting');
+      updateDebugInfo('Processing session offer');
 
       if (!webrtcServiceRef.current) {
         throw new Error('WebRTC service not initialized');
@@ -219,16 +268,37 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         throw new Error('Authentication credentials not available');
       }
 
+      // Parse ICE candidates if they're in string format
+      let iceCandidates = session.ice_candidates || [];
+      if (typeof iceCandidates === 'string') {
+        try {
+          iceCandidates = JSON.parse(iceCandidates);
+        } catch (e) {
+          console.error('Failed to parse ICE candidates:', e);
+          iceCandidates = [];
+        }
+      }
+
+      console.log('Parsed ICE candidates:', iceCandidates.length);
+
       // Handle the offer and create answer
       console.log('Processing offer and creating answer...');
+      updateDebugInfo('Creating WebRTC answer');
+      
       const { answer, answerIceCandidates } = await webrtcServiceRef.current.handleOffer(
         session.offer,
-        session.ice_candidates || []
+        iceCandidates
       );
 
-      console.log('Answer created with', answerIceCandidates.length, 'ICE candidates');
+      console.log('Answer created successfully');
+      console.log('Answer length:', answer.length);
+      console.log('Answer ICE candidates:', answerIceCandidates.length);
+      updateDebugInfo(`Answer created with ${answerIceCandidates.length} ICE candidates`);
 
       // Send answer back to server
+      console.log('Sending answer to server...');
+      updateDebugInfo('Sending answer to server');
+      
       const answerResponse = await sendScreenShareAnswer({
         screen_username: username,
         screen_password: password,
@@ -240,22 +310,34 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
       if (answerResponse.success) {
         console.log('Answer sent successfully:', answerResponse.data?.message);
+        updateDebugInfo('Answer sent - waiting for connection');
         // Connection will be established via WebRTC
+        // Wait for connection state to change
       } else {
         console.error('Failed to send answer:', answerResponse.error);
-        setErrorMessage('Failed to establish connection: ' + answerResponse.error);
+        setErrorMessage('Failed to send answer: ' + answerResponse.error);
         setConnectionState('failed');
+        updateDebugInfo('Failed to send answer');
         // Resume polling
-        startPolling();
+        setTimeout(() => {
+          startPolling();
+        }, 2000);
       }
 
     } catch (error) {
       console.error('Error handling new session:', error);
-      setErrorMessage('Failed to establish connection');
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      setErrorMessage('Failed to establish connection: ' + (error instanceof Error ? error.message : 'Unknown error'));
       setConnectionState('failed');
+      updateDebugInfo('Session handling failed');
       isProcessingOfferRef.current = false;
       // Resume polling
-      startPolling();
+      setTimeout(() => {
+        startPolling();
+      }, 2000);
     }
   };
 
@@ -280,6 +362,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const handleClose = () => {
     cleanup();
     onClose();
+  };
+
+  const handleRetry = () => {
+    console.log('Manual retry requested');
+    setErrorMessage(null);
+    connectionAttempts.current = 0;
+    cleanup();
+    initializeScreenShare();
   };
 
   const getStatusText = () => {
@@ -362,13 +452,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
                     Polling for offers every 2.5 seconds...
                   </Text>
                 )}
+                {debugInfo && (
+                  <Text style={styles.debugText}>{debugInfo}</Text>
+                )}
               </>
             ) : errorMessage ? (
               <>
                 <Text style={styles.warningIcon}>⚠️</Text>
-                <Text style={styles.errorTitle}>Error</Text>
+                <Text style={styles.errorTitle}>Connection Error</Text>
                 <Text style={styles.errorText}>{errorMessage}</Text>
-                {errorMessage.includes('development build') && (
+                {errorMessage.includes('development build') ? (
                   <View style={styles.instructionsBox}>
                     <Text style={styles.instructionsTitle}>To enable WebRTC:</Text>
                     <Text style={styles.instructionsStep}>1. Stop Expo Go</Text>
@@ -378,6 +471,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
                       (or npx expo run:ios for iOS)
                     </Text>
                   </View>
+                ) : (
+                  <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+                    <Text style={styles.retryButtonText}>Retry Connection</Text>
+                  </TouchableOpacity>
+                )}
+                {debugInfo && (
+                  <Text style={styles.debugText}>{debugInfo}</Text>
                 )}
               </>
             ) : (
@@ -392,6 +492,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         <Text style={styles.infoText}>Screen: {screenName}</Text>
         {sessionId && (
           <Text style={styles.infoText}>Session: {sessionId.substring(0, 8)}...</Text>
+        )}
+        {connectionAttempts.current > 0 && (
+          <Text style={styles.infoText}>Attempts: {connectionAttempts.current}</Text>
         )}
         {isPolling && (
           <Text style={styles.infoText}>Status: Polling for offers</Text>
@@ -493,6 +596,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontStyle: 'italic',
   },
+  debugText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    opacity: 0.7,
+  },
   errorText: {
     fontSize: 16,
     color: colors.textSecondary,
@@ -527,6 +638,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  retryButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: colors.card,
+    fontSize: 16,
+    fontWeight: '600',
   },
   infoFooter: {
     backgroundColor: colors.card,
