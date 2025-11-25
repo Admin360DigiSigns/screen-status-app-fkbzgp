@@ -76,19 +76,25 @@ export default function HomeScreen() {
   };
 
   const handleLogout = async () => {
-    // Send offline status before logging out
-    if (deviceId && screenName && username && password) {
-      await sendDeviceStatus({
-        deviceId,
-        screenName,
-        screen_username: username,
-        screen_password: password,
-        screen_name: screenName,
-        status: 'offline',
-        timestamp: new Date().toISOString(),
-      });
+    try {
+      // Send offline status before logging out
+      if (deviceId && screenName && username && password) {
+        await sendDeviceStatus({
+          deviceId,
+          screenName,
+          screen_username: username,
+          screen_password: password,
+          screen_name: screenName,
+          status: 'offline',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      await logout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still logout even if status update fails
+      await logout();
     }
-    await logout();
   };
 
   const handleManualSync = () => {

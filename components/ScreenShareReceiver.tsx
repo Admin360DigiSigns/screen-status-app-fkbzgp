@@ -1,11 +1,21 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { RTCView } from 'react-native-webrtc';
+import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { supabase } from '@/utils/supabaseClient';
 import { WebRTCService, ScreenShareSession } from '@/utils/webrtcService';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Conditionally import RTCView only on native platforms
+let RTCView: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    const webrtc = require('react-native-webrtc');
+    RTCView = webrtc.RTCView;
+  } catch (error) {
+    console.error('Failed to load react-native-webrtc:', error);
+  }
+}
 
 /**
  * ScreenShareReceiver Component
@@ -52,6 +62,20 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
   useEffect(() => {
     console.log('ScreenShareReceiver mounted');
+    
+    // Check if WebRTC is available
+    if (Platform.OS === 'web') {
+      setErrorMessage('Screen share receiver is not supported on web platform');
+      setConnectionState('failed');
+      return;
+    }
+
+    if (!RTCView) {
+      setErrorMessage('WebRTC is not available on this device');
+      setConnectionState('failed');
+      return;
+    }
+
     initializeScreenShare();
 
     return () => {
@@ -141,7 +165,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             console.log('Successfully subscribed to screen share sessions');
           } else if (status === 'CHANNEL_ERROR') {
             console.error('Channel subscription error');
-            setErrorMessage('Failed to connect to screen share service');
+            setErrorMessage('Failed to connect to screen share service. Check Supabase configuration.');
           }
         });
 
@@ -309,7 +333,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
       {/* Main content area */}
       <View style={styles.contentArea}>
-        {remoteStream ? (
+        {remoteStream && RTCView ? (
           <RTCView
             streamURL={remoteStream.toURL()}
             style={styles.videoView}
@@ -332,15 +356,17 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             ) : errorMessage ? (
               <>
                 <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
-                <TouchableOpacity
-                  style={styles.retryButton}
-                  onPress={() => {
-                    setErrorMessage(null);
-                    initializeScreenShare();
-                  }}
-                >
-                  <Text style={styles.retryButtonText}>Retry</Text>
-                </TouchableOpacity>
+                {!errorMessage.includes('not supported') && !errorMessage.includes('not available') && (
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={() => {
+                      setErrorMessage(null);
+                      initializeScreenShare();
+                    }}
+                  >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
               </>
             ) : (
               <Text style={styles.placeholderText}>Initializing...</Text>
@@ -355,6 +381,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         {sessionId && (
           <Text style={styles.infoText}>Session: {sessionId.substring(0, 8)}...</Text>
         )}
+        <Text style={styles.infoText}>
+          ℹ️ Make sure Supabase anon key is configured in utils/supabaseClient.ts
+        </Text>
       </View>
     </View>
   );

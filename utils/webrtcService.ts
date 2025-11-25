@@ -1,5 +1,24 @@
 
-import { RTCPeerConnection, RTCIceCandidate, RTCSessionDescription, mediaDevices } from 'react-native-webrtc';
+import { Platform } from 'react-native';
+
+// Conditionally import WebRTC modules only on native platforms
+let RTCPeerConnection: any = null;
+let RTCIceCandidate: any = null;
+let RTCSessionDescription: any = null;
+let mediaDevices: any = null;
+
+if (Platform.OS !== 'web') {
+  try {
+    const webrtc = require('react-native-webrtc');
+    RTCPeerConnection = webrtc.RTCPeerConnection;
+    RTCIceCandidate = webrtc.RTCIceCandidate;
+    RTCSessionDescription = webrtc.RTCSessionDescription;
+    mediaDevices = webrtc.mediaDevices;
+    console.log('WebRTC modules loaded successfully');
+  } catch (error) {
+    console.error('Failed to load react-native-webrtc:', error);
+  }
+}
 
 export interface WebRTCConfig {
   iceServers: Array<{
@@ -19,11 +38,16 @@ export interface ScreenShareSession {
 }
 
 export class WebRTCService {
-  private peerConnection: RTCPeerConnection | null = null;
-  private remoteStream: MediaStream | null = null;
+  private peerConnection: any = null;
+  private remoteStream: any = null;
   private config: WebRTCConfig;
 
   constructor() {
+    // Check if WebRTC is available
+    if (!RTCPeerConnection) {
+      throw new Error('WebRTC is not available on this platform');
+    }
+
     // Default STUN servers for WebRTC
     this.config = {
       iceServers: [
@@ -35,15 +59,15 @@ export class WebRTCService {
   }
 
   async createPeerConnection(
-    onRemoteStream: (stream: MediaStream) => void,
+    onRemoteStream: (stream: any) => void,
     onConnectionStateChange: (state: string) => void
-  ): Promise<RTCPeerConnection> {
+  ): Promise<any> {
     console.log('Creating peer connection with config:', this.config);
 
     this.peerConnection = new RTCPeerConnection(this.config);
 
     // Handle remote stream
-    this.peerConnection.ontrack = (event) => {
+    this.peerConnection.ontrack = (event: any) => {
       console.log('Received remote track:', event.track.kind);
       if (event.streams && event.streams[0]) {
         console.log('Remote stream received');
@@ -76,7 +100,7 @@ export class WebRTCService {
 
   async handleOffer(
     offer: string,
-    onIceCandidate: (candidate: RTCIceCandidate) => void
+    onIceCandidate: (candidate: any) => void
   ): Promise<string> {
     if (!this.peerConnection) {
       throw new Error('Peer connection not initialized');
@@ -87,7 +111,7 @@ export class WebRTCService {
     await this.peerConnection.setRemoteDescription(offerDescription);
 
     // Handle ICE candidates
-    this.peerConnection.onicecandidate = (event) => {
+    this.peerConnection.onicecandidate = (event: any) => {
       if (event.candidate) {
         console.log('New ICE candidate:', event.candidate);
         onIceCandidate(event.candidate);
@@ -118,7 +142,7 @@ export class WebRTCService {
     }
   }
 
-  getRemoteStream(): MediaStream | null {
+  getRemoteStream(): any {
     return this.remoteStream;
   }
 
