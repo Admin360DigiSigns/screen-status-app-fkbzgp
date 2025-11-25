@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, StyleSheet, Image, Dimensions, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Image, Dimensions, ActivityIndicator, Text, TouchableOpacity, Platform } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors } from '@/styles/commonStyles';
 import type { PlaylistItem, Playlist } from '@/utils/apiService';
@@ -10,13 +10,24 @@ interface ContentPlayerProps {
   onClose: () => void;
 }
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
 export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps) {
   const [currentPlaylistIndex, setCurrentPlaylistIndex] = useState(0);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Listen for dimension changes (orientation, window resize)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('Screen dimensions changed:', window);
+      setScreenDimensions(window);
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, []);
 
   // Get active playlists sorted by display order
   const activePlaylists = playlists
@@ -49,6 +60,8 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
       type: currentItem.media_type,
       url: currentItem.media_url,
       duration: currentItem.duration,
+      screenSize: `${screenDimensions.width}x${screenDimensions.height}`,
+      deviceType: Platform.isTV ? 'TV' : 'Mobile/Tablet',
     });
 
     setIsLoading(true);
@@ -83,7 +96,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentPlaylistIndex, currentItemIndex, currentItem]);
+  }, [currentPlaylistIndex, currentItemIndex, currentItem, screenDimensions]);
 
   const moveToNextItem = () => {
     console.log('Moving to next item');
@@ -122,7 +135,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         <Text style={styles.closeButtonTopText}>✕ Close Preview</Text>
       </TouchableOpacity>
 
-      {/* Content display */}
+      {/* Content display - Full screen with responsive sizing */}
       <View style={styles.contentContainer}>
         {isLoading && (
           <View style={styles.loadingOverlay}>
@@ -136,12 +149,15 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
             style={[
               styles.media,
               {
-                width: currentItem.width || SCREEN_WIDTH,
-                height: currentItem.height || SCREEN_HEIGHT,
+                width: screenDimensions.width,
+                height: screenDimensions.height,
               },
             ]}
             resizeMode="cover"
-            onLoadEnd={() => setIsLoading(false)}
+            onLoadEnd={() => {
+              console.log('Image loaded successfully');
+              setIsLoading(false);
+            }}
             onError={(error) => {
               console.error('Image load error:', error);
               setIsLoading(false);
@@ -153,8 +169,8 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
             style={[
               styles.media,
               {
-                width: currentItem.width || SCREEN_WIDTH,
-                height: currentItem.height || SCREEN_HEIGHT,
+                width: screenDimensions.width,
+                height: screenDimensions.height,
               },
             ]}
             contentFit="cover"
@@ -171,6 +187,10 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         <Text style={styles.infoText}>
           Item: {currentItemIndex + 1}/{currentItems.length} - {currentItem.media_type}
         </Text>
+        <Text style={styles.infoText}>
+          Screen: {Math.round(screenDimensions.width)}x{Math.round(screenDimensions.height)} 
+          {Platform.isTV ? ' (TV)' : ' (Mobile)'}
+        </Text>
       </View>
     </View>
   );
@@ -185,10 +205,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#000',
   },
   media: {
-    maxWidth: SCREEN_WIDTH,
-    maxHeight: SCREEN_HEIGHT,
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -222,6 +244,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     padding: 12,
     borderRadius: 8,
+    zIndex: 50,
   },
   infoText: {
     color: colors.card,
