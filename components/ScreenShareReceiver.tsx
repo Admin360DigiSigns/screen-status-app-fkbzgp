@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
-import { supabase } from '@/utils/supabaseClient';
-import { WebRTCService, ScreenShareSession } from '@/utils/webrtcService';
+import { WebRTCService } from '@/utils/webrtcService';
+import { getScreenShareOffer, sendScreenShareAnswer, ScreenShareCredentials } from '@/utils/screenShareApi';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -26,33 +26,22 @@ if (Platform.OS !== 'web') {
  * ScreenShareReceiver Component
  * 
  * This component receives screen share streams from a web app using WebRTC.
+ * It polls the API every 2-3 seconds to check for new screen share sessions.
  * 
  * IMPORTANT: This feature requires a DEVELOPMENT BUILD and will NOT work in Expo Go.
  * To use this feature:
  * 1. Run: npx expo prebuild
  * 2. Run: npx expo run:android (or run:ios)
  * 
- * SETUP REQUIREMENTS:
- * 1. Update utils/supabaseClient.ts with your Supabase anon key
- * 2. Create a 'screen_share_sessions' table in Supabase with the following schema:
- *    - id (uuid, primary key)
- *    - display_id (text) - matches the device ID
- *    - offer (text) - WebRTC offer from web app
- *    - answer (text) - WebRTC answer from Android app
- *    - ice_candidates (text) - ICE candidates from web app
- *    - answer_ice_candidates (text) - ICE candidates from Android app
- *    - status (text) - 'waiting', 'connected', or 'ended'
- *    - created_at (timestamp)
- * 3. Enable Realtime on the 'screen_share_sessions' table in Supabase
- * 4. Set up appropriate RLS policies for the table
+ * API ENDPOINTS:
+ * - POST /screen-share-get-offer: Poll for new screen share sessions
+ * - POST /screen-share-send-answer: Send WebRTC answer back to server
  * 
- * HOW IT WORKS:
- * 1. Web app creates a screen share offer and stores it in Supabase
- * 2. This component listens for new offers via Supabase Realtime
- * 3. When an offer is received, it creates a WebRTC answer
- * 4. The answer is sent back to the web app via Supabase
- * 5. A peer-to-peer WebRTC connection is established
- * 6. The screen share stream is displayed in this component
+ * AUTHENTICATION:
+ * Uses the same credentials as display-connect:
+ * - screen_username
+ * - screen_password
+ * - screen_name
  */
 
 interface ScreenShareReceiverProps {
@@ -60,15 +49,16 @@ interface ScreenShareReceiverProps {
 }
 
 export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProps) {
-  const { deviceId, screenName } = useAuth();
+  const { username, password, screenName } = useAuth();
   const [connectionState, setConnectionState] = useState<string>('initializing');
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
   
   const webrtcServiceRef = useRef<WebRTCService | null>(null);
-  const channelRef = useRef<any>(null);
-  const iceCandidatesRef = useRef<string[]>([]);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isProcessingOfferRef = useRef(false);
 
   useEffect(() => {
     console.log('ScreenShareReceiver mounted');
@@ -84,6 +74,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
     if (!isWebRTCAvailable || !RTCView) {
       setErrorMessage('WebRTC requires a development build. Please run:\n\n1. npx expo prebuild\n2. npx expo run:android (or run:ios)\n\nWebRTC does not work in Expo Go.');
+      setConnectionState('failed');
+      return;
+    }
+
+    // Check if credentials are available
+    if (!username || !password || !screenName) {
+      setErrorMessage('Authentication credentials not available. Please log in again.');
       setConnectionState('failed');
       return;
     }
@@ -117,12 +114,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           
           if (state === 'failed' || state === 'disconnected') {
             setErrorMessage('Connection lost. Please try again.');
+            // Resume polling if connection fails
+            if (!isPolling) {
+              startPolling();
+            }
           }
         }
       );
 
-      // Subscribe to Supabase Realtime for screen share sessions
-      await subscribeToScreenShareSessions();
+      // Start polling for screen share offers
+      startPolling();
 
     } catch (error) {
       console.error('Error initializing screen share:', error);
@@ -131,66 +132,80 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     }
   };
 
-  const subscribeToScreenShareSessions = async () => {
-    try {
-      console.log('Subscribing to screen share sessions...');
-      console.log('Device ID:', deviceId);
+  const startPolling = () => {
+    if (isPolling || !username || !password || !screenName) {
+      console.log('Polling already active or credentials missing');
+      return;
+    }
 
-      // Create a channel for screen share sessions
-      const channel = supabase.channel('screen-share-sessions');
+    console.log('Starting polling for screen share offers (every 2.5 seconds)');
+    setIsPolling(true);
 
-      // Listen for INSERT events on screen_share_sessions table
-      channel
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'screen_share_sessions',
-            filter: `display_id=eq.${deviceId}`,
-          },
-          async (payload) => {
-            console.log('New screen share session received:', payload);
-            await handleNewSession(payload.new as ScreenShareSession);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'screen_share_sessions',
-            filter: `display_id=eq.${deviceId}`,
-          },
-          async (payload) => {
-            console.log('Screen share session updated:', payload);
-            const session = payload.new as ScreenShareSession;
-            
-            // Handle ICE candidates from web app
-            if (session.ice_candidates && session.id === sessionId) {
-              await handleRemoteIceCandidates(session.ice_candidates);
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('Subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to screen share sessions');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('Channel subscription error');
-            setErrorMessage('Failed to connect to screen share service. Check Supabase configuration.');
-          }
-        });
+    const credentials: ScreenShareCredentials = {
+      screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
+    };
 
-      channelRef.current = channel;
+    // Poll immediately
+    pollForOffer(credentials);
 
-    } catch (error) {
-      console.error('Error subscribing to screen share sessions:', error);
-      setErrorMessage('Failed to subscribe to screen share updates');
+    // Then poll every 2.5 seconds
+    pollingIntervalRef.current = setInterval(() => {
+      pollForOffer(credentials);
+    }, 2500);
+  };
+
+  const stopPolling = () => {
+    console.log('Stopping polling');
+    setIsPolling(false);
+    
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
   };
 
-  const handleNewSession = async (session: ScreenShareSession) => {
+  const pollForOffer = async (credentials: ScreenShareCredentials) => {
+    // Skip if already processing an offer
+    if (isProcessingOfferRef.current) {
+      console.log('Already processing an offer, skipping poll');
+      return;
+    }
+
+    try {
+      const response = await getScreenShareOffer(credentials);
+
+      if (!response.success) {
+        // Handle authentication errors
+        if (response.status === 401) {
+          console.error('Authentication failed:', response.error);
+          setErrorMessage('Invalid credentials. Please log in again.');
+          setConnectionState('failed');
+          stopPolling();
+        } else {
+          console.error('Error getting offer:', response.error);
+        }
+        return;
+      }
+
+      // Check if there's a session available
+      if (response.data?.session) {
+        console.log('New screen share session available:', response.data.session.id);
+        isProcessingOfferRef.current = true;
+        stopPolling(); // Stop polling while processing
+        await handleNewSession(response.data.session);
+        isProcessingOfferRef.current = false;
+      } else {
+        // No session available, continue polling
+        console.log('No screen share session available');
+      }
+    } catch (error) {
+      console.error('Error polling for offer:', error);
+    }
+  };
+
+  const handleNewSession = async (session: any) => {
     try {
       console.log('Handling new screen share session:', session.id);
       setSessionId(session.id);
@@ -200,79 +215,55 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         throw new Error('WebRTC service not initialized');
       }
 
+      if (!username || !password || !screenName) {
+        throw new Error('Authentication credentials not available');
+      }
+
       // Handle the offer and create answer
-      const answer = await webrtcServiceRef.current.handleOffer(
+      console.log('Processing offer and creating answer...');
+      const { answer, answerIceCandidates } = await webrtcServiceRef.current.handleOffer(
         session.offer,
-        async (candidate) => {
-          // Store ICE candidates
-          iceCandidatesRef.current.push(JSON.stringify(candidate));
-          
-          // Send ICE candidates to web app via Supabase
-          await updateSessionWithAnswer(session.id, null, iceCandidatesRef.current);
-        }
+        session.ice_candidates || []
       );
 
-      // Send answer back to web app
-      await updateSessionWithAnswer(session.id, answer, iceCandidatesRef.current);
+      console.log('Answer created with', answerIceCandidates.length, 'ICE candidates');
 
-      console.log('Answer sent to web app');
+      // Send answer back to server
+      const answerResponse = await sendScreenShareAnswer({
+        screen_username: username,
+        screen_password: password,
+        screen_name: screenName,
+        session_id: session.id,
+        answer: answer,
+        answer_ice_candidates: answerIceCandidates,
+      });
+
+      if (answerResponse.success) {
+        console.log('Answer sent successfully:', answerResponse.data?.message);
+        // Connection will be established via WebRTC
+      } else {
+        console.error('Failed to send answer:', answerResponse.error);
+        setErrorMessage('Failed to establish connection: ' + answerResponse.error);
+        setConnectionState('failed');
+        // Resume polling
+        startPolling();
+      }
 
     } catch (error) {
       console.error('Error handling new session:', error);
       setErrorMessage('Failed to establish connection');
       setConnectionState('failed');
-    }
-  };
-
-  const updateSessionWithAnswer = async (
-    sessionId: string,
-    answer: string | null,
-    iceCandidates: string[]
-  ) => {
-    try {
-      const updateData: any = {
-        status: 'connected',
-      };
-
-      if (answer) {
-        updateData.answer = answer;
-      }
-
-      if (iceCandidates.length > 0) {
-        updateData.answer_ice_candidates = JSON.stringify(iceCandidates);
-      }
-
-      const { error } = await supabase
-        .from('screen_share_sessions')
-        .update(updateData)
-        .eq('id', sessionId);
-
-      if (error) {
-        console.error('Error updating session:', error);
-      } else {
-        console.log('Session updated successfully');
-      }
-    } catch (error) {
-      console.error('Error updating session with answer:', error);
-    }
-  };
-
-  const handleRemoteIceCandidates = async (iceCandidatesJson: string) => {
-    try {
-      const candidates = JSON.parse(iceCandidatesJson);
-      
-      if (Array.isArray(candidates) && webrtcServiceRef.current) {
-        for (const candidate of candidates) {
-          await webrtcServiceRef.current.addIceCandidate(candidate);
-        }
-      }
-    } catch (error) {
-      console.error('Error handling remote ICE candidates:', error);
+      isProcessingOfferRef.current = false;
+      // Resume polling
+      startPolling();
     }
   };
 
   const cleanup = () => {
     console.log('Cleaning up screen share receiver');
+
+    // Stop polling
+    stopPolling();
 
     // Close WebRTC connection
     if (webrtcServiceRef.current) {
@@ -280,16 +271,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       webrtcServiceRef.current = null;
     }
 
-    // Unsubscribe from Realtime channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
     // Clear state
     setRemoteStream(null);
     setSessionId(null);
-    iceCandidatesRef.current = [];
+    isProcessingOfferRef.current = false;
   };
 
   const handleClose = () => {
@@ -302,7 +287,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       case 'initializing':
         return 'Initializing...';
       case 'waiting':
-        return 'Waiting for screen share...';
+        return isPolling ? 'Waiting for screen share...' : 'Ready';
       case 'connecting':
         return 'Connecting...';
       case 'connected':
@@ -342,6 +327,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       <View style={styles.statusBar}>
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
         <Text style={styles.statusText}>{getStatusText()}</Text>
+        {isPolling && (
+          <ActivityIndicator 
+            size="small" 
+            color={colors.primary} 
+            style={styles.pollingIndicator}
+          />
+        )}
       </View>
 
       {/* Main content area */}
@@ -365,11 +357,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
                 <Text style={styles.instructionText}>
                   Open the web app on your desktop and start screen sharing
                 </Text>
+                {isPolling && (
+                  <Text style={styles.pollingText}>
+                    Polling for offers every 2.5 seconds...
+                  </Text>
+                )}
               </>
             ) : errorMessage ? (
               <>
                 <Text style={styles.warningIcon}>⚠️</Text>
-                <Text style={styles.errorTitle}>WebRTC Not Available</Text>
+                <Text style={styles.errorTitle}>Error</Text>
                 <Text style={styles.errorText}>{errorMessage}</Text>
                 {errorMessage.includes('development build') && (
                   <View style={styles.instructionsBox}>
@@ -392,9 +389,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 
       {/* Info footer */}
       <View style={styles.infoFooter}>
-        <Text style={styles.infoText}>Device: {screenName || deviceId}</Text>
+        <Text style={styles.infoText}>Screen: {screenName}</Text>
         {sessionId && (
           <Text style={styles.infoText}>Session: {sessionId.substring(0, 8)}...</Text>
+        )}
+        {isPolling && (
+          <Text style={styles.infoText}>Status: Polling for offers</Text>
         )}
       </View>
     </View>
@@ -444,6 +444,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  pollingIndicator: {
+    marginLeft: 12,
+  },
   contentArea: {
     flex: 1,
     backgroundColor: '#000',
@@ -482,6 +485,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+  },
+  pollingText: {
+    fontSize: 12,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: 16,
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 16,
