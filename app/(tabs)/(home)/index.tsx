@@ -8,6 +8,7 @@ import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
 import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
+import ScreenShareTester from '@/components/ScreenShareTester';
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -17,6 +18,7 @@ export default function HomeScreen() {
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isScreenShareMode, setIsScreenShareMode] = useState(false);
+  const [isTesterMode, setIsTesterMode] = useState(false);
   const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -151,6 +153,22 @@ export default function HomeScreen() {
     setIsScreenShareMode(false);
   };
 
+  const handleOpenTester = () => {
+    console.log('🧪 Opening Screen Share Tester');
+    
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for tester');
+      return;
+    }
+    
+    setIsTesterMode(true);
+  };
+
+  const handleCloseTester = () => {
+    console.log('Closing Screen Share Tester');
+    setIsTesterMode(false);
+  };
+
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
   }
@@ -242,13 +260,23 @@ export default function HomeScreen() {
 
         {/* Only show Screen Share button on native platforms */}
         {!isWebPlatform && (
-          <TouchableOpacity 
-            style={styles.screenShareButton}
-            onPress={handleScreenShare}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity 
+              style={styles.screenShareButton}
+              onPress={handleScreenShare}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.testerButton}
+              onPress={handleOpenTester}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.testerButtonText}>🧪 Test Connection</Text>
+            </TouchableOpacity>
+          </>
         )}
 
         <TouchableOpacity 
@@ -311,14 +339,26 @@ export default function HomeScreen() {
 
       {/* Screen Share Modal - Only render on native platforms */}
       {!isWebPlatform && (
-        <Modal
-          visible={isScreenShareMode}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={handleCloseScreenShare}
-        >
-          <ScreenShareReceiver onClose={handleCloseScreenShare} />
-        </Modal>
+        <>
+          <Modal
+            visible={isScreenShareMode}
+            animationType="slide"
+            presentationStyle="fullScreen"
+            onRequestClose={handleCloseScreenShare}
+          >
+            <ScreenShareReceiver onClose={handleCloseScreenShare} />
+          </Modal>
+
+          {/* Screen Share Tester Modal */}
+          <Modal
+            visible={isTesterMode}
+            animationType="slide"
+            presentationStyle="fullScreen"
+            onRequestClose={handleCloseTester}
+          >
+            <ScreenShareTester onClose={handleCloseTester} />
+          </Modal>
+        </>
       )}
     </View>
   );
@@ -429,6 +469,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   screenShareButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  testerButton: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  testerButtonText: {
     color: colors.card,
     fontSize: 18,
     fontWeight: '600',
