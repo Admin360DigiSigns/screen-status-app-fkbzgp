@@ -207,46 +207,21 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // Enhanced SDP validation and cleaning with SSRC line fixing
+    // Enhanced SDP validation and cleaning - handles dynamic session data
     function validateAndCleanSDP(sdpInput, type) {
       log('🔍 Validating ' + type + ' SDP...');
-      log('Input type: ' + typeof sdpInput);
-      log('Input length: ' + (sdpInput ? String(sdpInput).length : 0));
       
       if (!sdpInput) {
         throw new Error('SDP is null or undefined');
       }
       
-      // Convert to string if it's an object
+      // Extract SDP string from various input formats
       let sdpString;
       if (typeof sdpInput === 'object') {
-        log('⚠️ SDP is an object, attempting to extract string...');
-        
-        // Check if it's an SDP object with type and sdp properties
         if (sdpInput.sdp && typeof sdpInput.sdp === 'string') {
           sdpString = sdpInput.sdp;
-          log('✅ Extracted SDP from object.sdp property');
         } else {
-          // Try to stringify and parse
-          try {
-            const jsonStr = JSON.stringify(sdpInput);
-            log('Object as JSON: ' + jsonStr.substring(0, 200));
-            
-            // Try to parse if it looks like a JSON string
-            if (jsonStr.includes('"sdp"')) {
-              const parsed = JSON.parse(jsonStr);
-              if (parsed.sdp) {
-                sdpString = parsed.sdp;
-                log('✅ Extracted SDP from parsed JSON');
-              }
-            }
-          } catch (e) {
-            log('❌ Failed to extract SDP from object: ' + e.message);
-          }
-          
-          if (!sdpString) {
-            throw new Error('SDP object does not contain valid sdp property');
-          }
+          throw new Error('SDP object does not contain valid sdp property');
         }
       } else if (typeof sdpInput === 'string') {
         sdpString = sdpInput;
@@ -254,140 +229,56 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         throw new Error('SDP is not a string or object: ' + typeof sdpInput);
       }
       
-      log('SDP string length: ' + sdpString.length);
-      log('First 100 chars: ' + sdpString.substring(0, 100));
+      log('Original SDP length: ' + sdpString.length);
       
-      // Remove any leading/trailing whitespace
+      // Remove wrapping quotes and trim
       let cleanedSDP = sdpString.trim();
-      
-      // Remove wrapping quotes (single or double)
       while ((cleanedSDP.startsWith('"') && cleanedSDP.endsWith('"')) ||
              (cleanedSDP.startsWith("'") && cleanedSDP.endsWith("'"))) {
         cleanedSDP = cleanedSDP.slice(1, -1);
-        log('Removed wrapping quotes');
       }
       
-      // Handle various escape sequences
-      // First, handle double-escaped sequences
-      cleanedSDP = cleanedSDP.replace(/\\\\\\\\r\\\\\\\\n/g, '\\r\\n');
-      cleanedSDP = cleanedSDP.replace(/\\\\\\\\n/g, '\\n');
-      cleanedSDP = cleanedSDP.replace(/\\\\\\\\r/g, '\\r');
+      // Normalize line endings - handle all escape sequence variations
+      // This handles both actual newlines and escaped newlines
+      cleanedSDP = cleanedSDP
+        .replace(/\\\\r\\\\n/g, '\\n')  // Double-escaped CRLF
+        .replace(/\\\\n/g, '\\n')        // Double-escaped LF
+        .replace(/\\\\r/g, '\\n')        // Double-escaped CR
+        .replace(/\\r\\n/g, '\\n')       // Escaped CRLF
+        .replace(/\\r/g, '\\n')          // Escaped CR
+        .replace(/\\n/g, '\\n');         // Normalize to LF
       
-      // Then handle single-escaped sequences
-      cleanedSDP = cleanedSDP.replace(/\\\\r\\\\n/g, '\\r\\n');
-      cleanedSDP = cleanedSDP.replace(/\\\\n/g, '\\n');
-      cleanedSDP = cleanedSDP.replace(/\\\\r/g, '\\r');
+      // Split into lines
+      const lines = cleanedSDP.split('\\n').map(line => line.trim()).filter(line => line.length > 0);
       
-      // Handle JSON-escaped sequences
-      cleanedSDP = cleanedSDP.replace(/\\r\\n/g, '\\n');
-      cleanedSDP = cleanedSDP.replace(/\\r/g, '\\n');
+      log('Parsed ' + lines.length + ' SDP lines');
       
-      log('After escape sequence handling, length: ' + cleanedSDP.length);
-      
-      // Split into lines for processing
-      let lines = cleanedSDP.split(/\\r?\\n/);
-      log('Split into ' + lines.length + ' lines');
-      
-      // Process each line to fix common issues
-      const processedLines = [];
-      let fixedLinesCount = 0;
-      
-      for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
-        
-        // Skip empty lines
-        if (!line) {
-          continue;
-        }
-        
-        // Fix SSRC lines with invalid format
-        // Valid format: a=ssrc:<ssrc-id> <attribute>:<value>
-        // Invalid format: a=ssrc:<ssrc-id> <attribute>:<value> <extra-stuff>
-        if (line.startsWith('a=ssrc:')) {
-          const ssrcMatch = line.match(/^a=ssrc:(\\d+)\\s+(\\S+):(\\S+)(.*)$/);
-          if (ssrcMatch) {
-            const [, ssrcId, attribute, value, extra] = ssrcMatch;
-            
-            // Check if there's extra content after the value
-            if (extra && extra.trim()) {
-              log('⚠️ Found malformed SSRC line: ' + line);
-              
-              // Reconstruct the line properly
-              const fixedLine = 'a=ssrc:' + ssrcId + ' ' + attribute + ':' + value;
-              log('✅ Fixed SSRC line: ' + fixedLine);
-              
-              processedLines.push(fixedLine);
-              fixedLinesCount++;
-              continue;
-            }
-          }
-        }
-        
-        // Fix msid lines with invalid format
-        if (line.startsWith('a=msid:')) {
-          // Valid format: a=msid:<id> <appdata>
-          // Ensure there are exactly 2 space-separated values after msid:
-          const msidMatch = line.match(/^a=msid:(\\S+)\\s+(\\S+)(.*)$/);
-          if (msidMatch) {
-            const [, id, appdata, extra] = msidMatch;
-            
-            if (extra && extra.trim()) {
-              log('⚠️ Found malformed msid line: ' + line);
-              const fixedLine = 'a=msid:' + id + ' ' + appdata;
-              log('✅ Fixed msid line: ' + fixedLine);
-              
-              processedLines.push(fixedLine);
-              fixedLinesCount++;
-              continue;
-            }
-          }
-        }
-        
-        // Add the line as-is if no fixes needed
-        processedLines.push(line);
+      // Validate required SDP structure
+      if (lines.length === 0) {
+        throw new Error('SDP is empty after parsing');
       }
       
-      if (fixedLinesCount > 0) {
-        log('✅ Fixed ' + fixedLinesCount + ' malformed SDP lines');
+      if (!lines[0].startsWith('v=')) {
+        log('❌ First line is not v=, got: ' + lines[0]);
+        throw new Error('Invalid SDP: must start with v= line');
       }
       
-      // Rejoin lines with proper SDP line endings (\\r\\n)
-      cleanedSDP = processedLines.join('\\r\\n');
-      
-      // Ensure SDP ends with \\r\\n
-      if (!cleanedSDP.endsWith('\\r\\n')) {
-        cleanedSDP += '\\r\\n';
-      }
-      
-      log('After line processing: ' + processedLines.length + ' lines');
-      log('First line: "' + processedLines[0] + '"');
-      log('Second line: "' + (processedLines[1] || 'N/A') + '"');
-      
-      // Check if SDP starts with v=0 (required first line)
-      if (!cleanedSDP.startsWith('v=')) {
-        log('❌ SDP does not start with v= line');
-        log('First 200 chars: ' + cleanedSDP.substring(0, 200));
-        log('Char codes of first 10 chars: ' + Array.from(cleanedSDP.substring(0, 10)).map(c => c.charCodeAt(0)).join(', '));
-        throw new Error('Invalid SDP format: must start with v= line. First chars: "' + cleanedSDP.substring(0, 50) + '"');
-      }
-      
-      // Validate that SDP has required lines
-      const requiredLines = ['v=', 'o=', 's=', 't='];
-      
-      for (const required of requiredLines) {
-        const hasLine = processedLines.some(line => line.startsWith(required));
-        if (!hasLine) {
-          log('❌ Missing required SDP line: ' + required);
-          log('Available line prefixes: ' + processedLines.slice(0, 10).map(l => l.substring(0, 5)).join(', '));
-          throw new Error('Invalid SDP format: missing ' + required + ' line');
+      // Check for required session-level fields
+      const requiredFields = ['v=', 'o=', 's=', 't='];
+      for (const field of requiredFields) {
+        if (!lines.some(line => line.startsWith(field))) {
+          throw new Error('Invalid SDP: missing required field ' + field);
         }
       }
+      
+      // Reconstruct SDP with proper line endings
+      const reconstructedSDP = lines.join('\\r\\n') + '\\r\\n';
       
       log('✅ SDP validation passed');
-      log('Final SDP preview (first 300 chars): ' + cleanedSDP.substring(0, 300));
-      log('Final SDP line count: ' + processedLines.length);
+      log('Final SDP has ' + lines.length + ' lines');
+      log('First 3 lines: ' + lines.slice(0, 3).join(' | '));
       
-      return cleanedSDP;
+      return reconstructedSDP;
     }
     
     // ICE servers configuration
@@ -422,13 +313,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         // Handle ICE candidates
         pc.onicecandidate = (event) => {
           if (event.candidate) {
-            log('🧊 ICE candidate generated: ' + event.candidate.candidate.substring(0, 50) + '...');
+            log('🧊 ICE candidate generated');
             iceCandidates.push({
               candidate: event.candidate.candidate,
               sdpMLineIndex: event.candidate.sdpMLineIndex,
               sdpMid: event.candidate.sdpMid,
             });
-            log('Total ICE candidates collected: ' + iceCandidates.length);
           } else {
             log('🧊 ICE gathering complete! Total candidates: ' + iceCandidates.length);
           }
@@ -436,12 +326,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Handle ICE gathering state
         pc.onicegatheringstatechange = () => {
-          log('🧊 ICE gathering state changed to: ' + pc.iceGatheringState);
+          log('🧊 ICE gathering state: ' + pc.iceGatheringState);
         };
         
         // Handle connection state changes
         pc.onconnectionstatechange = () => {
-          log('🔌 Connection state changed to: ' + pc.connectionState);
+          log('🔌 Connection state: ' + pc.connectionState);
           
           if (pc.connectionState === 'connected') {
             updateStatus('connected', '✅ Connected - Stream active', currentSessionId);
@@ -458,13 +348,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Handle ICE connection state
         pc.oniceconnectionstatechange = () => {
-          log('🧊 ICE connection state changed to: ' + pc.iceConnectionState);
-          
-          if (pc.iceConnectionState === 'connected') {
-            log('✅ ICE connection established');
-          } else if (pc.iceConnectionState === 'failed') {
-            log('❌ ICE connection failed');
-          }
+          log('🧊 ICE connection state: ' + pc.iceConnectionState);
         };
         
         return pc;
@@ -488,9 +372,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       try {
         log('📥 Processing offer for session: ' + offerData.id);
-        log('Session status: ' + offerData.status);
-        log('Raw offer type: ' + typeof offerData.offer);
-        log('Raw offer preview: ' + JSON.stringify(offerData.offer).substring(0, 200));
+        log('Offer data type: ' + typeof offerData.offer);
         
         // Validate and clean the offer SDP
         let cleanedOfferSDP;
@@ -498,7 +380,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           cleanedOfferSDP = validateAndCleanSDP(offerData.offer, 'offer');
         } catch (error) {
           log('❌ SDP validation failed: ' + error.message);
-          throw new Error('Invalid offer SDP format: ' + error.message);
+          throw new Error('Invalid offer SDP: ' + error.message);
         }
         
         // Parse ice_candidates if it's a string
@@ -506,16 +388,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         if (typeof offerData.ice_candidates === 'string') {
           try {
             remoteCandidates = JSON.parse(offerData.ice_candidates);
-            log('✅ Parsed ice_candidates from string, count: ' + remoteCandidates.length);
+            log('✅ Parsed ' + remoteCandidates.length + ' ICE candidates from string');
           } catch (e) {
-            log('⚠️ Failed to parse ice_candidates string: ' + e.message);
-            remoteCandidates = [];
+            log('⚠️ Failed to parse ice_candidates: ' + e.message);
           }
         } else if (Array.isArray(offerData.ice_candidates)) {
           remoteCandidates = offerData.ice_candidates;
-          log('✅ Using ice_candidates array, count: ' + remoteCandidates.length);
-        } else {
-          log('⚠️ No ICE candidates provided or invalid format');
+          log('✅ Using ' + remoteCandidates.length + ' ICE candidates from array');
         }
         
         // Create peer connection
@@ -524,7 +403,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         iceCandidates = [];
         
         // Set remote description (offer)
-        log('📝 Setting remote description with cleaned SDP...');
+        log('📝 Setting remote description...');
         
         try {
           await peerConnection.setRemoteDescription({
@@ -534,7 +413,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('✅ Remote description set successfully');
         } catch (error) {
           log('❌ setRemoteDescription failed: ' + error.message);
-          log('Failed SDP (first 500 chars): ' + cleanedOfferSDP.substring(0, 500));
           throw new Error('Failed to set remote description: ' + error.message);
         }
         
@@ -547,7 +425,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
               await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
               addedCount++;
             } catch (e) {
-              log('⚠️ Failed to add remote ICE candidate: ' + e.message);
+              log('⚠️ Failed to add ICE candidate: ' + e.message);
             }
           }
           log('✅ Added ' + addedCount + '/' + remoteCandidates.length + ' remote ICE candidates');
@@ -557,9 +435,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         log('📝 Creating answer...');
         const answer = await peerConnection.createAnswer();
         
-        log('✅ Answer created, SDP length: ' + answer.sdp.length);
-        log('📝 Setting local description...');
-        
+        log('✅ Answer created, setting local description...');
         await peerConnection.setLocalDescription(answer);
         
         log('✅ Local description set, waiting for ICE candidates...');
@@ -568,7 +444,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         // Wait for ICE gathering to complete or timeout
         await new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            log('⏱️ ICE gathering timeout reached, proceeding with ' + iceCandidates.length + ' candidates');
+            log('⏱️ ICE gathering timeout, proceeding with ' + iceCandidates.length + ' candidates');
             resolve();
           }, ICE_GATHERING_TIMEOUT);
           
@@ -591,25 +467,20 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         log('🧊 Collected ' + iceCandidates.length + ' ICE candidates');
         
-        // Convert ICE candidates array to JSON string as expected by the API
-        const iceCandidatesString = JSON.stringify(iceCandidates);
-        
-        // Prepare answer payload according to API specification
+        // Prepare answer payload
         const answerPayload = {
           screen_username: credentials.screen_username,
           screen_password: credentials.screen_password,
           screen_name: credentials.screen_name,
           session_id: offerData.id,
           answer: peerConnection.localDescription.sdp,
-          answer_ice_candidates: iceCandidatesString,
+          answer_ice_candidates: JSON.stringify(iceCandidates),
         };
         
         log('📤 Sending answer to server...');
-        log('Answer SDP length: ' + answerPayload.answer.length);
-        log('Answer ICE candidates count: ' + iceCandidates.length);
         updateStatus('connecting', '📤 Sending answer...', currentSessionId);
         
-        // Send answer to server with credentials
+        // Send answer to server
         const response = await fetch(API_URL + '/screen-share-send-answer', {
           method: 'POST',
           headers: { 
@@ -675,11 +546,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           if (data.session) {
             log('✅ Screen share offer available!');
             log('Session ID: ' + data.session.id);
-            log('Session status: ' + data.session.status);
-            log('Display ID: ' + data.session.display_id);
-            log('Offer type: ' + typeof data.session.offer);
-            log('Offer length: ' + (data.session.offer ? String(data.session.offer).length : 0));
-            log('ICE candidates type: ' + typeof data.session.ice_candidates);
             await handleOffer(data.session);
           } else {
             log('⏳ No session available yet');
@@ -693,7 +559,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         } else if (response.status === 400) {
           const errorData = await response.json().catch(() => ({ error: 'Bad request' }));
           showError('Bad request: ' + errorData.error);
-          log('❌ Bad request - check credentials format');
         } else {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
           log('⚠️ Poll error: ' + response.status + ' - ' + errorData.error);
@@ -732,12 +597,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     
     // Start polling
     log('🚀 Starting screen share receiver');
-    log('Credentials: ' + JSON.stringify({
-      screen_username: credentials.screen_username,
-      screen_name: credentials.screen_name,
-      hasPassword: !!credentials.screen_password
-    }));
-    
     updateStatus('polling', '⏳ Waiting for screen share...', null);
     
     // Initial poll
