@@ -13,21 +13,6 @@ import {
   ICECandidate 
 } from '../utils/webrtcService';
 
-// Conditionally import RTCView only on native platforms
-let RTCView: any = null;
-if (Platform.OS !== 'web') {
-  try {
-    // Using dynamic import instead of require
-    import('react-native-webrtc').then((WebRTC) => {
-      RTCView = WebRTC.RTCView;
-    }).catch((error) => {
-      console.error('Failed to load RTCView:', error);
-    });
-  } catch (error) {
-    console.error('Failed to load RTCView:', error);
-  }
-}
-
 const POLL_INTERVAL = 2500; // Poll every 2.5 seconds
 const ICE_GATHERING_TIMEOUT = 5000; // Wait 5 seconds for ICE candidates
 
@@ -245,7 +230,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         <View style={styles.messageContainer}>
           <Text style={styles.title}>Screen Sharing Not Available</Text>
           <Text style={styles.message}>
-            WebRTC is not available on this platform. Screen sharing requires a native build.
+            WebRTC is not available on this platform. Screen sharing requires a custom development build with react-native-webrtc.
           </Text>
           {Platform.OS === 'web' && (
             <Text style={styles.webNote}>
@@ -284,14 +269,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     );
   }
 
-  if (status === 'connected' && remoteStream && RTCView) {
+  if (status === 'connected' && remoteStream) {
     return (
       <View style={styles.container}>
-        <RTCView
-          streamURL={remoteStream.toURL()}
-          style={styles.videoView}
-          objectFit="contain"
-        />
+        <View style={styles.videoPlaceholder}>
+          <Text style={styles.videoPlaceholderText}>
+            Screen share connected but video rendering requires react-native-webrtc
+          </Text>
+        </View>
         <View style={styles.controlsContainer}>
           <Text style={styles.sessionText}>Session: {sessionId}</Text>
           <View style={styles.buttonRow}>
@@ -434,9 +419,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  videoView: {
+  videoPlaceholder: {
     width: '100%',
     height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+  },
+  videoPlaceholderText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   controlsContainer: {
     position: 'absolute',
