@@ -1,3 +1,4 @@
+
 /* eslint-disable */
 
 // @eslint-ignore-file
@@ -34,6 +35,17 @@ const toArray = (object: T | T[]): T[] => {
 };
 
 export default function EditableElement_(_props: PropsWithChildren<any>) {
+  const { children } = _props;
+  const { props } = children;
+
+  // If we are not running in the web the windows will causes
+  // issues hence editable mode is not enabled.
+  // Return early BEFORE accessing context to avoid context errors on non-web platforms
+  if (Platform.OS !== "web") {
+    return cloneElement(children, props);
+  }
+
+  // Only access context on web platform
   const {
     editModeEnabled,
     selected,
@@ -43,15 +55,6 @@ export default function EditableElement_(_props: PropsWithChildren<any>) {
     pushHovered,
     popHovered,
   } = useContext(EditableContext);
-
-  const { children } = _props;
-  const { props } = children;
-
-  // If we are not running in the web the windows will causes
-  // issues hence editable mode is not enabled.
-  if (Platform.OS !== "web") {
-    return cloneElement(children, props);
-  }
 
   const type = getType(children);
   const __sourceLocation = props.__sourceLocation;
@@ -135,4 +138,7 @@ export default function EditableElement_(_props: PropsWithChildren<any>) {
       children: children.props.children,
     });
   }
+
+  // Default case: return children as-is
+  return children;
 }
