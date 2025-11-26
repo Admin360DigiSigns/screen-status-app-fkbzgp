@@ -1,10 +1,10 @@
 
 /**
  * API Service for device status and content management
+ * All API calls use the centralized Supabase configuration
  */
 
-const SUPABASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co';
-const BASE_URL = `${SUPABASE_URL}/functions/v1`;
+import { API_ENDPOINTS } from './config';
 
 export interface DeviceStatusPayload {
   screen_username: string;
@@ -37,8 +37,9 @@ export const registerDisplay = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log('Registering display:', { screen_username, screen_name, device_id });
+    console.log('Using endpoint:', API_ENDPOINTS.displayRegister);
     
-    const response = await fetch(`${BASE_URL}/display-register`, {
+    const response = await fetch(API_ENDPOINTS.displayRegister, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -86,8 +87,9 @@ export const sendDeviceStatus = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log('Sending device status:', payload.status);
+    console.log('Using endpoint:', API_ENDPOINTS.displayConnect);
     
-    const response = await fetch(`${BASE_URL}/display-connect`, {
+    const response = await fetch(API_ENDPOINTS.displayConnect, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -130,8 +132,9 @@ export const fetchDisplayContent = async (
 ): Promise<{ success: boolean; data?: DisplayContent; error?: string }> => {
   try {
     console.log('Fetching display content...');
+    console.log('Using endpoint:', API_ENDPOINTS.displayGetContent);
     
-    const response = await fetch(`${BASE_URL}/display-get-content`, {
+    const response = await fetch(API_ENDPOINTS.displayGetContent, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

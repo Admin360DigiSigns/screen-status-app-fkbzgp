@@ -2,10 +2,10 @@
 /**
  * Screen Share API Service
  * Handles polling for screen share offers and sending answers
+ * Uses centralized Supabase configuration
  */
 
-const SUPABASE_URL = 'https://pgcdokfiaarnhzryfzwf.supabase.co';
-const BASE_URL = `${SUPABASE_URL}/functions/v1`;
+import { API_ENDPOINTS } from './config';
 
 export interface ScreenShareOffer {
   session_id: string;
@@ -23,7 +23,10 @@ export const getScreenShareOffer = async (
   screenName: string
 ): Promise<{ success: boolean; data?: ScreenShareOffer; error?: string }> => {
   try {
-    const response = await fetch(`${BASE_URL}/screen-share-get-offer`, {
+    console.log('Polling for screen share offer...');
+    console.log('Using endpoint:', API_ENDPOINTS.screenShareGetOffer);
+    
+    const response = await fetch(API_ENDPOINTS.screenShareGetOffer, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,6 +46,7 @@ export const getScreenShareOffer = async (
         return { success: true, data: undefined };
       }
       
+      console.log('Screen share offer received:', data.session_id);
       return { success: true, data };
     } else {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -71,8 +75,9 @@ export const sendScreenShareAnswer = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log('Sending screen share answer for session:', sessionId);
+    console.log('Using endpoint:', API_ENDPOINTS.screenShareSendAnswer);
     
-    const response = await fetch(`${BASE_URL}/screen-share-send-answer`, {
+    const response = await fetch(API_ENDPOINTS.screenShareSendAnswer, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
