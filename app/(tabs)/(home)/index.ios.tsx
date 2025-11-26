@@ -27,6 +27,8 @@ export default function HomeScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const statusGlowAnim = useRef(new Animated.Value(0)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
+  const logoGlowAnim = useRef(new Animated.Value(0)).current;
+  const logoScaleAnim = useRef(new Animated.Value(1)).current;
   const buttonScaleAnims = useRef({
     preview: new Animated.Value(1),
     screenshare: new Animated.Value(1),
@@ -74,6 +76,46 @@ export default function HomeScreen() {
     );
     glow.start();
     return () => glow.stop();
+  }, []);
+
+  // Logo glow animation
+  useEffect(() => {
+    const logoGlow = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoGlowAnim, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: false,
+        }),
+        Animated.timing(logoGlowAnim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    logoGlow.start();
+    return () => logoGlow.stop();
+  }, []);
+
+  // Logo scale animation
+  useEffect(() => {
+    const logoScale = Animated.loop(
+      Animated.sequence([
+        Animated.timing(logoScaleAnim, {
+          toValue: 1.05,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoScaleAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    logoScale.start();
+    return () => logoScale.stop();
   }, []);
 
   // Fade in animation
@@ -252,6 +294,11 @@ export default function HomeScreen() {
     outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
   });
 
+  const logoGlowColor = logoGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(59, 130, 246, 0.3)', 'rgba(168, 85, 247, 0.6)'],
+  });
+
   // TV Layout - Professional design with focus states
   if (isTVDevice) {
     return (
@@ -264,11 +311,18 @@ export default function HomeScreen() {
         >
           {/* Logo and Status Header */}
           <View style={styles.tvHeader}>
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.tvHeaderLogo}
-              resizeMode="contain"
-            />
+            {/* Logo with glow effect */}
+            <Animated.View style={[styles.tvLogoContainer, { shadowColor: logoGlowColor }]}>
+              <View style={styles.tvLogoGlowWrapper}>
+                <Animated.View style={[styles.tvLogoGlow, { backgroundColor: logoGlowColor }]} />
+                <Animated.View style={[styles.tvLogoGlow2, { backgroundColor: logoGlowColor, opacity: 0.5 }]} />
+              </View>
+              <Animated.Image
+                source={require('@/assets/images/0bd1582e-6ccf-4e31-967e-71dccf6a0b14.png')}
+                style={[styles.tvHeaderLogo, { transform: [{ scale: logoScaleAnim }] }]}
+                resizeMode="contain"
+              />
+            </Animated.View>
             
             <Animated.View style={[styles.tvStatusBanner, { shadowColor: glowColor }]}>
               <LinearGradient
@@ -500,12 +554,18 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.mobileContent}>
-            {/* Logo */}
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.mobileLogo}
-              resizeMode="contain"
-            />
+            {/* Logo with glow effect */}
+            <Animated.View style={[styles.mobileLogoContainer, { shadowColor: logoGlowColor }]}>
+              <View style={styles.mobileLogoGlowWrapper}>
+                <Animated.View style={[styles.mobileLogoGlow, { backgroundColor: logoGlowColor }]} />
+                <Animated.View style={[styles.mobileLogoGlow2, { backgroundColor: logoGlowColor, opacity: 0.5 }]} />
+              </View>
+              <Animated.Image
+                source={require('@/assets/images/0bd1582e-6ccf-4e31-967e-71dccf6a0b14.png')}
+                style={[styles.mobileLogo, { transform: [{ scale: logoScaleAnim }] }]}
+                resizeMode="contain"
+              />
+            </Animated.View>
             
             {/* Status Banner */}
             <Animated.View style={[styles.mobileStatusBanner, { shadowColor: glowColor }]}>
@@ -778,10 +838,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
   },
+  mobileLogoContainer: {
+    position: 'relative',
+    marginBottom: 24,
+    elevation: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+  },
+  mobileLogoGlowWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileLogoGlow: {
+    position: 'absolute',
+    width: 240,
+    height: 100,
+    borderRadius: 50,
+    opacity: 0.4,
+  },
+  mobileLogoGlow2: {
+    position: 'absolute',
+    width: 280,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.2,
+  },
   mobileLogo: {
     width: 220,
     height: 80,
-    marginBottom: 24,
   },
   mobileStatusBanner: {
     width: '100%',
@@ -937,10 +1027,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 30,
   },
+  tvLogoContainer: {
+    position: 'relative',
+    marginBottom: 24,
+    elevation: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.7,
+    shadowRadius: 30,
+  },
+  tvLogoGlowWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tvLogoGlow: {
+    position: 'absolute',
+    width: 350,
+    height: 120,
+    borderRadius: 60,
+    opacity: 0.5,
+  },
+  tvLogoGlow2: {
+    position: 'absolute',
+    width: 420,
+    height: 150,
+    borderRadius: 75,
+    opacity: 0.3,
+  },
   tvHeaderLogo: {
     width: 300,
     height: 100,
-    marginBottom: 24,
   },
   tvStatusBanner: {
     width: '100%',
