@@ -247,16 +247,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   warningCard: {
-    backgroundColor: colors.highlight,
+    backgroundColor: '#FFF9E6',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#FFE082',
   },
   warningCardTV: {
     borderRadius: 20,
     padding: 32,
     marginBottom: 48,
+    borderWidth: 2,
   },
   warningText: {
     color: colors.text,
@@ -272,12 +275,15 @@ const styles = StyleSheet.create({
     borderRadius: isMobile ? 12 : 16,
     padding: isMobile ? 24 : 32,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
     elevation: 4,
   },
   formCardTV: {
     borderRadius: 24,
     padding: 60,
+    borderWidth: 2,
   },
   inputContainer: {
     marginBottom: isMobile ? 20 : 24,
@@ -293,14 +299,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   input: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F5F5',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: isMobile ? 14 : 18,
     color: colors.text,
     borderWidth: 2,
-    borderColor: colors.background,
+    borderColor: '#E0E0E0',
   },
   inputTV: {
     borderRadius: 16,

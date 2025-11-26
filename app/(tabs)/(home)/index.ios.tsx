@@ -162,14 +162,14 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.logoBlue} />
         <Text style={[styles.loadingText, isTV && styles.loadingTextTV]}>Initializing device...</Text>
       </View>
     );
   }
 
   const isOnline = networkState.isConnected === true;
-  const statusColor = isOnline ? colors.accent : colors.secondary;
+  const statusColor = isOnline ? colors.logoGreen : colors.secondary;
 
   return (
     <View style={styles.container}>
@@ -231,7 +231,7 @@ export default function HomeScreen() {
                 <Text style={[
                   styles.infoValue,
                   isTV && styles.infoValueTV,
-                  { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+                  { color: syncStatus === 'success' ? colors.logoGreen : colors.secondary }
                 ]}>
                   {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
                 </Text>
@@ -423,6 +423,8 @@ const styles = StyleSheet.create({
     padding: isMobile ? 20 : 28,
     width: '100%',
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
     elevation: 2,
   },
@@ -430,6 +432,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 48,
     marginBottom: 48,
+    borderWidth: 2,
   },
   infoRow: {
     flexDirection: 'row',
@@ -437,7 +440,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: isMobile ? 10 : 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    borderBottomColor: '#F5F5F5',
   },
   infoLabel: {
     fontSize: isMobile ? 14 : 18,
@@ -466,7 +469,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   previewButton: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.logoGreen,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -489,7 +492,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
   },
   screenShareButton: {
-    backgroundColor: '#9333EA',
+    backgroundColor: colors.logoRed,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -501,7 +504,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   syncButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.logoBlue,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -526,15 +529,18 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     marginTop: 24,
-    backgroundColor: colors.highlight,
+    backgroundColor: '#FFF9E6',
     borderRadius: 12,
     padding: 16,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#FFE082',
   },
   infoBoxTV: {
     marginTop: 48,
     borderRadius: 20,
     padding: 32,
+    borderWidth: 2,
   },
   footerText: {
     fontSize: isMobile ? 13 : 14,

@@ -479,6 +479,8 @@ const styles = StyleSheet.create({
     padding: isMobile ? 20 : 28,
     width: '100%',
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
     elevation: 2,
   },
@@ -486,6 +488,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 48,
     marginBottom: 48,
+    borderWidth: 2,
   },
   infoRow: {
     flexDirection: 'row',
@@ -493,7 +496,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: isMobile ? 10 : 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    borderBottomColor: '#F5F5F5',
   },
   infoLabel: {
     fontSize: isMobile ? 14 : 18,
@@ -594,15 +597,18 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     marginTop: 24,
-    backgroundColor: colors.highlight,
+    backgroundColor: '#FFF9E6',
     borderRadius: 12,
     padding: 16,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#FFE082',
   },
   infoBoxTV: {
     marginTop: 48,
     borderRadius: 20,
     padding: 32,
+    borderWidth: 2,
   },
   footerText: {
     fontSize: isMobile ? 13 : 14,
