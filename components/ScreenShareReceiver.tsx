@@ -159,7 +159,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   <script>
     const API_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
     const POLL_INTERVAL = ${POLL_INTERVAL};
-    const ICE_GATHERING_TIMEOUT = 3000; // Reduced to 3 seconds
+    const ICE_GATHERING_TIMEOUT = 3000; // 3 seconds
     
     const credentials = ${JSON.stringify(credentials)};
     
@@ -202,8 +202,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     // ICE servers configuration
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun1.l.google.com:19302' },
+      { urls: 'stun2.l.google.com:19302' },
     ];
     
     // Create peer connection
@@ -273,7 +273,21 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       try {
         log('Processing offer for session: ' + offerData.id);
         log('Offer SDP length: ' + offerData.offer.length);
-        log('Offer ICE candidates: ' + (offerData.ice_candidates?.length || 0));
+        
+        // Parse ice_candidates if it's a string
+        let remoteCandidates = [];
+        if (typeof offerData.ice_candidates === 'string') {
+          try {
+            remoteCandidates = JSON.parse(offerData.ice_candidates);
+            log('Parsed ice_candidates from string, count: ' + remoteCandidates.length);
+          } catch (e) {
+            log('Failed to parse ice_candidates string: ' + e.message);
+            remoteCandidates = [];
+          }
+        } else if (Array.isArray(offerData.ice_candidates)) {
+          remoteCandidates = offerData.ice_candidates;
+          log('Using ice_candidates array, count: ' + remoteCandidates.length);
+        }
         
         // Create peer connection
         peerConnection = createPeerConnection();
@@ -281,6 +295,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Set remote description (offer)
         log('Setting remote description...');
+        log('Offer SDP preview: ' + offerData.offer.substring(0, 100) + '...');
+        
         await peerConnection.setRemoteDescription({
           type: 'offer',
           sdp: offerData.offer,
@@ -288,10 +304,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         log('✅ Remote description set successfully');
         
-        // Add remote ICE candidates immediately
-        if (Array.isArray(offerData.ice_candidates) && offerData.ice_candidates.length > 0) {
-          log('Adding ' + offerData.ice_candidates.length + ' remote ICE candidates...');
-          for (const candidate of offerData.ice_candidates) {
+        // Add remote ICE candidates
+        if (remoteCandidates.length > 0) {
+          log('Adding ' + remoteCandidates.length + ' remote ICE candidates...');
+          for (const candidate of remoteCandidates) {
             try {
               await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
               log('Added remote ICE candidate');
@@ -339,19 +355,23 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         log('Collected ' + iceCandidates.length + ' ICE candidates');
         
-        // Prepare answer payload
+        // IMPORTANT: Convert ICE candidates array to JSON string as expected by the API
+        const iceCandidatesString = JSON.stringify(iceCandidates);
+        
+        // Prepare answer payload according to API specification
         const answerPayload = {
           screen_username: credentials.screen_username,
           screen_password: credentials.screen_password,
           screen_name: credentials.screen_name,
           session_id: offerData.id,
           answer: peerConnection.localDescription.sdp,
-          answer_ice_candidates: iceCandidates,
+          answer_ice_candidates: iceCandidatesString, // Send as JSON string
         };
         
         log('Sending answer to server...');
         log('Answer SDP preview: ' + answerPayload.answer.substring(0, 100) + '...');
-        log('Answer ICE candidates count: ' + answerPayload.answer_ice_candidates.length);
+        log('Answer ICE candidates (string length): ' + iceCandidatesString.length);
+        log('Answer ICE candidates (parsed count): ' + iceCandidates.length);
         
         // Send answer to server with credentials
         const response = await fetch(API_URL + '/screen-share-send-answer', {
@@ -418,6 +438,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           const data = await response.json();
           if (data.session) {
             log('✅ Screen share offer available!');
+            log('Session ID: ' + data.session.id);
+            log('Session status: ' + data.session.status);
             await handleOffer(data.session);
           } else {
             log('No session available yet');

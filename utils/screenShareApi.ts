@@ -20,7 +20,7 @@ export interface ScreenShareOfferResponse {
     id: string;
     display_id: string;
     offer: string;
-    ice_candidates: any[];
+    ice_candidates: string | any[]; // Can be JSON string or array
     status: string;
     created_at: string;
   } | null;
@@ -32,7 +32,7 @@ export interface ScreenShareAnswerRequest {
   screen_name: string;
   session_id: string;
   answer: string;
-  answer_ice_candidates: any[];
+  answer_ice_candidates: string; // Must be JSON string, not array
 }
 
 export interface ScreenShareAnswerResponse {
@@ -69,9 +69,12 @@ export const getScreenShareOffer = async (
           id: data.session.id,
           status: data.session.status,
           offerLength: data.session.offer?.length || 0,
-          iceCandidatesCount: Array.isArray(data.session.ice_candidates) 
+          iceCandidatesType: typeof data.session.ice_candidates,
+          iceCandidatesLength: typeof data.session.ice_candidates === 'string' 
             ? data.session.ice_candidates.length 
-            : 0,
+            : Array.isArray(data.session.ice_candidates) 
+              ? data.session.ice_candidates.length 
+              : 0,
         });
       }
       
@@ -111,6 +114,8 @@ export const getScreenShareOffer = async (
 
 /**
  * Send screen share answer back to the server
+ * 
+ * IMPORTANT: answer_ice_candidates must be a JSON string, not an array
  */
 export const sendScreenShareAnswer = async (
   request: ScreenShareAnswerRequest
@@ -118,26 +123,29 @@ export const sendScreenShareAnswer = async (
   try {
     console.log('Sending screen share answer for session:', request.session_id);
     console.log('Answer length:', request.answer.length);
-    console.log('Answer ICE candidates:', request.answer_ice_candidates.length);
+    console.log('Answer ICE candidates type:', typeof request.answer_ice_candidates);
     
-    // Ensure ICE candidates are properly formatted
+    // Ensure answer_ice_candidates is a JSON string
+    let iceCandidatesString: string;
+    if (typeof request.answer_ice_candidates === 'string') {
+      iceCandidatesString = request.answer_ice_candidates;
+      console.log('ICE candidates already a string, length:', iceCandidatesString.length);
+    } else {
+      // Convert to JSON string if it's an array
+      iceCandidatesString = JSON.stringify(request.answer_ice_candidates);
+      console.log('Converted ICE candidates to JSON string, length:', iceCandidatesString.length);
+    }
+    
     const formattedRequest = {
-      ...request,
-      answer_ice_candidates: request.answer_ice_candidates.map((candidate) => {
-        // Ensure each candidate is a proper object
-        if (typeof candidate === 'string') {
-          try {
-            return JSON.parse(candidate);
-          } catch (e) {
-            console.error('Failed to parse ICE candidate:', e);
-            return candidate;
-          }
-        }
-        return candidate;
-      }),
+      screen_username: request.screen_username,
+      screen_password: request.screen_password,
+      screen_name: request.screen_name,
+      session_id: request.session_id,
+      answer: request.answer,
+      answer_ice_candidates: iceCandidatesString, // Send as JSON string
     };
     
-    console.log('Formatted request ICE candidates:', formattedRequest.answer_ice_candidates.length);
+    console.log('Formatted request ready to send');
     
     const response = await fetch(`${BASE_URL}/screen-share-send-answer`, {
       method: 'POST',
