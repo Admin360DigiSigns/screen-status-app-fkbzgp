@@ -45,14 +45,7 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser",
-      [
-        "react-native-webrtc",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera for screen sharing.",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for screen sharing."
-        }
-      ]
+      "expo-web-browser"
     ],
     "scheme": "digisigns",
     "experiments": {
