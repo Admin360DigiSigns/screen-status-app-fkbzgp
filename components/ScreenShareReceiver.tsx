@@ -16,12 +16,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const [status, setStatus] = useState<'idle' | 'polling' | 'connecting' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
+  const [displayId, setDisplayId] = useState<string>('');
   const webViewRef = useRef<WebView>(null);
 
   // Check if we have the required credentials
   useEffect(() => {
     if (!username || !password || !screenName) {
-      console.error('Missing credentials:', { 
+      console.error('❌ Missing credentials:', { 
         hasUsername: !!username, 
         hasPassword: !!password, 
         hasScreenName: !!screenName 
@@ -31,11 +32,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       return;
     }
 
-    console.log('Starting screen share receiver with credentials:', {
-      username,
-      screenName,
-      hasPassword: !!password,
-    });
+    console.log('✅ Starting screen share receiver with credentials:');
+    console.log('   Username:', username);
+    console.log('   Screen Name:', screenName);
+    console.log('   Display ID will be:', screenName);
+    setDisplayId(screenName);
     setStatus('polling');
   }, [username, password, screenName]);
 
@@ -43,13 +44,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const handleWebViewMessage = useCallback((event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      console.log('WebView message:', message.type, message);
+      console.log('📨 WebView message:', message.type, message);
 
       switch (message.type) {
         case 'status':
           setStatus(message.status);
           if (message.sessionId) {
             setSessionId(message.sessionId);
+          }
+          if (message.displayId) {
+            setDisplayId(message.displayId);
           }
           break;
         case 'error':
@@ -93,11 +97,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       screen_name: screenName || '',
     };
 
-    console.log('Generating HTML with credentials:', {
-      screen_username: credentials.screen_username,
-      screen_name: credentials.screen_name,
-      hasPassword: !!credentials.screen_password,
-    });
+    console.log('🔧 Generating HTML with credentials:');
+    console.log('   screen_username:', credentials.screen_username);
+    console.log('   screen_name:', credentials.screen_name);
+    console.log('   display_id will be:', credentials.screen_name);
 
     return `
 <!DOCTYPE html>
@@ -170,11 +173,15 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     
     const credentials = ${JSON.stringify(credentials)};
     
-    console.log('WebView initialized with credentials:', {
-      screen_username: credentials.screen_username,
-      screen_name: credentials.screen_name,
-      hasPassword: !!credentials.screen_password,
-    });
+    // IMPORTANT: display_id is the screen_name
+    const display_id = credentials.screen_name;
+    
+    console.log('🚀 WebView initialized');
+    console.log('📋 Credentials:');
+    console.log('   screen_username:', credentials.screen_username);
+    console.log('   screen_name:', credentials.screen_name);
+    console.log('   display_id:', display_id);
+    console.log('   hasPassword:', !!credentials.screen_password);
     
     let peerConnection = null;
     let pollingInterval = null;
@@ -197,9 +204,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('log', { message });
     }
     
-    function updateStatus(status, message, sessionId) {
+    function updateStatus(status, message, sessionId, displayIdParam) {
       statusEl.textContent = message;
-      sendMessage('status', { status, sessionId });
+      sendMessage('status', { status, sessionId, displayId: displayIdParam || display_id });
     }
     
     function showError(message) {
@@ -239,14 +246,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       }
       
       // Normalize line endings - handle all escape sequence variations
-      // This handles both actual newlines and escaped newlines
       cleanedSDP = cleanedSDP
-        .replace(/\\\\r\\\\n/g, '\\n')  // Double-escaped CRLF
-        .replace(/\\\\n/g, '\\n')        // Double-escaped LF
-        .replace(/\\\\r/g, '\\n')        // Double-escaped CR
-        .replace(/\\r\\n/g, '\\n')       // Escaped CRLF
-        .replace(/\\r/g, '\\n')          // Escaped CR
-        .replace(/\\n/g, '\\n');         // Normalize to LF
+        .replace(/\\\\r\\\\n/g, '\\n')
+        .replace(/\\\\n/g, '\\n')
+        .replace(/\\\\r/g, '\\n')
+        .replace(/\\r\\n/g, '\\n')
+        .replace(/\\r/g, '\\n')
+        .replace(/\\n/g, '\\n');
       
       // Split into lines
       const lines = cleanedSDP.split('\\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -306,7 +312,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           if (event.streams && event.streams[0]) {
             videoEl.srcObject = event.streams[0];
             log('✅ Video element srcObject set');
-            updateStatus('connected', '✅ Connected - Receiving video', currentSessionId);
+            updateStatus('connected', '✅ Connected - Receiving video', currentSessionId, display_id);
           }
         };
         
@@ -334,9 +340,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('🔌 Connection state: ' + pc.connectionState);
           
           if (pc.connectionState === 'connected') {
-            updateStatus('connected', '✅ Connected - Stream active', currentSessionId);
+            updateStatus('connected', '✅ Connected - Stream active', currentSessionId, display_id);
           } else if (pc.connectionState === 'connecting') {
-            updateStatus('connecting', '🔄 Connecting...', currentSessionId);
+            updateStatus('connecting', '🔄 Connecting...', currentSessionId, display_id);
           } else if (pc.connectionState === 'failed') {
             showError('Connection failed');
             cleanup();
@@ -368,11 +374,22 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       isProcessingOffer = true;
       currentSessionId = offerData.id;
-      updateStatus('connecting', '🔄 Processing offer...', currentSessionId);
+      updateStatus('connecting', '🔄 Processing offer...', currentSessionId, display_id);
       
       try {
         log('📥 Processing offer for session: ' + offerData.id);
-        log('Offer data type: ' + typeof offerData.offer);
+        log('   Display ID: ' + offerData.display_id);
+        log('   Expected display_id: ' + display_id);
+        log('   Offer data type: ' + typeof offerData.offer);
+        
+        // Verify this offer is for our display
+        if (offerData.display_id !== display_id) {
+          log('⚠️ Offer is for different display: ' + offerData.display_id + ' (expected: ' + display_id + ')');
+          isProcessingOffer = false;
+          return;
+        }
+        
+        log('✅ Offer is for this display');
         
         // Validate and clean the offer SDP
         let cleanedOfferSDP;
@@ -439,7 +456,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         await peerConnection.setLocalDescription(answer);
         
         log('✅ Local description set, waiting for ICE candidates...');
-        updateStatus('connecting', '🧊 Gathering ICE candidates...', currentSessionId);
+        updateStatus('connecting', '🧊 Gathering ICE candidates...', currentSessionId, display_id);
         
         // Wait for ICE gathering to complete or timeout
         await new Promise((resolve) => {
@@ -478,7 +495,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         };
         
         log('📤 Sending answer to server...');
-        updateStatus('connecting', '📤 Sending answer...', currentSessionId);
+        log('   Session ID: ' + offerData.id);
+        log('   Display ID: ' + display_id);
+        log('   Screen Name: ' + credentials.screen_name);
+        updateStatus('connecting', '📤 Sending answer...', currentSessionId, display_id);
         
         // Send answer to server
         const response = await fetch(API_URL + '/screen-share-send-answer', {
@@ -512,7 +532,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('⏹️ Stopped polling for offers');
         }
         
-        updateStatus('connecting', '🔄 Waiting for connection...', currentSessionId);
+        updateStatus('connecting', '🔄 Waiting for connection...', currentSessionId, display_id);
         
       } catch (error) {
         log('❌ Error handling offer: ' + error.message);
@@ -532,6 +552,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       try {
         log('🔍 Polling for offers...');
+        log('   Using credentials:');
+        log('   - screen_username: ' + credentials.screen_username);
+        log('   - screen_name: ' + credentials.screen_name);
+        log('   - display_id: ' + display_id);
         
         const response = await fetch(API_URL + '/screen-share-get-offer', {
           method: 'POST',
@@ -543,12 +567,19 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         if (response.status === 200) {
           const data = await response.json();
+          log('📦 Response data:');
+          log('   - display_id: ' + data.display_id);
+          log('   - has session: ' + !!data.session);
+          
           if (data.session) {
             log('✅ Screen share offer available!');
-            log('Session ID: ' + data.session.id);
+            log('   Session ID: ' + data.session.id);
+            log('   Session display_id: ' + data.session.display_id);
+            log('   Our display_id: ' + display_id);
+            log('   Match: ' + (data.session.display_id === display_id));
             await handleOffer(data.session);
           } else {
-            log('⏳ No session available yet');
+            log('⏳ No session available yet for display: ' + display_id);
           }
         } else if (response.status === 401) {
           const errorData = await response.json().catch(() => ({ error: 'Invalid credentials' }));
@@ -597,7 +628,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     
     // Start polling
     log('🚀 Starting screen share receiver');
-    updateStatus('polling', '⏳ Waiting for screen share...', null);
+    log('📋 Configuration:');
+    log('   - API URL: ' + API_URL);
+    log('   - Poll interval: ' + POLL_INTERVAL + 'ms');
+    log('   - Display ID: ' + display_id);
+    log('   - Screen Name: ' + credentials.screen_name);
+    log('   - Username: ' + credentials.screen_username);
+    
+    updateStatus('polling', '⏳ Waiting for screen share...', null, display_id);
     
     // Initial poll
     pollForOffers();
@@ -626,6 +664,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             Debug Info:{'\n'}
             Username: {username || 'missing'}{'\n'}
             Screen Name: {screenName || 'missing'}{'\n'}
+            Display ID: {displayId || screenName || 'missing'}{'\n'}
             Password: {password ? 'present' : 'missing'}
           </Text>
           <View style={styles.buttonRow}>
@@ -699,7 +738,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             Start a screen share from your web app to see it here
           </Text>
           <Text style={styles.debugText}>
-            Authenticated as: {username} ({screenName})
+            Authenticated as: {username} ({screenName}){'\n'}
+            Display ID: {displayId || screenName}
           </Text>
         </View>
       )}
@@ -712,6 +752,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           {sessionId && (
             <Text style={styles.sessionIdText}>
               Session: {sessionId.substring(0, 8)}...
+            </Text>
+          )}
+          {displayId && (
+            <Text style={styles.sessionIdText}>
+              Display: {displayId}
             </Text>
           )}
         </View>
