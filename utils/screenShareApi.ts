@@ -20,7 +20,7 @@ export interface ScreenShareOfferResponse {
     id: string;
     display_id: string;
     offer: string;
-    ice_candidates: Array<any>;
+    ice_candidates: any[];
     status: string;
     created_at: string;
   } | null;
@@ -32,7 +32,7 @@ export interface ScreenShareAnswerRequest {
   screen_name: string;
   session_id: string;
   answer: string;
-  answer_ice_candidates: Array<any>;
+  answer_ice_candidates: any[];
 }
 
 export interface ScreenShareAnswerResponse {

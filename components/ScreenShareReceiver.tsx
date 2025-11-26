@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { colors } from '../styles/commonStyles';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,8 +17,12 @@ import {
 let RTCView: any = null;
 if (Platform.OS !== 'web') {
   try {
-    const WebRTC = require('react-native-webrtc');
-    RTCView = WebRTC.RTCView;
+    // Using dynamic import instead of require
+    import('react-native-webrtc').then((WebRTC) => {
+      RTCView = WebRTC.RTCView;
+    }).catch((error) => {
+      console.error('Failed to load RTCView:', error);
+    });
   } catch (error) {
     console.error('Failed to load RTCView:', error);
   }
@@ -44,31 +48,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const isProcessingOfferRef = useRef(false);
 
   // Check if WebRTC is available
-  if (!isWebRTCAvailable()) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.messageContainer}>
-          <Text style={styles.title}>Screen Sharing Not Available</Text>
-          <Text style={styles.message}>
-            WebRTC is not available on this platform. Screen sharing requires a native build.
-          </Text>
-          {Platform.OS === 'web' && (
-            <Text style={styles.webNote}>
-              Note: WebRTC screen sharing is not supported on web in this configuration.
-            </Text>
-          )}
-          {onClose && (
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  }
+  const webRTCAvailable = isWebRTCAvailable();
 
   // Cleanup function
-  const cleanup = () => {
+  const cleanup = useCallback(() => {
     console.log('Cleaning up screen share receiver');
     
     if (pollingIntervalRef.current) {
@@ -83,10 +66,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     
     iceCandidatesRef.current = [];
     isProcessingOfferRef.current = false;
-  };
+  }, []);
 
   // Handle incoming screen share offer
-  const handleScreenShareOffer = async (offerData: any) => {
+  const handleScreenShareOffer = useCallback(async (offerData: any) => {
     if (isProcessingOfferRef.current) {
       console.log('Already processing an offer, skipping');
       return;
@@ -181,10 +164,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       isProcessingOfferRef.current = false;
       cleanup();
     }
-  };
+  }, [user, cleanup]);
 
   // Poll for screen share offers
-  const pollForOffers = async () => {
+  const pollForOffers = useCallback(async () => {
     if (!user?.screen_username || !user?.screen_password || !user?.screen_name) {
       console.log('Missing credentials, skipping poll');
       return;
@@ -209,7 +192,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     } catch (error) {
       console.error('Error polling for offers:', error);
     }
-  };
+  }, [user, handleScreenShareOffer]);
 
   // Start polling when component mounts
   useEffect(() => {
@@ -232,10 +215,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     return () => {
       cleanup();
     };
-  }, [user]);
+  }, [user, pollForOffers, cleanup]);
 
   // Disconnect handler
-  const handleDisconnect = () => {
+  const handleDisconnect = useCallback(() => {
     cleanup();
     setStatus('polling');
     setRemoteStream(null);
@@ -246,15 +229,38 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     if (user?.screen_username && user?.screen_password && user?.screen_name) {
       pollingIntervalRef.current = setInterval(pollForOffers, POLL_INTERVAL);
     }
-  };
+  }, [cleanup, user, pollForOffers]);
 
   // Close handler
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     cleanup();
     if (onClose) {
       onClose();
     }
-  };
+  }, [cleanup, onClose]);
+
+  if (!webRTCAvailable) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.messageContainer}>
+          <Text style={styles.title}>Screen Sharing Not Available</Text>
+          <Text style={styles.message}>
+            WebRTC is not available on this platform. Screen sharing requires a native build.
+          </Text>
+          {Platform.OS === 'web' && (
+            <Text style={styles.webNote}>
+              Note: WebRTC screen sharing is not supported on web in this configuration.
+            </Text>
+          )}
+          {onClose && (
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
 
   // Render based on status
   if (status === 'error') {

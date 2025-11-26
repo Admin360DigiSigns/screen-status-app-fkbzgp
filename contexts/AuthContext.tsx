@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
@@ -27,9 +27,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isScreenActive, setIsScreenActive] = useState(false);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const initializeAuth = useCallback(async () => {
+    try {
+      // Get device ID first
+      const id = await getDeviceId();
+      setDeviceId(id);
+      console.log('Device ID initialized:', id);
+
+      // Then load auth state
+      await loadAuthState();
+    } catch (error) {
+      console.error('Error initializing auth:', error);
+    }
+  }, []);
+
   useEffect(() => {
     initializeAuth();
-  }, []);
+  }, [initializeAuth]);
 
   // Set up the 1-minute interval when user is authenticated AND screen is active
   useEffect(() => {
@@ -131,20 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   }, [isAuthenticated, isScreenActive, deviceId, screenName, username, password]);
-
-  const initializeAuth = async () => {
-    try {
-      // Get device ID first
-      const id = await getDeviceId();
-      setDeviceId(id);
-      console.log('Device ID initialized:', id);
-
-      // Then load auth state
-      await loadAuthState();
-    } catch (error) {
-      console.error('Error initializing auth:', error);
-    }
-  };
 
   const loadAuthState = async () => {
     try {

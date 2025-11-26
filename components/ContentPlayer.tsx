@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, StyleSheet, Image, Dimensions, ActivityIndicator, Text, TouchableOpacity, Platform } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors } from '@/styles/commonStyles';
@@ -50,6 +50,23 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     }
   );
 
+  const moveToNextItem = useCallback(() => {
+    console.log('Moving to next item');
+    
+    if (currentItemIndex < currentItems.length - 1) {
+      // Move to next item in current playlist
+      setCurrentItemIndex(currentItemIndex + 1);
+    } else if (currentPlaylistIndex < activePlaylists.length - 1) {
+      // Move to first item of next playlist
+      setCurrentPlaylistIndex(currentPlaylistIndex + 1);
+      setCurrentItemIndex(0);
+    } else {
+      // Loop back to first playlist and first item
+      setCurrentPlaylistIndex(0);
+      setCurrentItemIndex(0);
+    }
+  }, [currentItemIndex, currentItems.length, currentPlaylistIndex, activePlaylists.length]);
+
   useEffect(() => {
     if (!currentItem) {
       console.log('No current item available');
@@ -96,24 +113,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentPlaylistIndex, currentItemIndex, currentItem, screenDimensions]);
-
-  const moveToNextItem = () => {
-    console.log('Moving to next item');
-    
-    if (currentItemIndex < currentItems.length - 1) {
-      // Move to next item in current playlist
-      setCurrentItemIndex(currentItemIndex + 1);
-    } else if (currentPlaylistIndex < activePlaylists.length - 1) {
-      // Move to first item of next playlist
-      setCurrentPlaylistIndex(currentPlaylistIndex + 1);
-      setCurrentItemIndex(0);
-    } else {
-      // Loop back to first playlist and first item
-      setCurrentPlaylistIndex(0);
-      setCurrentItemIndex(0);
-    }
-  };
+  }, [currentPlaylistIndex, currentItemIndex, currentItem, screenDimensions, moveToNextItem, videoPlayer]);
 
   if (!currentItem) {
     return (

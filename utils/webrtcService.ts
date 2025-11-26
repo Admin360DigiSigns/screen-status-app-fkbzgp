@@ -9,12 +9,16 @@ let mediaDevices: any = null;
 
 if (Platform.OS !== 'web') {
   try {
-    const WebRTC = require('react-native-webrtc');
-    RTCPeerConnection = WebRTC.RTCPeerConnection;
-    RTCIceCandidate = WebRTC.RTCIceCandidate;
-    RTCSessionDescription = WebRTC.RTCSessionDescription;
-    mediaDevices = WebRTC.mediaDevices;
-    console.log('✅ WebRTC modules loaded successfully');
+    // Using dynamic import instead of require
+    import('react-native-webrtc').then((WebRTC) => {
+      RTCPeerConnection = WebRTC.RTCPeerConnection;
+      RTCIceCandidate = WebRTC.RTCIceCandidate;
+      RTCSessionDescription = WebRTC.RTCSessionDescription;
+      mediaDevices = WebRTC.mediaDevices;
+      console.log('✅ WebRTC modules loaded successfully');
+    }).catch((error) => {
+      console.error('❌ Failed to load WebRTC modules:', error);
+    });
   } catch (error) {
     console.error('❌ Failed to load WebRTC modules:', error);
   }

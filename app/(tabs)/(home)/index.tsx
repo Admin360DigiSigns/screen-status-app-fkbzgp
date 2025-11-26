@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,13 +39,7 @@ export default function HomeScreen() {
     }
   }, [deviceId]);
 
-  useEffect(() => {
-    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
-      syncDeviceStatus();
-    }
-  }, [deviceId, screenName, username, password, networkState.isConnected]);
-
-  const syncDeviceStatus = async () => {
+  const syncDeviceStatus = useCallback(async () => {
     if (!deviceId || !screenName || !username || !password) {
       console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
       return;
@@ -73,7 +67,13 @@ export default function HomeScreen() {
       setSyncStatus('failed');
       console.log('Status sync failed');
     }
-  };
+  }, [deviceId, screenName, username, password, networkState.isConnected]);
+
+  useEffect(() => {
+    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
+      syncDeviceStatus();
+    }
+  }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
 
   const handleLogout = async () => {
     try {
