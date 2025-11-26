@@ -17,6 +17,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
   const [displayId, setDisplayId] = useState<string>('');
+  const [connectionDetails, setConnectionDetails] = useState<string>('');
   const webViewRef = useRef<WebView>(null);
 
   // Check if we have the required credentials
@@ -55,6 +56,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           if (message.displayId) {
             setDisplayId(message.displayId);
           }
+          if (message.details) {
+            setConnectionDetails(message.details);
+          }
           break;
         case 'error':
           setStatus('error');
@@ -84,6 +88,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     setStatus('polling');
     setErrorMessage('');
     setSessionId('');
+    setConnectionDetails('');
     if (webViewRef.current) {
       webViewRef.current.reload();
     }
@@ -169,7 +174,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   <script>
     const API_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
     const POLL_INTERVAL = ${POLL_INTERVAL};
-    const ICE_GATHERING_TIMEOUT = 5000; // 5 seconds
+    const ICE_GATHERING_TIMEOUT = 8000; // Increased to 8 seconds
     
     const credentials = ${JSON.stringify(credentials)};
     
@@ -188,6 +193,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     let isProcessingOffer = false;
     let iceCandidates = [];
     let currentSessionId = null;
+    let iceGatheringComplete = false;
     
     const statusEl = document.getElementById('status');
     const videoEl = document.getElementById('video');
@@ -204,9 +210,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('log', { message });
     }
     
-    function updateStatus(status, message, sessionId, displayIdParam) {
+    function updateStatus(status, message, sessionId, displayIdParam, details) {
       statusEl.textContent = message;
-      sendMessage('status', { status, sessionId, displayId: displayIdParam || display_id });
+      sendMessage('status', { 
+        status, 
+        sessionId, 
+        displayId: displayIdParam || display_id,
+        details: details || ''
+      });
     }
     
     function showError(message) {
@@ -214,7 +225,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // Enhanced SDP validation and cleaning - handles dynamic session data
+    // Enhanced SDP validation and cleaning
     function validateAndCleanSDP(sdpInput, type) {
       log('🔍 Validating ' + type + ' SDP...');
       
@@ -287,7 +298,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       return reconstructedSDP;
     }
     
-    // ICE servers configuration
+    // ICE servers configuration - using multiple STUN servers for better connectivity
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
@@ -303,7 +314,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       log('Creating peer connection with ICE servers');
       
       try {
-        const pc = new RTCPeerConnection({ iceServers });
+        const pc = new RTCPeerConnection({ 
+          iceServers,
+          iceCandidatePoolSize: 10 // Pre-gather more candidates
+        });
         log('✅ RTCPeerConnection created successfully');
         
         // Handle incoming stream
@@ -312,14 +326,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           if (event.streams && event.streams[0]) {
             videoEl.srcObject = event.streams[0];
             log('✅ Video element srcObject set');
-            updateStatus('connected', '✅ Connected - Receiving video', currentSessionId, display_id);
+            updateStatus('connected', '✅ Connected - Receiving video', currentSessionId, display_id, 'Video streaming');
           }
         };
         
         // Handle ICE candidates
         pc.onicecandidate = (event) => {
           if (event.candidate) {
-            log('🧊 ICE candidate generated');
+            log('🧊 ICE candidate generated: ' + event.candidate.type);
             iceCandidates.push({
               candidate: event.candidate.candidate,
               sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -327,12 +341,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             });
           } else {
             log('🧊 ICE gathering complete! Total candidates: ' + iceCandidates.length);
+            iceGatheringComplete = true;
           }
         };
         
         // Handle ICE gathering state
         pc.onicegatheringstatechange = () => {
           log('🧊 ICE gathering state: ' + pc.iceGatheringState);
+          if (pc.iceGatheringState === 'complete') {
+            iceGatheringComplete = true;
+          }
         };
         
         // Handle connection state changes
@@ -340,11 +358,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('🔌 Connection state: ' + pc.connectionState);
           
           if (pc.connectionState === 'connected') {
-            updateStatus('connected', '✅ Connected - Stream active', currentSessionId, display_id);
+            updateStatus('connected', '✅ Connected - Stream active', currentSessionId, display_id, 'WebRTC connected');
           } else if (pc.connectionState === 'connecting') {
-            updateStatus('connecting', '🔄 Connecting...', currentSessionId, display_id);
+            updateStatus('connecting', '🔄 Establishing WebRTC connection...', currentSessionId, display_id, 'ICE negotiation in progress');
           } else if (pc.connectionState === 'failed') {
-            showError('Connection failed');
+            showError('WebRTC connection failed - check network/firewall');
             cleanup();
           } else if (pc.connectionState === 'disconnected') {
             showError('Connection disconnected');
@@ -355,6 +373,20 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         // Handle ICE connection state
         pc.oniceconnectionstatechange = () => {
           log('🧊 ICE connection state: ' + pc.iceConnectionState);
+          
+          if (pc.iceConnectionState === 'checking') {
+            updateStatus('connecting', '🔄 Checking connectivity...', currentSessionId, display_id, 'Testing ICE candidates');
+          } else if (pc.iceConnectionState === 'connected') {
+            updateStatus('connected', '✅ ICE connected', currentSessionId, display_id, 'Peer-to-peer link established');
+          } else if (pc.iceConnectionState === 'completed') {
+            updateStatus('connected', '✅ Connection completed', currentSessionId, display_id, 'Optimal path found');
+          } else if (pc.iceConnectionState === 'failed') {
+            log('❌ ICE connection failed - this usually means:');
+            log('   1. Network/firewall blocking WebRTC');
+            log('   2. No common network path found');
+            log('   3. TURN server needed (not configured)');
+            showError('ICE connection failed - network/firewall issue');
+          }
         };
         
         return pc;
@@ -373,8 +405,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       }
       
       isProcessingOffer = true;
+      iceGatheringComplete = false;
       currentSessionId = offerData.id;
-      updateStatus('connecting', '🔄 Processing offer...', currentSessionId, display_id);
+      updateStatus('connecting', '🔄 Processing offer...', currentSessionId, display_id, 'Preparing WebRTC');
       
       try {
         log('📥 Processing offer for session: ' + offerData.id);
@@ -421,6 +454,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Set remote description (offer)
         log('📝 Setting remote description...');
+        updateStatus('connecting', '📝 Setting remote offer...', currentSessionId, display_id, 'Configuring WebRTC');
         
         try {
           await peerConnection.setRemoteDescription({
@@ -433,9 +467,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           throw new Error('Failed to set remote description: ' + error.message);
         }
         
-        // Add remote ICE candidates
+        // Add remote ICE candidates BEFORE creating answer
         if (remoteCandidates.length > 0) {
           log('🧊 Adding ' + remoteCandidates.length + ' remote ICE candidates...');
+          updateStatus('connecting', '🧊 Adding remote ICE candidates...', currentSessionId, display_id, 'Processing ' + remoteCandidates.length + ' candidates');
           let addedCount = 0;
           for (const candidate of remoteCandidates) {
             try {
@@ -450,18 +485,21 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Create answer
         log('📝 Creating answer...');
+        updateStatus('connecting', '📝 Creating answer...', currentSessionId, display_id, 'Generating response');
         const answer = await peerConnection.createAnswer();
         
         log('✅ Answer created, setting local description...');
         await peerConnection.setLocalDescription(answer);
         
-        log('✅ Local description set, waiting for ICE candidates...');
-        updateStatus('connecting', '🧊 Gathering ICE candidates...', currentSessionId, display_id);
+        log('✅ Local description set, gathering ICE candidates...');
+        updateStatus('connecting', '🧊 Gathering ICE candidates...', currentSessionId, display_id, 'Discovering network paths');
         
-        // Wait for ICE gathering to complete or timeout
+        // Wait for ICE gathering with longer timeout
+        const gatheringStartTime = Date.now();
         await new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            log('⏱️ ICE gathering timeout, proceeding with ' + iceCandidates.length + ' candidates');
+            const elapsed = Date.now() - gatheringStartTime;
+            log('⏱️ ICE gathering timeout after ' + elapsed + 'ms, proceeding with ' + iceCandidates.length + ' candidates');
             resolve();
           }, ICE_GATHERING_TIMEOUT);
           
@@ -471,10 +509,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             resolve();
           } else {
             const checkState = () => {
-              if (peerConnection.iceGatheringState === 'complete') {
+              if (peerConnection.iceGatheringState === 'complete' || iceGatheringComplete) {
                 clearTimeout(timeout);
                 peerConnection.removeEventListener('icegatheringstatechange', checkState);
-                log('✅ ICE gathering completed');
+                const elapsed = Date.now() - gatheringStartTime;
+                log('✅ ICE gathering completed in ' + elapsed + 'ms');
                 resolve();
               }
             };
@@ -483,6 +522,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         });
         
         log('🧊 Collected ' + iceCandidates.length + ' ICE candidates');
+        
+        // Log candidate types for debugging
+        const candidateTypes = {};
+        iceCandidates.forEach(c => {
+          const type = c.candidate.includes('typ host') ? 'host' :
+                      c.candidate.includes('typ srflx') ? 'srflx' :
+                      c.candidate.includes('typ relay') ? 'relay' : 'unknown';
+          candidateTypes[type] = (candidateTypes[type] || 0) + 1;
+        });
+        log('Candidate types: ' + JSON.stringify(candidateTypes));
         
         // Prepare answer payload
         const answerPayload = {
@@ -498,7 +547,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         log('   Session ID: ' + offerData.id);
         log('   Display ID: ' + display_id);
         log('   Screen Name: ' + credentials.screen_name);
-        updateStatus('connecting', '📤 Sending answer...', currentSessionId, display_id);
+        log('   Answer SDP length: ' + answerPayload.answer.length);
+        log('   ICE candidates: ' + iceCandidates.length);
+        updateStatus('connecting', '📤 Sending answer...', currentSessionId, display_id, 'Uploading response');
         
         // Send answer to server
         const response = await fetch(API_URL + '/screen-share-send-answer', {
@@ -532,7 +583,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('⏹️ Stopped polling for offers');
         }
         
-        updateStatus('connecting', '🔄 Waiting for connection...', currentSessionId, display_id);
+        updateStatus('connecting', '🔄 Waiting for WebRTC connection...', currentSessionId, display_id, 'ICE negotiation starting');
+        log('⏳ WebRTC connection state: ' + peerConnection.connectionState);
+        log('⏳ ICE connection state: ' + peerConnection.iceConnectionState);
         
       } catch (error) {
         log('❌ Error handling offer: ' + error.message);
@@ -621,6 +674,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       iceCandidates = [];
       isProcessingOffer = false;
+      iceGatheringComplete = false;
       currentSessionId = null;
       
       log('✅ Cleanup complete');
@@ -631,11 +685,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     log('📋 Configuration:');
     log('   - API URL: ' + API_URL);
     log('   - Poll interval: ' + POLL_INTERVAL + 'ms');
+    log('   - ICE gathering timeout: ' + ICE_GATHERING_TIMEOUT + 'ms');
     log('   - Display ID: ' + display_id);
     log('   - Screen Name: ' + credentials.screen_name);
     log('   - Username: ' + credentials.screen_username);
     
-    updateStatus('polling', '⏳ Waiting for screen share...', null, display_id);
+    updateStatus('polling', '⏳ Waiting for screen share...', null, display_id, 'Ready to receive');
     
     // Initial poll
     pollForOffers();
@@ -757,6 +812,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           {displayId && (
             <Text style={styles.sessionIdText}>
               Display: {displayId}
+            </Text>
+          )}
+          {connectionDetails && (
+            <Text style={styles.connectionDetailsText}>
+              {connectionDetails}
             </Text>
           )}
         </View>
@@ -902,5 +962,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     fontFamily: 'monospace',
+  },
+  connectionDetailsText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginTop: 12,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

@@ -168,14 +168,17 @@
                 });
                 log('✅ Screen capture started', 'success');
 
-                // Create peer connection
+                // Create peer connection with more ICE servers
                 log('Creating peer connection...', 'info');
                 peerConnection = new RTCPeerConnection({
                     iceServers: [
                         { urls: 'stun:stun.l.google.com:19302' },
                         { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' }
-                    ]
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' }
+                    ],
+                    iceCandidatePoolSize: 10
                 });
 
                 // Add tracks
@@ -188,12 +191,13 @@
                 const iceCandidates = [];
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
+                        const type = event.candidate.type || 'unknown';
                         iceCandidates.push({
                             candidate: event.candidate.candidate,
                             sdpMLineIndex: event.candidate.sdpMLineIndex,
                             sdpMid: event.candidate.sdpMid
                         });
-                        log(`ICE candidate collected (${iceCandidates.length})`, 'info');
+                        log(`ICE candidate collected: ${type} (total: ${iceCandidates.length})`, 'info');
                     } else {
                         log('✅ ICE gathering complete', 'success');
                     }
@@ -205,41 +209,76 @@
                     if (peerConnection.connectionState === 'connected') {
                         setStatus('Connected', 'connected');
                         log('🎉 WebRTC connection established!', 'success');
+                    } else if (peerConnection.connectionState === 'connecting') {
+                        setStatus('Connecting...', 'connecting');
                     } else if (peerConnection.connectionState === 'failed') {
                         setStatus('Connection Failed', 'error');
                         log('❌ Connection failed', 'error');
+                    } else if (peerConnection.connectionState === 'disconnected') {
+                        setStatus('Disconnected', 'error');
+                        log('⚠️ Connection disconnected', 'error');
                     }
                 };
 
                 peerConnection.oniceconnectionstatechange = () => {
                     log(`ICE connection state: ${peerConnection.iceConnectionState}`, 'info');
+                    if (peerConnection.iceConnectionState === 'checking') {
+                        log('🔍 Checking ICE connectivity...', 'info');
+                    } else if (peerConnection.iceConnectionState === 'connected') {
+                        log('✅ ICE connected', 'success');
+                    } else if (peerConnection.iceConnectionState === 'completed') {
+                        log('✅ ICE completed', 'success');
+                    } else if (peerConnection.iceConnectionState === 'failed') {
+                        log('❌ ICE connection failed', 'error');
+                    }
                 };
 
                 // Create offer
                 log('Creating WebRTC offer...', 'info');
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
-                log('✅ Offer created', 'success');
+                log('✅ Offer created and set as local description', 'success');
 
-                // Wait for ICE gathering
-                log('Waiting for ICE candidates...', 'info');
+                // Wait for ICE gathering with longer timeout
+                log('Waiting for ICE candidates (up to 8 seconds)...', 'info');
+                const gatheringStartTime = Date.now();
                 await new Promise((resolve) => {
+                    const timeout = setTimeout(() => {
+                        const elapsed = Date.now() - gatheringStartTime;
+                        log(`⏱️ ICE gathering timeout after ${elapsed}ms`, 'info');
+                        resolve();
+                    }, 8000); // 8 seconds to match mobile app
+                    
                     if (peerConnection.iceGatheringState === 'complete') {
+                        clearTimeout(timeout);
+                        const elapsed = Date.now() - gatheringStartTime;
+                        log(`✅ ICE gathering already complete (${elapsed}ms)`, 'success');
                         resolve();
                     } else {
                         const checkState = () => {
                             if (peerConnection.iceGatheringState === 'complete') {
+                                clearTimeout(timeout);
                                 peerConnection.removeEventListener('icegatheringstatechange', checkState);
+                                const elapsed = Date.now() - gatheringStartTime;
+                                log(`✅ ICE gathering completed in ${elapsed}ms`, 'success');
                                 resolve();
                             }
                         };
                         peerConnection.addEventListener('icegatheringstatechange', checkState);
-                        // Timeout after 5 seconds
-                        setTimeout(resolve, 5000);
                     }
                 });
 
                 log(`Collected ${iceCandidates.length} ICE candidates`, 'info');
+                
+                // Log candidate types
+                const candidateTypes = {};
+                iceCandidates.forEach(c => {
+                    const type = c.candidate.includes('typ host') ? 'host' :
+                                c.candidate.includes('typ srflx') ? 'srflx' :
+                                c.candidate.includes('typ relay') ? 'relay' : 'unknown';
+                    candidateTypes[type] = (candidateTypes[type] || 0) + 1;
+                });
+                log(`Candidate types: ${JSON.stringify(candidateTypes)}`, 'info');
 
                 // Send offer to server
                 log(`Sending offer to server for display: ${displayName}`, 'info');
@@ -281,8 +320,14 @@
         async function pollForAnswer() {
             if (!sessionId) return;
 
+            let pollCount = 0;
             pollInterval = setInterval(async () => {
                 try {
+                    pollCount++;
+                    if (pollCount % 5 === 0) {
+                        log(`Still polling for answer... (${pollCount} attempts)`, 'info');
+                    }
+
                     const response = await fetch(`${API_BASE}/screen-share-get-answer`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -296,14 +341,15 @@
 
                     const data = await response.json();
 
-                    if (data.has_answer) {
+                    if (data.has_answer && data.answer) {
                         clearInterval(pollInterval);
+                        pollInterval = null;
                         log('✅ Answer received from mobile app!', 'success');
-                        log(`Answer length: ${data.answer.length}`, 'info');
-                        log(`ICE candidates: ${data.answer_ice_candidates.length}`, 'info');
+                        log(`Answer SDP length: ${data.answer.length}`, 'info');
+                        log(`Answer ICE candidates: ${data.answer_ice_candidates.length}`, 'info');
 
                         // Set remote description
-                        log('Setting remote description...', 'info');
+                        log('Setting remote description (answer)...', 'info');
                         await peerConnection.setRemoteDescription({
                             type: 'answer',
                             sdp: data.answer
@@ -311,13 +357,26 @@
                         log('✅ Remote description set', 'success');
 
                         // Add ICE candidates
-                        log('Adding remote ICE candidates...', 'info');
-                        for (const candidate of data.answer_ice_candidates) {
-                            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        if (data.answer_ice_candidates && data.answer_ice_candidates.length > 0) {
+                            log(`Adding ${data.answer_ice_candidates.length} remote ICE candidates...`, 'info');
+                            let addedCount = 0;
+                            for (const candidate of data.answer_ice_candidates) {
+                                try {
+                                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                                    addedCount++;
+                                } catch (e) {
+                                    log(`⚠️ Failed to add ICE candidate: ${e.message}`, 'error');
+                                }
+                            }
+                            log(`✅ Added ${addedCount}/${data.answer_ice_candidates.length} ICE candidates`, 'success');
+                        } else {
+                            log('⚠️ No ICE candidates in answer', 'error');
                         }
-                        log(`✅ Added ${data.answer_ice_candidates.length} ICE candidates`, 'success');
 
-                        setStatus('Connecting...', 'connecting');
+                        setStatus('Establishing connection...', 'connecting');
+                        log('⏳ Waiting for WebRTC connection to establish...', 'info');
+                        log(`Current connection state: ${peerConnection.connectionState}`, 'info');
+                        log(`Current ICE state: ${peerConnection.iceConnectionState}`, 'info');
                     }
                 } catch (error) {
                     log(`Poll error: ${error.message}`, 'error');
