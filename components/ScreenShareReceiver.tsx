@@ -199,65 +199,76 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // ICE servers configuration
+    // ICE servers configuration - FIXED: All URLs now have proper 'stun:' prefix
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun1.l.google.com:19302' },
-      { urls: 'stun2.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
     ];
+    
+    log('ICE servers configured: ' + iceServers.length + ' STUN servers');
     
     // Create peer connection
     function createPeerConnection() {
-      log('Creating peer connection');
+      log('Creating peer connection with ICE servers');
       
-      const pc = new RTCPeerConnection({ iceServers });
-      
-      // Handle incoming stream
-      pc.ontrack = (event) => {
-        log('Received remote stream');
-        if (event.streams && event.streams[0]) {
-          videoEl.srcObject = event.streams[0];
-          updateStatus('connected', '✅ Connected');
-        }
-      };
-      
-      // Handle ICE candidates
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          log('ICE candidate generated: ' + event.candidate.candidate.substring(0, 50) + '...');
-          iceCandidates.push({
-            candidate: event.candidate.candidate,
-            sdpMLineIndex: event.candidate.sdpMLineIndex,
-            sdpMid: event.candidate.sdpMid,
-          });
-        } else {
-          log('ICE gathering complete');
-        }
-      };
-      
-      // Handle ICE gathering state
-      pc.onicegatheringstatechange = () => {
-        log('ICE gathering state: ' + pc.iceGatheringState);
-      };
-      
-      // Handle connection state changes
-      pc.onconnectionstatechange = () => {
-        log('Connection state: ' + pc.connectionState);
+      try {
+        const pc = new RTCPeerConnection({ iceServers });
+        log('✅ RTCPeerConnection created successfully');
         
-        if (pc.connectionState === 'connected') {
-          updateStatus('connected', '✅ Connected');
-        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-          showError('Connection lost');
-          cleanup();
-        }
-      };
-      
-      // Handle ICE connection state
-      pc.oniceconnectionstatechange = () => {
-        log('ICE connection state: ' + pc.iceConnectionState);
-      };
-      
-      return pc;
+        // Handle incoming stream
+        pc.ontrack = (event) => {
+          log('Received remote stream');
+          if (event.streams && event.streams[0]) {
+            videoEl.srcObject = event.streams[0];
+            updateStatus('connected', '✅ Connected');
+          }
+        };
+        
+        // Handle ICE candidates
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            log('ICE candidate generated: ' + event.candidate.candidate.substring(0, 50) + '...');
+            iceCandidates.push({
+              candidate: event.candidate.candidate,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              sdpMid: event.candidate.sdpMid,
+            });
+          } else {
+            log('ICE gathering complete');
+          }
+        };
+        
+        // Handle ICE gathering state
+        pc.onicegatheringstatechange = () => {
+          log('ICE gathering state: ' + pc.iceGatheringState);
+        };
+        
+        // Handle connection state changes
+        pc.onconnectionstatechange = () => {
+          log('Connection state: ' + pc.connectionState);
+          
+          if (pc.connectionState === 'connected') {
+            updateStatus('connected', '✅ Connected');
+          } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+            showError('Connection lost');
+            cleanup();
+          }
+        };
+        
+        // Handle ICE connection state
+        pc.oniceconnectionstatechange = () => {
+          log('ICE connection state: ' + pc.iceConnectionState);
+        };
+        
+        return pc;
+      } catch (error) {
+        log('❌ Failed to create RTCPeerConnection: ' + error.message);
+        showError('Failed to create peer connection: ' + error.message);
+        throw error;
+      }
     }
     
     // Handle screen share offer
