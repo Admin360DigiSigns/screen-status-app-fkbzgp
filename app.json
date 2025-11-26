@@ -1,6 +1,7 @@
+
 {
   "expo": {
-    "name": "screen-status-app-fkbzgp",
+    "name": "DigiSigns Display",
     "slug": "screen-status-app-fkbzgp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,9 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.digisigns.digisignsapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "This app needs camera access for screen sharing features.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for screen sharing features."
       }
     },
     "android": {
@@ -25,7 +28,15 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.digisign.digisignapp"
+      "package": "com.digisigns.digisignsapp",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "WAKE_LOCK"
+      ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -34,15 +45,21 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-webrtc",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera for screen sharing.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for screen sharing."
+        }
+      ]
     ],
-    "scheme": "natively",
+    "scheme": "digisigns",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "Screen Status"
+  }
 }
