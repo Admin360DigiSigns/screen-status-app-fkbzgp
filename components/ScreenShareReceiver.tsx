@@ -12,22 +12,31 @@ interface ScreenShareReceiverProps {
 }
 
 export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProps) {
-  const { user } = useAuth();
+  const { username, password, screenName } = useAuth();
   const [status, setStatus] = useState<'idle' | 'polling' | 'connecting' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const webViewRef = useRef<WebView>(null);
 
   // Check if we have the required credentials
   useEffect(() => {
-    if (!user?.screen_username || !user?.screen_password || !user?.screen_name) {
+    if (!username || !password || !screenName) {
+      console.error('Missing credentials:', { 
+        hasUsername: !!username, 
+        hasPassword: !!password, 
+        hasScreenName: !!screenName 
+      });
       setStatus('error');
-      setErrorMessage('Not authenticated');
+      setErrorMessage('Not authenticated - missing credentials');
       return;
     }
 
-    console.log('Starting screen share receiver');
+    console.log('Starting screen share receiver with credentials:', {
+      username,
+      screenName,
+      hasPassword: !!password,
+    });
     setStatus('polling');
-  }, [user]);
+  }, [username, password, screenName]);
 
   // Handle messages from WebView
   const handleWebViewMessage = useCallback((event: any) => {
@@ -74,10 +83,16 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   // Generate the HTML content for WebView
   const generateHTML = () => {
     const credentials = {
-      screen_username: user?.screen_username || '',
-      screen_password: user?.screen_password || '',
-      screen_name: user?.screen_name || '',
+      screen_username: username || '',
+      screen_password: password || '',
+      screen_name: screenName || '',
     };
+
+    console.log('Generating HTML with credentials:', {
+      screen_username: credentials.screen_username,
+      screen_name: credentials.screen_name,
+      hasPassword: !!credentials.screen_password,
+    });
 
     return `
 <!DOCTYPE html>
@@ -147,6 +162,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     const ICE_GATHERING_TIMEOUT = 5000;
     
     const credentials = ${JSON.stringify(credentials)};
+    
+    console.log('WebView initialized with credentials:', {
+      screen_username: credentials.screen_username,
+      screen_name: credentials.screen_name,
+      hasPassword: !!credentials.screen_password,
+    });
     
     let peerConnection = null;
     let pollingInterval = null;
@@ -261,7 +282,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         log('Collected ' + iceCandidates.length + ' ICE candidates');
         
-        // Send answer to server
+        // Send answer to server with credentials
+        log('Sending answer with credentials: ' + JSON.stringify({
+          screen_username: credentials.screen_username,
+          screen_name: credentials.screen_name,
+          hasPassword: !!credentials.screen_password,
+        }));
+        
         const response = await fetch(API_URL + '/screen-share-send-answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -275,8 +302,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           }),
         });
         
+        log('Answer response status: ' + response.status);
+        
         if (!response.ok) {
-          throw new Error('Failed to send answer: ' + response.status);
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          throw new Error('Failed to send answer: ' + response.status + ' - ' + (errorData.error || 'Unknown error'));
         }
         
         log('Answer sent successfully');
@@ -310,23 +340,37 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       }
       
       try {
+        log('Polling for offers with credentials: ' + JSON.stringify({
+          screen_username: credentials.screen_username,
+          screen_name: credentials.screen_name,
+          hasPassword: !!credentials.screen_password,
+        }));
+        
         const response = await fetch(API_URL + '/screen-share-get-offer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(credentials),
         });
         
+        log('Poll response status: ' + response.status);
+        
         if (response.status === 200) {
           const data = await response.json();
           if (data.session) {
             log('Screen share offer available');
             await handleOffer(data.session);
+          } else {
+            log('No session available');
           }
         } else if (response.status === 401) {
-          showError('Invalid credentials');
+          const errorData = await response.json().catch(() => ({ error: 'Invalid credentials' }));
+          showError('Authentication failed: ' + errorData.error);
           if (pollingInterval) {
             clearInterval(pollingInterval);
           }
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          log('Poll error: ' + response.status + ' - ' + errorData.error);
         }
       } catch (error) {
         log('Polling error: ' + error.message);
@@ -378,6 +422,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         <View style={styles.messageContainer}>
           <Text style={styles.title}>Connection Error</Text>
           <Text style={styles.errorText}>{errorMessage}</Text>
+          <Text style={styles.debugText}>
+            Debug Info:{'\n'}
+            Username: {username || 'missing'}{'\n'}
+            Screen Name: {screenName || 'missing'}{'\n'}
+            Password: {password ? 'present' : 'missing'}
+          </Text>
           <View style={styles.buttonRow}>
             <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -448,6 +498,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           <Text style={styles.loadingSubtext}>
             Start a screen share from your web app to see it here
           </Text>
+          <Text style={styles.debugText}>
+            Authenticated as: {username} ({screenName})
+          </Text>
         </View>
       )}
     </View>
@@ -491,6 +544,14 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  debugText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 12,
+    marginBottom: 12,
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
   buttonRow: {
     flexDirection: 'row',

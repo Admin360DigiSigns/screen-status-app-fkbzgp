@@ -5,10 +5,12 @@ export const colors = {
   background: '#f0f0f0',
   text: '#333333',
   textSecondary: '#777777',
+  secondaryText: '#999999',
   primary: '#007BFF',
   secondary: '#6C757D',
   accent: '#28A745',
   card: '#FFFFFF',
+  cardBackground: '#FFFFFF',
   highlight: '#FFC107',
 };
 
