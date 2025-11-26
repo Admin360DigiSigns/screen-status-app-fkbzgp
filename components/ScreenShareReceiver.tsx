@@ -199,37 +199,103 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // Validate and clean SDP string
-    function validateAndCleanSDP(sdp, type) {
-      log('Validating ' + type + ' SDP...');
+    // Enhanced SDP validation and cleaning
+    function validateAndCleanSDP(sdpInput, type) {
+      log('🔍 Validating ' + type + ' SDP...');
+      log('Input type: ' + typeof sdpInput);
+      log('Input length: ' + (sdpInput ? String(sdpInput).length : 0));
       
-      if (!sdp || typeof sdp !== 'string') {
-        throw new Error('SDP is not a valid string');
+      if (!sdpInput) {
+        throw new Error('SDP is null or undefined');
       }
+      
+      // Convert to string if it's an object
+      let sdpString;
+      if (typeof sdpInput === 'object') {
+        log('⚠️ SDP is an object, attempting to extract string...');
+        
+        // Check if it's an SDP object with type and sdp properties
+        if (sdpInput.sdp && typeof sdpInput.sdp === 'string') {
+          sdpString = sdpInput.sdp;
+          log('✅ Extracted SDP from object.sdp property');
+        } else {
+          // Try to stringify and parse
+          try {
+            const jsonStr = JSON.stringify(sdpInput);
+            log('Object as JSON: ' + jsonStr.substring(0, 200));
+            
+            // Try to parse if it looks like a JSON string
+            if (jsonStr.includes('"sdp"')) {
+              const parsed = JSON.parse(jsonStr);
+              if (parsed.sdp) {
+                sdpString = parsed.sdp;
+                log('✅ Extracted SDP from parsed JSON');
+              }
+            }
+          } catch (e) {
+            log('❌ Failed to extract SDP from object: ' + e.message);
+          }
+          
+          if (!sdpString) {
+            throw new Error('SDP object does not contain valid sdp property');
+          }
+        }
+      } else if (typeof sdpInput === 'string') {
+        sdpString = sdpInput;
+      } else {
+        throw new Error('SDP is not a string or object: ' + typeof sdpInput);
+      }
+      
+      log('SDP string length: ' + sdpString.length);
+      log('First 100 chars: ' + sdpString.substring(0, 100));
       
       // Remove any leading/trailing whitespace
-      let cleanedSDP = sdp.trim();
+      let cleanedSDP = sdpString.trim();
       
-      // Remove any quotes that might wrap the SDP
-      if (cleanedSDP.startsWith('"') && cleanedSDP.endsWith('"')) {
+      // Remove wrapping quotes (single or double)
+      while ((cleanedSDP.startsWith('"') && cleanedSDP.endsWith('"')) ||
+             (cleanedSDP.startsWith("'") && cleanedSDP.endsWith("'"))) {
         cleanedSDP = cleanedSDP.slice(1, -1);
-        log('Removed wrapping quotes from SDP');
+        log('Removed wrapping quotes');
       }
       
-      // Unescape any escaped newlines
+      // Handle various escape sequences
+      // First, handle double-escaped sequences
+      cleanedSDP = cleanedSDP.replace(/\\\\\\\\r\\\\\\\\n/g, '\\r\\n');
+      cleanedSDP = cleanedSDP.replace(/\\\\\\\\n/g, '\\n');
+      cleanedSDP = cleanedSDP.replace(/\\\\\\\\r/g, '\\r');
+      
+      // Then handle single-escaped sequences
       cleanedSDP = cleanedSDP.replace(/\\\\r\\\\n/g, '\\r\\n');
       cleanedSDP = cleanedSDP.replace(/\\\\n/g, '\\n');
+      cleanedSDP = cleanedSDP.replace(/\\\\r/g, '\\r');
       
-      // Normalize line endings to \\r\\n (SDP standard)
+      // Handle JSON-escaped sequences
       cleanedSDP = cleanedSDP.replace(/\\r\\n/g, '\\n');
       cleanedSDP = cleanedSDP.replace(/\\r/g, '\\n');
-      cleanedSDP = cleanedSDP.replace(/\\n/g, '\\r\\n');
+      
+      log('After escape sequence handling, length: ' + cleanedSDP.length);
+      
+      // Normalize all line endings to \\r\\n (SDP standard)
+      const lines = cleanedSDP.split(/\\r?\\n/);
+      cleanedSDP = lines.join('\\r\\n');
+      
+      log('After line ending normalization: ' + lines.length + ' lines');
+      log('First line: "' + lines[0] + '"');
+      log('Second line: "' + (lines[1] || 'N/A') + '"');
+      
+      // Remove any empty lines at the start
+      while (cleanedSDP.startsWith('\\r\\n') || cleanedSDP.startsWith('\\n')) {
+        cleanedSDP = cleanedSDP.replace(/^\\r?\\n/, '');
+        log('Removed leading empty line');
+      }
       
       // Check if SDP starts with v=0 (required first line)
       if (!cleanedSDP.startsWith('v=')) {
         log('❌ SDP does not start with v= line');
-        log('SDP first 100 chars: ' + cleanedSDP.substring(0, 100));
-        throw new Error('Invalid SDP format: must start with v= line');
+        log('First 200 chars: ' + cleanedSDP.substring(0, 200));
+        log('Char codes of first 10 chars: ' + Array.from(cleanedSDP.substring(0, 10)).map(c => c.charCodeAt(0)).join(', '));
+        throw new Error('Invalid SDP format: must start with v= line. First chars: "' + cleanedSDP.substring(0, 50) + '"');
       }
       
       // Validate that SDP has required lines
@@ -237,18 +303,18 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       const sdpLines = cleanedSDP.split('\\r\\n');
       
       log('SDP has ' + sdpLines.length + ' lines');
-      log('First line: ' + sdpLines[0]);
       
       for (const required of requiredLines) {
         const hasLine = sdpLines.some(line => line.startsWith(required));
         if (!hasLine) {
           log('❌ Missing required SDP line: ' + required);
+          log('Available line prefixes: ' + sdpLines.slice(0, 10).map(l => l.substring(0, 5)).join(', '));
           throw new Error('Invalid SDP format: missing ' + required + ' line');
         }
       }
       
       log('✅ SDP validation passed');
-      log('SDP preview (first 200 chars): ' + cleanedSDP.substring(0, 200));
+      log('Final SDP preview (first 300 chars): ' + cleanedSDP.substring(0, 300));
       
       return cleanedSDP;
     }
@@ -338,7 +404,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       try {
         log('Processing offer for session: ' + offerData.id);
         log('Raw offer type: ' + typeof offerData.offer);
-        log('Raw offer length: ' + (offerData.offer ? offerData.offer.length : 0));
+        log('Raw offer value: ' + JSON.stringify(offerData.offer).substring(0, 200));
         
         // Validate and clean the offer SDP
         let cleanedOfferSDP;
@@ -519,7 +585,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             log('Session ID: ' + data.session.id);
             log('Session status: ' + data.session.status);
             log('Offer type: ' + typeof data.session.offer);
-            log('Offer length: ' + (data.session.offer ? data.session.offer.length : 0));
+            log('Offer preview: ' + JSON.stringify(data.session.offer).substring(0, 200));
             await handleOffer(data.session);
           } else {
             log('No session available yet');
