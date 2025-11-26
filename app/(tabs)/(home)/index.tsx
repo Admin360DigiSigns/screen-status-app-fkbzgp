@@ -253,7 +253,7 @@ export default function HomeScreen() {
     outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
   });
 
-  // TV Layout - Professional design with focus states
+  // TV Layout - Compact professional design
   if (isTVDevice) {
     return (
       <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
@@ -263,7 +263,7 @@ export default function HomeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {/* Logo and Status Header */}
+          {/* Compact Header */}
           <View style={styles.tvHeader}>
             <Image
               source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
@@ -294,18 +294,19 @@ export default function HomeScreen() {
             </Animated.View>
           </View>
 
+          {/* Compact Main Content */}
           <View style={styles.tvMainContent}>
-            {/* Left Column - Info Cards */}
-            <View style={styles.tvLeftColumn}>
-              <View style={styles.tvInfoCard}>
-                <LinearGradient
-                  colors={['#1E293B', '#334155']}
-                  style={styles.tvCardGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                >
-                  <Text style={styles.tvCardTitle}>Display Information</Text>
-                  
+            {/* Info Card - Compact */}
+            <View style={styles.tvInfoCard}>
+              <LinearGradient
+                colors={['#1E293B', '#334155']}
+                style={styles.tvCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+              >
+                <Text style={styles.tvCardTitle}>Display Information</Text>
+                
+                <View style={styles.tvInfoRow}>
                   <View style={styles.tvInfoItem}>
                     <Text style={styles.tvInfoItemLabel}>Username</Text>
                     <Text style={styles.tvInfoItemValue}>{username}</Text>
@@ -315,7 +316,9 @@ export default function HomeScreen() {
                     <Text style={styles.tvInfoItemLabel}>Screen Name</Text>
                     <Text style={styles.tvInfoItemValue}>{screenName}</Text>
                   </View>
-                  
+                </View>
+                
+                <View style={styles.tvInfoRow}>
                   <View style={styles.tvInfoItem}>
                     <Text style={styles.tvInfoItemLabel}>Device ID</Text>
                     <Text style={styles.tvInfoItemValue} numberOfLines={1} ellipsizeMode="middle">
@@ -331,8 +334,10 @@ export default function HomeScreen() {
                       </Text>
                     </View>
                   )}
+                </View>
 
-                  {syncStatus && (
+                {syncStatus && (
+                  <View style={styles.tvInfoRow}>
                     <View style={styles.tvInfoItem}>
                       <Text style={styles.tvInfoItemLabel}>Sync Status</Text>
                       <Text style={[
@@ -342,13 +347,13 @@ export default function HomeScreen() {
                         {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
                       </Text>
                     </View>
-                  )}
-                </LinearGradient>
-              </View>
+                  </View>
+                )}
+              </LinearGradient>
             </View>
 
-            {/* Right Column - Action Buttons */}
-            <View style={styles.tvRightColumn}>
+            {/* Action Buttons Grid - 2x2 Layout */}
+            <View style={styles.tvButtonsGrid}>
               <TouchableOpacity 
                 style={[
                   styles.tvButton,
@@ -371,7 +376,7 @@ export default function HomeScreen() {
                   ) : (
                     <React.Fragment>
                       <Text style={styles.tvButtonIcon}>🎬</Text>
-                      <Text style={styles.tvButtonText}>Preview Content</Text>
+                      <Text style={styles.tvButtonText}>Preview</Text>
                     </React.Fragment>
                   )}
                 </LinearGradient>
@@ -444,7 +449,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Footer */}
+          {/* Compact Footer */}
           <View style={styles.tvFooter}>
             <Text style={styles.tvFooterText}>
               ℹ️ Status updates sent every 1 minute • Updates only when on this screen
@@ -938,37 +943,37 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // TV styles - Professional design
+  // TV styles - Compact professional design
   tvContainer: {
     flex: 1,
   },
   tvGradientBackground: {
     flex: 1,
-    paddingHorizontal: 60,
-    paddingVertical: 40,
+    paddingHorizontal: 50,
+    paddingVertical: 30,
   },
   tvHeader: {
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   tvHeaderLogo: {
-    width: 300,
-    height: 100,
-    marginBottom: 24,
+    width: 200,
+    height: 60,
+    marginBottom: 16,
   },
   tvStatusBanner: {
     width: '100%',
-    maxWidth: 1200,
-    borderRadius: 20,
+    maxWidth: 900,
+    borderRadius: 14,
     overflow: 'hidden',
-    elevation: 12,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
+    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   tvStatusGradient: {
-    paddingVertical: 24,
-    paddingHorizontal: 40,
+    paddingVertical: 16,
+    paddingHorizontal: 28,
   },
   tvStatusContent: {
     flexDirection: 'row',
@@ -976,137 +981,142 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tvStatusDot: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginRight: 20,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 14,
   },
   tvStatusTextContainer: {
     flex: 1,
   },
   tvStatusLabel: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '700',
     color: 'rgba(255, 255, 255, 0.8)',
-    letterSpacing: 2,
-    marginBottom: 4,
+    letterSpacing: 1.5,
+    marginBottom: 3,
   },
   tvStatusName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 1,
-  },
-  tvStatusBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  tvStatusBadgeText: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
+  },
+  tvStatusBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  tvStatusBadgeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
   },
   tvMainContent: {
     flex: 1,
-    flexDirection: 'row',
-    gap: 40,
-    marginTop: 20,
-  },
-  tvLeftColumn: {
-    flex: 1,
     justifyContent: 'center',
-  },
-  tvRightColumn: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 20,
+    alignItems: 'center',
+    gap: 24,
   },
   tvInfoCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-  },
-  tvCardGradient: {
-    padding: 32,
-  },
-  tvCardTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 24,
-    letterSpacing: 1,
-  },
-  tvInfoItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  tvInfoItemLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    flex: 1,
-  },
-  tvInfoItemValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    flex: 2,
-    textAlign: 'right',
-  },
-  tvButton: {
-    borderRadius: 16,
+    width: '100%',
+    maxWidth: 900,
+    borderRadius: 14,
     overflow: 'hidden',
     elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
+  tvCardGradient: {
+    padding: 20,
+  },
+  tvCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    letterSpacing: 0.8,
+  },
+  tvInfoRow: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 8,
+  },
+  tvInfoItem: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+  },
+  tvInfoItemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  tvInfoItemValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  tvButtonsGrid: {
+    width: '100%',
+    maxWidth: 900,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'center',
+  },
+  tvButton: {
+    width: '48%',
+    minWidth: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
   tvButtonFocused: {
-    elevation: 16,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
+    elevation: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
     transform: [{ scale: 1.05 }],
   },
   tvButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 32,
-    gap: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    gap: 12,
   },
   tvButtonIcon: {
-    fontSize: 28,
+    fontSize: 22,
   },
   tvButtonText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 17,
     fontWeight: 'bold',
-    letterSpacing: 1,
+    letterSpacing: 0.6,
   },
   tvFooter: {
-    marginTop: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   tvFooterText: {
-    fontSize: 16,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     fontWeight: '500',
