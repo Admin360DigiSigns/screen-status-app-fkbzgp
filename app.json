@@ -1,7 +1,7 @@
 
 {
   "expo": {
-    "name": "DigiSigns Screen Share",
+    "name": "screen-status-app-fkbzgp",
     "slug": "screen-status-app-fkbzgp",
     "version": "2.0.0",
     "orientation": "portrait",
@@ -38,7 +38,8 @@
         "MODIFY_AUDIO_SETTINGS",
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
-      ]
+      ],
+      "buildToolsVersion": "29.0.3"
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -56,5 +57,6 @@
     "extra": {
       "router": {}
     }
-  }
+  },
+  "scheme": "Screen Status"
 }
