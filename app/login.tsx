@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,14 @@ import {
   ScrollView,
   Alert,
   Image,
+  Animated,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
 import { router } from 'expo-router';
 import { isTV } from '@/utils/deviceUtils';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -25,8 +27,28 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [screenName, setScreenName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [focusedButton, setFocusedButton] = useState<string | null>(null);
+
+  // Animation values
+  const fadeInAnim = useRef(new Animated.Value(0)).current;
+  const slideUpAnim = useRef(new Animated.Value(50)).current;
 
   const isTVDevice = isTV();
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeInAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideUpAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleLogin = async () => {
     if (!networkState.isConnected) {
@@ -77,82 +99,113 @@ export default function LoginScreen() {
 
   const isOnline = networkState.isConnected === true;
 
-  // TV Layout - Single screen, no scrolling
+  // TV Layout - Professional design
   if (isTVDevice) {
     return (
-      <View style={styles.tvContainer}>
-        <View style={styles.tvContent}>
-          <Image
-            source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-            style={styles.tvLogo}
-            resizeMode="contain"
-          />
-          
-          <View style={[styles.tvConnectionBadge, { backgroundColor: isOnline ? colors.accent : colors.secondary }]}>
-            <Text style={styles.tvConnectionText}>
-              {isOnline ? '● Connected' : '● Offline'}
-            </Text>
-          </View>
-
-          <View style={styles.tvFormCard}>
-            <View style={styles.tvInputRow}>
-              <Text style={styles.tvLabel}>Username</Text>
-              <TextInput
-                style={styles.tvInput}
-                placeholder="Enter username"
-                placeholderTextColor={colors.textSecondary}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
+      <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
+        <LinearGradient
+          colors={['#0F172A', '#1E293B', '#334155']}
+          style={styles.tvGradientBackground}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }] }]}>
+            <Image
+              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+              style={styles.tvLogo}
+              resizeMode="contain"
+            />
+            
+            <View style={styles.tvConnectionBadgeContainer}>
+              <LinearGradient
+                colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                style={styles.tvConnectionBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.tvConnectionText}>
+                  {isOnline ? '● Connected' : '● Offline'}
+                </Text>
+              </LinearGradient>
             </View>
 
-            <View style={styles.tvInputRow}>
-              <Text style={styles.tvLabel}>Password</Text>
-              <TextInput
-                style={styles.tvInput}
-                placeholder="Enter password"
-                placeholderTextColor={colors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-            </View>
+            <View style={styles.tvFormCard}>
+              <LinearGradient
+                colors={['#1E293B', '#334155']}
+                style={styles.tvFormGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+              >
+                <View style={styles.tvInputRow}>
+                  <Text style={styles.tvLabel}>Username</Text>
+                  <TextInput
+                    style={styles.tvInput}
+                    placeholder="Enter username"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                </View>
 
-            <View style={styles.tvInputRow}>
-              <Text style={styles.tvLabel}>Screen Name</Text>
-              <TextInput
-                style={styles.tvInput}
-                placeholder="e.g., Main Lobby Display"
-                placeholderTextColor={colors.textSecondary}
-                value={screenName}
-                onChangeText={setScreenName}
-                autoCapitalize="words"
-                editable={!isLoading}
-              />
-            </View>
+                <View style={styles.tvInputRow}>
+                  <Text style={styles.tvLabel}>Password</Text>
+                  <TextInput
+                    style={styles.tvInput}
+                    placeholder="Enter password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                </View>
 
-            <TouchableOpacity
-              style={[
-                styles.tvLoginButton,
-                (!isOnline || isLoading) && styles.tvLoginButtonDisabled,
-              ]}
-              onPress={handleLogin}
-              disabled={!isOnline || isLoading}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.tvLoginButtonText}>
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+                <View style={styles.tvInputRow}>
+                  <Text style={styles.tvLabel}>Screen Name</Text>
+                  <TextInput
+                    style={styles.tvInput}
+                    placeholder="e.g., Main Lobby Display"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={screenName}
+                    onChangeText={setScreenName}
+                    autoCapitalize="words"
+                    editable={!isLoading}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.tvLoginButton,
+                    focusedButton === 'login' && styles.tvLoginButtonFocused,
+                    (!isOnline || isLoading) && styles.tvLoginButtonDisabled,
+                  ]}
+                  onPress={handleLogin}
+                  onFocus={() => setFocusedButton('login')}
+                  onBlur={() => setFocusedButton(null)}
+                  disabled={!isOnline || isLoading}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={focusedButton === 'login' ? ['#3B82F6', '#2563EB', '#1D4ED8'] : ['#2563EB', '#1E40AF', '#1E3A8A']}
+                    style={styles.tvLoginButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.tvLoginButtonText}>
+                      {isLoading ? 'Logging in...' : 'Login'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          </Animated.View>
+        </LinearGradient>
+      </Animated.View>
     );
   }
 
@@ -354,80 +407,112 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // TV styles - optimized for single screen display
+  // TV styles - Professional design
   tvContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+  },
+  tvGradientBackground: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 60,
+    paddingVertical: 40,
   },
   tvContent: {
-    width: '85%',
+    width: '100%',
     maxWidth: 1200,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tvLogo: {
-    width: 350,
+    width: 400,
     height: 140,
-    marginBottom: 30,
+    marginBottom: 40,
+  },
+  tvConnectionBadgeContainer: {
+    marginBottom: 40,
+    borderRadius: 25,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   tvConnectionBadge: {
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginBottom: 30,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
   },
   tvConnectionText: {
-    color: colors.card,
-    fontSize: 22,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   tvFormCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 40,
     width: '100%',
-    boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.2)',
-    elevation: 6,
+    borderRadius: 24,
+    overflow: 'hidden',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+  tvFormGradient: {
+    padding: 48,
   },
   tvInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 28,
   },
   tvLabel: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    width: 180,
-    marginRight: 20,
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    width: 200,
+    marginRight: 24,
   },
   tvInput: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 14,
+    paddingHorizontal: 24,
+    paddingVertical: 18,
     fontSize: 20,
-    color: colors.text,
+    color: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   tvLoginButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 20,
-    alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  tvLoginButtonFocused: {
+    elevation: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    transform: [{ scale: 1.05 }],
   },
   tvLoginButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.6,
+    opacity: 0.5,
+  },
+  tvLoginButtonGradient: {
+    paddingVertical: 24,
+    alignItems: 'center',
   },
   tvLoginButtonText: {
-    color: colors.card,
-    fontSize: 24,
+    color: '#FFFFFF',
+    fontSize: 26,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
