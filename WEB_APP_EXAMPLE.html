@@ -1,0 +1,348 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen Share - Web App Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 200px;
+        }
+        #logs {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+        }
+        .log-success {
+            color: green;
+        }
+        .log-error {
+            color: red;
+        }
+        .log-info {
+            color: blue;
+        }
+        #status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status-idle {
+            background-color: #f0f0f0;
+        }
+        .status-connecting {
+            background-color: #fff3cd;
+        }
+        .status-connected {
+            background-color: #d4edda;
+        }
+        .status-error {
+            background-color: #f8d7da;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖥️ Screen Share - Web App Example</h1>
+    
+    <div class="container">
+        <h2>Configuration</h2>
+        <div>
+            <label>Display Name:</label>
+            <input type="text" id="displayName" value="test-display" placeholder="Enter display name">
+        </div>
+        <div id="status" class="status-idle">Status: Idle</div>
+    </div>
+
+    <div class="container">
+        <h2>Controls</h2>
+        <button id="startBtn" onclick="startScreenShare()">Start Screen Share</button>
+        <button id="stopBtn" onclick="stopScreenShare()" disabled>Stop Screen Share</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div class="container">
+        <h2>Logs</h2>
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
+        let peerConnection = null;
+        let localStream = null;
+        let sessionId = null;
+        let pollInterval = null;
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function setStatus(message, type = 'idle') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = `Status: ${message}`;
+            statusDiv.className = `status-${type}`;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        async function startScreenShare() {
+            try {
+                const displayName = document.getElementById('displayName').value;
+                if (!displayName) {
+                    alert('Please enter a display name');
+                    return;
+                }
+
+                log('Starting screen share...', 'info');
+                setStatus('Starting...', 'connecting');
+                
+                document.getElementById('startBtn').disabled = true;
+
+                // Get screen stream
+                log('Requesting screen capture...', 'info');
+                localStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: {
+                        cursor: 'always'
+                    },
+                    audio: false
+                });
+                log('✅ Screen capture started', 'success');
+
+                // Create peer connection
+                log('Creating peer connection...', 'info');
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' }
+                    ]
+                });
+
+                // Add tracks
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                    log(`Added ${track.kind} track`, 'info');
+                });
+
+                // Collect ICE candidates
+                const iceCandidates = [];
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        iceCandidates.push({
+                            candidate: event.candidate.candidate,
+                            sdpMLineIndex: event.candidate.sdpMLineIndex,
+                            sdpMid: event.candidate.sdpMid
+                        });
+                        log(`ICE candidate collected (${iceCandidates.length})`, 'info');
+                    } else {
+                        log('✅ ICE gathering complete', 'success');
+                    }
+                };
+
+                // Monitor connection state
+                peerConnection.onconnectionstatechange = () => {
+                    log(`Connection state: ${peerConnection.connectionState}`, 'info');
+                    if (peerConnection.connectionState === 'connected') {
+                        setStatus('Connected', 'connected');
+                        log('🎉 WebRTC connection established!', 'success');
+                    } else if (peerConnection.connectionState === 'failed') {
+                        setStatus('Connection Failed', 'error');
+                        log('❌ Connection failed', 'error');
+                    }
+                };
+
+                peerConnection.oniceconnectionstatechange = () => {
+                    log(`ICE connection state: ${peerConnection.iceConnectionState}`, 'info');
+                };
+
+                // Create offer
+                log('Creating WebRTC offer...', 'info');
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                log('✅ Offer created', 'success');
+
+                // Wait for ICE gathering
+                log('Waiting for ICE candidates...', 'info');
+                await new Promise((resolve) => {
+                    if (peerConnection.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        const checkState = () => {
+                            if (peerConnection.iceGatheringState === 'complete') {
+                                peerConnection.removeEventListener('icegatheringstatechange', checkState);
+                                resolve();
+                            }
+                        };
+                        peerConnection.addEventListener('icegatheringstatechange', checkState);
+                        // Timeout after 5 seconds
+                        setTimeout(resolve, 5000);
+                    }
+                });
+
+                log(`Collected ${iceCandidates.length} ICE candidates`, 'info');
+
+                // Send offer to server
+                log('Sending offer to server...', 'info');
+                const response = await fetch(`${API_BASE}/screen-share-create-offer`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        display_id: displayName,
+                        offer: offer.sdp,
+                        ice_candidates: iceCandidates
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to create offer: ${response.status}`);
+                }
+
+                const data = await response.json();
+                sessionId = data.session_id;
+                log(`✅ Offer sent successfully. Session ID: ${sessionId}`, 'success');
+
+                // Start polling for answer
+                setStatus('Waiting for mobile app...', 'connecting');
+                log('Polling for answer from mobile app...', 'info');
+                pollForAnswer();
+
+                document.getElementById('stopBtn').disabled = false;
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                setStatus('Error', 'error');
+                document.getElementById('startBtn').disabled = false;
+                stopScreenShare();
+            }
+        }
+
+        async function pollForAnswer() {
+            if (!sessionId) return;
+
+            pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/screen-share-get-answer`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId })
+                    });
+
+                    if (!response.ok) {
+                        log(`Poll failed: ${response.status}`, 'error');
+                        return;
+                    }
+
+                    const data = await response.json();
+
+                    if (data.has_answer) {
+                        clearInterval(pollInterval);
+                        log('✅ Answer received from mobile app!', 'success');
+                        log(`Answer length: ${data.answer.length}`, 'info');
+                        log(`ICE candidates: ${data.answer_ice_candidates.length}`, 'info');
+
+                        // Set remote description
+                        log('Setting remote description...', 'info');
+                        await peerConnection.setRemoteDescription({
+                            type: 'answer',
+                            sdp: data.answer
+                        });
+                        log('✅ Remote description set', 'success');
+
+                        // Add ICE candidates
+                        log('Adding remote ICE candidates...', 'info');
+                        for (const candidate of data.answer_ice_candidates) {
+                            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        }
+                        log(`✅ Added ${data.answer_ice_candidates.length} ICE candidates`, 'success');
+
+                        setStatus('Connecting...', 'connecting');
+                    }
+                } catch (error) {
+                    log(`Poll error: ${error.message}`, 'error');
+                }
+            }, 1000); // Poll every second
+        }
+
+        function stopScreenShare() {
+            log('Stopping screen share...', 'info');
+
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+
+            sessionId = null;
+            setStatus('Idle', 'idle');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            log('✅ Screen share stopped', 'success');
+        }
+
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            stopScreenShare();
+        });
+
+        log('Web app ready. Enter display name and click "Start Screen Share"', 'info');
+    </script>
+</body>
+</html>

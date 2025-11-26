@@ -6,7 +6,8 @@
  * It implements polling for screen share offers and sending answers back to the server.
  */
 
-const BASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
+const SUPABASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co';
+const BASE_URL = `${SUPABASE_URL}/functions/v1`;
 
 export interface ScreenShareCredentials {
   screen_username: string;
@@ -48,7 +49,8 @@ export const getScreenShareOffer = async (
   credentials: ScreenShareCredentials
 ): Promise<{ success: boolean; data?: ScreenShareOfferResponse; error?: string; status?: number }> => {
   try {
-    console.log('Polling for screen share offer...');
+    console.log('📡 Polling for screen share offer...');
+    console.log('API URL:', `${BASE_URL}/screen-share-get-offer`);
     
     const response = await fetch(`${BASE_URL}/screen-share-get-offer`, {
       method: 'POST',
@@ -82,7 +84,7 @@ export const getScreenShareOffer = async (
       };
     } else if (response.status === 401) {
       const errorData = await response.json().catch(() => ({ error: 'Invalid display credentials' }));
-      console.error('Authentication failed:', errorData);
+      console.error('❌ Authentication failed:', errorData);
       return {
         success: false,
         error: errorData.error || 'Invalid display credentials',
@@ -90,7 +92,7 @@ export const getScreenShareOffer = async (
       };
     } else {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Failed to get offer:', response.status, errorData);
+      console.error('❌ Failed to get offer:', response.status, errorData);
       return {
         success: false,
         error: errorData.error || 'Failed to get screen share offer',
@@ -98,9 +100,10 @@ export const getScreenShareOffer = async (
       };
     }
   } catch (error) {
-    console.error('Error getting screen share offer:', error);
+    console.error('❌ Error getting screen share offer:', error);
     if (error instanceof Error) {
       console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
     }
     return {
       success: false,
@@ -111,14 +114,20 @@ export const getScreenShareOffer = async (
 
 /**
  * Send screen share answer back to the server
+ * This is the CRITICAL function that was missing - it sends the WebRTC answer
+ * back to the server so the web app can complete the connection.
  */
 export const sendScreenShareAnswer = async (
   request: ScreenShareAnswerRequest
 ): Promise<{ success: boolean; data?: ScreenShareAnswerResponse; error?: string; status?: number }> => {
   try {
-    console.log('Sending screen share answer for session:', request.session_id);
-    console.log('Answer length:', request.answer.length);
-    console.log('Answer ICE candidates:', request.answer_ice_candidates.length);
+    console.log('📤 Sending screen share answer for session:', request.session_id);
+    console.log('API URL:', `${BASE_URL}/screen-share-send-answer`);
+    console.log('Answer SDP length:', request.answer.length);
+    console.log('Answer ICE candidates count:', request.answer_ice_candidates.length);
+    
+    // Log first 100 chars of answer for debugging
+    console.log('Answer SDP preview:', request.answer.substring(0, 100) + '...');
     
     // Ensure ICE candidates are properly formatted
     const formattedRequest = {
@@ -138,7 +147,9 @@ export const sendScreenShareAnswer = async (
     };
     
     console.log('Formatted request ICE candidates:', formattedRequest.answer_ice_candidates.length);
+    console.log('Sample ICE candidate:', JSON.stringify(formattedRequest.answer_ice_candidates[0] || null));
     
+    console.log('Making POST request to send-answer endpoint...');
     const response = await fetch(`${BASE_URL}/screen-share-send-answer`, {
       method: 'POST',
       headers: {
@@ -147,11 +158,12 @@ export const sendScreenShareAnswer = async (
       body: JSON.stringify(formattedRequest),
     });
 
-    console.log('Send answer response status:', response.status);
+    console.log('✅ Send answer response status:', response.status);
 
     if (response.status === 200) {
       const data: ScreenShareAnswerResponse = await response.json();
-      console.log('Answer sent successfully:', data.message);
+      console.log('✅✅✅ Answer sent successfully:', data.message);
+      console.log('Response data:', JSON.stringify(data));
       return {
         success: true,
         data,
@@ -159,7 +171,7 @@ export const sendScreenShareAnswer = async (
       };
     } else if (response.status === 403) {
       const errorData = await response.json().catch(() => ({ error: 'Session not found or unauthorized' }));
-      console.error('Forbidden:', errorData);
+      console.error('❌ Forbidden:', errorData);
       return {
         success: false,
         error: errorData.error || 'Session not found or unauthorized',
@@ -167,7 +179,7 @@ export const sendScreenShareAnswer = async (
       };
     } else if (response.status === 401) {
       const errorData = await response.json().catch(() => ({ error: 'Invalid display credentials' }));
-      console.error('Authentication failed:', errorData);
+      console.error('❌ Authentication failed:', errorData);
       return {
         success: false,
         error: errorData.error || 'Invalid display credentials',
@@ -175,7 +187,7 @@ export const sendScreenShareAnswer = async (
       };
     } else {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Failed to send answer:', response.status, errorData);
+      console.error('❌ Failed to send answer:', response.status, errorData);
       return {
         success: false,
         error: errorData.error || 'Failed to send screen share answer',
@@ -183,9 +195,10 @@ export const sendScreenShareAnswer = async (
       };
     }
   } catch (error) {
-    console.error('Error sending screen share answer:', error);
+    console.error('❌❌❌ Error sending screen share answer:', error);
     if (error instanceof Error) {
-      console.error('Error details:', error.message);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
     }
     return {
       success: false,
