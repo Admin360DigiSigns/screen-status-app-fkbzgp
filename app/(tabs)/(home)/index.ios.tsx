@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, ScrollView, Dimensions } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
@@ -8,6 +8,10 @@ import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
 import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
+
+const { width, height } = Dimensions.get('window');
+const isTV = width > 1000 || height > 1000;
+const isMobile = width < 768;
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -159,7 +163,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Initializing device...</Text>
+        <Text style={[styles.loadingText, isTV && styles.loadingTextTV]}>Initializing device...</Text>
       </View>
     );
   }
@@ -169,113 +173,125 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>TV Status Monitor</Text>
-        
-        <View style={[styles.statusCard, { borderColor: statusColor }]}>
-          <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {isOnline ? 'ONLINE' : 'OFFLINE'}
-          </Text>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Username:</Text>
-            <Text style={styles.infoValue}>{username}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Screen Name:</Text>
-            <Text style={styles.infoValue}>{screenName}</Text>
-          </View>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isTV && styles.scrollContentTV
+        ]}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={[styles.content, isTV && styles.contentTV]}>
+          <Text style={[styles.title, isTV && styles.titleTV]}>TV Status Monitor</Text>
           
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Device ID:</Text>
-            <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
-              {deviceId}
-            </Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Connection:</Text>
-            <Text style={styles.infoValue}>
-              {networkState.type || 'Unknown'}
+          <View style={[styles.statusCard, { borderColor: statusColor }, isTV && styles.statusCardTV]}>
+            <View style={[styles.statusIndicator, { backgroundColor: statusColor }, isTV && styles.statusIndicatorTV]} />
+            <Text style={[styles.statusText, { color: statusColor }, isTV && styles.statusTextTV]}>
+              {isOnline ? 'ONLINE' : 'OFFLINE'}
             </Text>
           </View>
 
-          {lastSyncTime && (
+          <View style={[styles.infoCard, isTV && styles.infoCardTV]}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Last Sync:</Text>
-              <Text style={styles.infoValue}>
-                {lastSyncTime.toLocaleTimeString()}
+              <Text style={[styles.infoLabel, isTV && styles.infoLabelTV]}>Username:</Text>
+              <Text style={[styles.infoValue, isTV && styles.infoValueTV]}>{username}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, isTV && styles.infoLabelTV]}>Screen Name:</Text>
+              <Text style={[styles.infoValue, isTV && styles.infoValueTV]}>{screenName}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, isTV && styles.infoLabelTV]}>Device ID:</Text>
+              <Text style={[styles.infoValue, isTV && styles.infoValueTV]} numberOfLines={1} ellipsizeMode="middle">
+                {deviceId}
               </Text>
             </View>
-          )}
-
-          {syncStatus && (
+            
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Sync Status:</Text>
-              <Text style={[
-                styles.infoValue,
-                { color: syncStatus === 'success' ? colors.accent : colors.secondary }
-              ]}>
-                {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+              <Text style={[styles.infoLabel, isTV && styles.infoLabelTV]}>Connection:</Text>
+              <Text style={[styles.infoValue, isTV && styles.infoValueTV]}>
+                {networkState.type || 'Unknown'}
               </Text>
             </View>
-          )}
+
+            {lastSyncTime && (
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, isTV && styles.infoLabelTV]}>Last Sync:</Text>
+                <Text style={[styles.infoValue, isTV && styles.infoValueTV]}>
+                  {lastSyncTime.toLocaleTimeString()}
+                </Text>
+              </View>
+            )}
+
+            {syncStatus && (
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, isTV && styles.infoLabelTV]}>Sync Status:</Text>
+                <Text style={[
+                  styles.infoValue,
+                  isTV && styles.infoValueTV,
+                  { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+                ]}>
+                  {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={[styles.buttonContainer, isTV && styles.buttonContainerTV]}>
+            <TouchableOpacity 
+              style={[styles.previewButton, isTV && styles.buttonTV]}
+              onPress={handlePreview}
+              activeOpacity={0.7}
+              disabled={isLoadingPreview}
+            >
+              {isLoadingPreview ? (
+                <ActivityIndicator size={isTV ? "large" : "small"} color={colors.card} />
+              ) : (
+                <Text style={[styles.previewButtonText, isTV && styles.buttonTextTV]}>Preview Content</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Screen Share button for iOS */}
+            <TouchableOpacity 
+              style={[styles.screenShareButton, isTV && styles.buttonTV]}
+              onPress={handleScreenShare}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.screenShareButtonText, isTV && styles.buttonTextTV]}>📺 Screen Share</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.syncButton, isTV && styles.buttonTV]}
+              onPress={handleManualSync}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.syncButtonText, isTV && styles.buttonTextTV]}>Sync Status Now</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.logoutButton, isTV && styles.buttonTV]}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.logoutButtonText, isTV && styles.buttonTextTV]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={[styles.infoBox, isTV && styles.infoBoxTV]}>
+            <Text style={[styles.footerText, isTV && styles.footerTextTV]}>
+              ℹ️ Status updates sent every 1 minute
+            </Text>
+            <Text style={[styles.footerText, isTV && styles.footerTextTV]}>
+              Updates only sent when logged in and on this screen
+            </Text>
+            <Text style={[styles.footerText, isTV && styles.footerTextTV]}>
+              Multiple devices can be logged in with different credentials simultaneously
+            </Text>
+          </View>
         </View>
-
-        <TouchableOpacity 
-          style={styles.previewButton}
-          onPress={handlePreview}
-          activeOpacity={0.7}
-          disabled={isLoadingPreview}
-        >
-          {isLoadingPreview ? (
-            <ActivityIndicator size="small" color={colors.card} />
-          ) : (
-            <Text style={styles.previewButtonText}>Preview Content</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Screen Share button for iOS */}
-        <TouchableOpacity 
-          style={styles.screenShareButton}
-          onPress={handleScreenShare}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.syncButton}
-          onPress={handleManualSync}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.syncButtonText}>Sync Status Now</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-
-        <View style={styles.infoBox}>
-          <Text style={styles.footerText}>
-            ℹ️ Status updates sent every 1 minute
-          </Text>
-          <Text style={styles.footerText}>
-            Updates only sent when logged in and on this screen
-          </Text>
-          <Text style={styles.footerText}>
-            Multiple devices can be logged in with different credentials simultaneously
-          </Text>
-        </View>
-      </View>
+      </ScrollView>
 
       {/* Preview Modal */}
       <Modal
@@ -318,109 +334,170 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingTop: 48,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: isMobile ? 48 : 60,
+    paddingHorizontal: isMobile ? 20 : 40,
+    paddingBottom: 140,
+    minHeight: height,
+  },
+  scrollContentTV: {
+    paddingTop: 80,
+    paddingHorizontal: 80,
+    paddingBottom: 200,
   },
   content: {
-    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 120,
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+  },
+  contentTV: {
+    maxWidth: 1200,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
     color: colors.text,
   },
+  loadingTextTV: {
+    fontSize: 28,
+    marginTop: 32,
+  },
   title: {
-    fontSize: 32,
+    fontSize: isMobile ? 28 : 36,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 40,
+    marginBottom: 32,
     textAlign: 'center',
+  },
+  titleTV: {
+    fontSize: 56,
+    marginBottom: 60,
   },
   statusCard: {
     backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 32,
+    borderRadius: isMobile ? 16 : 24,
+    padding: isMobile ? 24 : 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
-    minWidth: 280,
+    marginBottom: 24,
+    width: '100%',
     borderWidth: 3,
     boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
     elevation: 4,
   },
+  statusCardTV: {
+    borderRadius: 32,
+    padding: 60,
+    marginBottom: 48,
+    borderWidth: 5,
+  },
   statusIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: isMobile ? 20 : 28,
+    height: isMobile ? 20 : 28,
+    borderRadius: isMobile ? 10 : 14,
     marginBottom: 16,
   },
+  statusIndicatorTV: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 32,
+  },
   statusText: {
-    fontSize: 36,
+    fontSize: isMobile ? 32 : 42,
     fontWeight: 'bold',
     letterSpacing: 2,
   },
+  statusTextTV: {
+    fontSize: 72,
+    letterSpacing: 4,
+  },
   infoCard: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: isMobile ? 12 : 16,
+    padding: isMobile ? 20 : 28,
     width: '100%',
-    maxWidth: 500,
     marginBottom: 24,
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
     elevation: 2,
+  },
+  infoCardTV: {
+    borderRadius: 24,
+    padding: 48,
+    marginBottom: 48,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: isMobile ? 10 : 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.background,
   },
   infoLabel: {
-    fontSize: 16,
+    fontSize: isMobile ? 14 : 18,
     fontWeight: '600',
     color: colors.textSecondary,
     flex: 1,
   },
+  infoLabelTV: {
+    fontSize: 28,
+  },
   infoValue: {
-    fontSize: 16,
+    fontSize: isMobile ? 14 : 18,
     fontWeight: '500',
     color: colors.text,
     flex: 2,
     textAlign: 'right',
+  },
+  infoValueTV: {
+    fontSize: 28,
+  },
+  buttonContainer: {
+    width: '100%',
+    gap: 12,
+  },
+  buttonContainerTV: {
+    gap: 24,
   },
   previewButton: {
     backgroundColor: colors.accent,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 12,
-    minWidth: 200,
-    alignItems: 'center',
     minHeight: 48,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonTV: {
+    paddingHorizontal: 60,
+    paddingVertical: 24,
+    borderRadius: 20,
+    minHeight: 80,
   },
   previewButtonText: {
     color: colors.card,
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '600',
+  },
+  buttonTextTV: {
+    fontSize: 32,
   },
   screenShareButton: {
     backgroundColor: '#9333EA',
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 12,
-    minWidth: 200,
     alignItems: 'center',
   },
   screenShareButtonText: {
     color: colors.card,
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '600',
   },
   syncButton: {
@@ -428,13 +505,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    marginBottom: 12,
-    minWidth: 200,
     alignItems: 'center',
   },
   syncButtonText: {
     color: colors.card,
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '600',
   },
   logoutButton: {
@@ -442,12 +517,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
-    minWidth: 200,
     alignItems: 'center',
   },
   logoutButtonText: {
     color: colors.card,
-    fontSize: 18,
+    fontSize: isMobile ? 16 : 18,
     fontWeight: '600',
   },
   infoBox: {
@@ -455,14 +529,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.highlight,
     borderRadius: 12,
     padding: 16,
-    maxWidth: 500,
+    width: '100%',
+  },
+  infoBoxTV: {
+    marginTop: 48,
+    borderRadius: 20,
+    padding: 32,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: isMobile ? 13 : 14,
     color: colors.text,
     textAlign: 'center',
     paddingVertical: 4,
-    lineHeight: 20,
+    lineHeight: isMobile ? 18 : 20,
+  },
+  footerTextTV: {
+    fontSize: 24,
+    lineHeight: 36,
+    paddingVertical: 8,
   },
   errorText: {
     fontSize: 18,
