@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -83,7 +84,11 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.content}>
-          <Text style={styles.title}>TV App Login</Text>
+          <Image
+            source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           
           <View style={[styles.connectionBadge, { backgroundColor: isOnline ? colors.accent : colors.secondary }]}>
             <Text style={styles.connectionText}>
@@ -182,12 +187,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
-  title: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 24,
-    textAlign: 'center',
+  logo: {
+    width: 280,
+    height: 120,
+    marginBottom: 32,
   },
   connectionBadge: {
     paddingHorizontal: 20,
@@ -233,14 +236,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    backgroundColor: colors.background,
+    backgroundColor: '#f5f5f5',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     color: colors.text,
     borderWidth: 2,
-    borderColor: colors.background,
+    borderColor: '#e0e0e0',
   },
   loginButton: {
     backgroundColor: colors.primary,

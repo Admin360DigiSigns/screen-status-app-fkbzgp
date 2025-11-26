@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
@@ -188,130 +188,135 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>TV Status Monitor</Text>
-        
-        <View style={[styles.statusCard, { borderColor: statusColor }]}>
-          <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {isOnline ? 'ONLINE' : 'OFFLINE'}
-          </Text>
-        </View>
-
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Username:</Text>
-            <Text style={styles.infoValue}>{username}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Screen Name:</Text>
-            <Text style={styles.infoValue}>{screenName}</Text>
-          </View>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.content}>
+          <Text style={styles.title}>TV Status Monitor</Text>
           
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Device ID:</Text>
-            <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
-              {deviceId}
-            </Text>
-          </View>
-          
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Connection:</Text>
-            <Text style={styles.infoValue}>
-              {networkState.type || 'Unknown'}
+          <View style={[styles.statusCard, { borderColor: statusColor }]}>
+            <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
+            <Text style={[styles.statusText, { color: statusColor }]}>
+              {isOnline ? 'Online' : 'Offline'}
             </Text>
           </View>
 
-          {lastSyncTime && (
+          <View style={styles.infoCard}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Last Sync:</Text>
+              <Text style={styles.infoLabel}>Username:</Text>
+              <Text style={styles.infoValue}>{username}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Screen Name:</Text>
+              <Text style={styles.infoValue}>{screenName}</Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Device ID:</Text>
+              <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="middle">
+                {deviceId}
+              </Text>
+            </View>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Connection:</Text>
               <Text style={styles.infoValue}>
-                {lastSyncTime.toLocaleTimeString()}
+                {networkState.type || 'Unknown'}
               </Text>
             </View>
+
+            {lastSyncTime && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Last Sync:</Text>
+                <Text style={styles.infoValue}>
+                  {lastSyncTime.toLocaleTimeString()}
+                </Text>
+              </View>
+            )}
+
+            {syncStatus && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Sync Status:</Text>
+                <Text style={[
+                  styles.infoValue,
+                  { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+                ]}>
+                  {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity 
+            style={styles.previewButton}
+            onPress={handlePreview}
+            activeOpacity={0.7}
+            disabled={isLoadingPreview}
+          >
+            {isLoadingPreview ? (
+              <ActivityIndicator size="small" color={colors.card} />
+            ) : (
+              <Text style={styles.previewButtonText}>Preview Content</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Only show Screen Share button on native platforms */}
+          {!isWebPlatform && (
+            <React.Fragment>
+              <TouchableOpacity 
+                style={styles.screenShareButton}
+                onPress={handleScreenShare}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.testerButton}
+                onPress={handleOpenTester}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.testerButtonText}>🧪 Test Connection</Text>
+              </TouchableOpacity>
+            </React.Fragment>
           )}
 
-          {syncStatus && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Sync Status:</Text>
-              <Text style={[
-                styles.infoValue,
-                { color: syncStatus === 'success' ? colors.accent : colors.secondary }
-              ]}>
-                {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
-              </Text>
-            </View>
-          )}
-        </View>
+          <TouchableOpacity 
+            style={styles.syncButton}
+            onPress={handleManualSync}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.syncButtonText}>Sync Status Now</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.previewButton}
-          onPress={handlePreview}
-          activeOpacity={0.7}
-          disabled={isLoadingPreview}
-        >
-          {isLoadingPreview ? (
-            <ActivityIndicator size="small" color={colors.card} />
-          ) : (
-            <Text style={styles.previewButtonText}>Preview Content</Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
 
-        {/* Only show Screen Share button on native platforms */}
-        {!isWebPlatform && (
-          <>
-            <TouchableOpacity 
-              style={styles.screenShareButton}
-              onPress={handleScreenShare}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.testerButton}
-              onPress={handleOpenTester}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.testerButtonText}>🧪 Test Connection</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        <TouchableOpacity 
-          style={styles.syncButton}
-          onPress={handleManualSync}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.syncButtonText}>Sync Status Now</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-
-        <View style={styles.infoBox}>
-          <Text style={styles.footerText}>
-            ℹ️ Status updates sent every 1 minute
-          </Text>
-          <Text style={styles.footerText}>
-            Updates only sent when logged in and on this screen
-          </Text>
-          <Text style={styles.footerText}>
-            Multiple devices can be logged in with different credentials simultaneously
-          </Text>
-          {isWebPlatform && (
-            <Text style={[styles.footerText, { color: colors.secondary, marginTop: 8 }]}>
-              ⚠️ Screen Share feature is only available on Android/iOS devices
+          <View style={styles.infoBox}>
+            <Text style={styles.footerText}>
+              ℹ️ Status updates sent every 1 minute
             </Text>
-          )}
+            <Text style={styles.footerText}>
+              Updates only sent when logged in and on this screen
+            </Text>
+            <Text style={styles.footerText}>
+              Multiple devices can be logged in with different credentials simultaneously
+            </Text>
+            {isWebPlatform && (
+              <Text style={[styles.footerText, { color: colors.secondary, marginTop: 8 }]}>
+                ⚠️ Screen Share feature is only available on Android/iOS devices
+              </Text>
+            )}
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Preview Modal */}
       <Modal
@@ -339,7 +344,7 @@ export default function HomeScreen() {
 
       {/* Screen Share Modal - Only render on native platforms */}
       {!isWebPlatform && (
-        <>
+        <React.Fragment>
           <Modal
             visible={isScreenShareMode}
             animationType="slide"
@@ -358,7 +363,7 @@ export default function HomeScreen() {
           >
             <ScreenShareTester onClose={handleCloseTester} />
           </Modal>
-        </>
+        </React.Fragment>
       )}
     </View>
   );
@@ -370,12 +375,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingTop: 48,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 140,
+  },
   content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingTop: 20,
   },
   loadingText: {
     marginTop: 16,
@@ -402,15 +411,15 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   statusIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginBottom: 16,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginBottom: 12,
   },
   statusText: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: 'bold',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   infoCard: {
     backgroundColor: colors.card,
@@ -428,7 +437,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.background,
+    borderBottomColor: '#f0f0f0',
   },
   infoLabel: {
     fontSize: 16,
