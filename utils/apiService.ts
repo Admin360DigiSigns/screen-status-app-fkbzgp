@@ -3,7 +3,7 @@
  * API Service for device status and content management
  */
 
-const SUPABASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co';
+const SUPABASE_URL = 'https://pgcdokfiaarnhzryfzwf.supabase.co';
 const BASE_URL = `${SUPABASE_URL}/functions/v1`;
 
 export interface DeviceStatusPayload {
@@ -51,12 +51,21 @@ export const registerDisplay = async (
       }),
     });
 
+    const responseText = await response.text();
+    console.log('Register response status:', response.status);
+    console.log('Register response body:', responseText);
+
     if (response.ok) {
-      const data = await response.json();
+      const data = JSON.parse(responseText);
       console.log('Display registered successfully:', data);
       return { success: true };
     } else {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      let errorData;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = { error: responseText || 'Unknown error' };
+      }
       console.error('Failed to register display:', errorData);
       return { success: false, error: errorData.error || 'Failed to register display' };
     }
@@ -86,10 +95,19 @@ export const sendDeviceStatus = async (
       body: JSON.stringify(payload),
     });
 
+    const responseText = await response.text();
+    console.log('Status update response status:', response.status);
+    console.log('Status update response body:', responseText);
+
     if (response.ok) {
       return { success: true };
     } else {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      let errorData;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = { error: responseText || 'Unknown error' };
+      }
       console.error('Failed to send device status:', errorData);
       return { success: false, error: errorData.error || 'Failed to send device status' };
     }
@@ -125,12 +143,21 @@ export const fetchDisplayContent = async (
       }),
     });
 
+    const responseText = await response.text();
+    console.log('Content fetch response status:', response.status);
+    console.log('Content fetch response body:', responseText);
+
     if (response.ok) {
-      const data = await response.json();
+      const data = JSON.parse(responseText);
       console.log('Content fetched successfully');
       return { success: true, data };
     } else {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      let errorData;
+      try {
+        errorData = JSON.parse(responseText);
+      } catch {
+        errorData = { error: responseText || 'Unknown error' };
+      }
       console.error('Failed to fetch content:', errorData);
       return { success: false, error: errorData.error || 'Failed to fetch content' };
     }
