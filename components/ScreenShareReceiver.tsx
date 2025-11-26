@@ -166,7 +166,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   <script>
     const API_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
     const POLL_INTERVAL = ${POLL_INTERVAL};
-    const ICE_GATHERING_TIMEOUT = 5000; // 5 seconds (increased from 3)
+    const ICE_GATHERING_TIMEOUT = 5000; // 5 seconds
     
     const credentials = ${JSON.stringify(credentials)};
     
@@ -207,7 +207,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // Enhanced SDP validation and cleaning
+    // Enhanced SDP validation and cleaning with SSRC line fixing
     function validateAndCleanSDP(sdpInput, type) {
       log('🔍 Validating ' + type + ' SDP...');
       log('Input type: ' + typeof sdpInput);
@@ -284,19 +284,84 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       log('After escape sequence handling, length: ' + cleanedSDP.length);
       
-      // Normalize all line endings to \\r\\n (SDP standard)
-      const lines = cleanedSDP.split(/\\r?\\n/);
-      cleanedSDP = lines.join('\\r\\n');
+      // Split into lines for processing
+      let lines = cleanedSDP.split(/\\r?\\n/);
+      log('Split into ' + lines.length + ' lines');
       
-      log('After line ending normalization: ' + lines.length + ' lines');
-      log('First line: "' + lines[0] + '"');
-      log('Second line: "' + (lines[1] || 'N/A') + '"');
+      // Process each line to fix common issues
+      const processedLines = [];
+      let fixedLinesCount = 0;
       
-      // Remove any empty lines at the start
-      while (cleanedSDP.startsWith('\\r\\n') || cleanedSDP.startsWith('\\n')) {
-        cleanedSDP = cleanedSDP.replace(/^\\r?\\n/, '');
-        log('Removed leading empty line');
+      for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        
+        // Skip empty lines
+        if (!line) {
+          continue;
+        }
+        
+        // Fix SSRC lines with invalid format
+        // Valid format: a=ssrc:<ssrc-id> <attribute>:<value>
+        // Invalid format: a=ssrc:<ssrc-id> <attribute>:<value> <extra-stuff>
+        if (line.startsWith('a=ssrc:')) {
+          const ssrcMatch = line.match(/^a=ssrc:(\\d+)\\s+(\\S+):(\\S+)(.*)$/);
+          if (ssrcMatch) {
+            const [, ssrcId, attribute, value, extra] = ssrcMatch;
+            
+            // Check if there's extra content after the value
+            if (extra && extra.trim()) {
+              log('⚠️ Found malformed SSRC line: ' + line);
+              
+              // Reconstruct the line properly
+              const fixedLine = 'a=ssrc:' + ssrcId + ' ' + attribute + ':' + value;
+              log('✅ Fixed SSRC line: ' + fixedLine);
+              
+              processedLines.push(fixedLine);
+              fixedLinesCount++;
+              continue;
+            }
+          }
+        }
+        
+        // Fix msid lines with invalid format
+        if (line.startsWith('a=msid:')) {
+          // Valid format: a=msid:<id> <appdata>
+          // Ensure there are exactly 2 space-separated values after msid:
+          const msidMatch = line.match(/^a=msid:(\\S+)\\s+(\\S+)(.*)$/);
+          if (msidMatch) {
+            const [, id, appdata, extra] = msidMatch;
+            
+            if (extra && extra.trim()) {
+              log('⚠️ Found malformed msid line: ' + line);
+              const fixedLine = 'a=msid:' + id + ' ' + appdata;
+              log('✅ Fixed msid line: ' + fixedLine);
+              
+              processedLines.push(fixedLine);
+              fixedLinesCount++;
+              continue;
+            }
+          }
+        }
+        
+        // Add the line as-is if no fixes needed
+        processedLines.push(line);
       }
+      
+      if (fixedLinesCount > 0) {
+        log('✅ Fixed ' + fixedLinesCount + ' malformed SDP lines');
+      }
+      
+      // Rejoin lines with proper SDP line endings (\\r\\n)
+      cleanedSDP = processedLines.join('\\r\\n');
+      
+      // Ensure SDP ends with \\r\\n
+      if (!cleanedSDP.endsWith('\\r\\n')) {
+        cleanedSDP += '\\r\\n';
+      }
+      
+      log('After line processing: ' + processedLines.length + ' lines');
+      log('First line: "' + processedLines[0] + '"');
+      log('Second line: "' + (processedLines[1] || 'N/A') + '"');
       
       // Check if SDP starts with v=0 (required first line)
       if (!cleanedSDP.startsWith('v=')) {
@@ -308,21 +373,19 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       // Validate that SDP has required lines
       const requiredLines = ['v=', 'o=', 's=', 't='];
-      const sdpLines = cleanedSDP.split('\\r\\n');
-      
-      log('SDP has ' + sdpLines.length + ' lines');
       
       for (const required of requiredLines) {
-        const hasLine = sdpLines.some(line => line.startsWith(required));
+        const hasLine = processedLines.some(line => line.startsWith(required));
         if (!hasLine) {
           log('❌ Missing required SDP line: ' + required);
-          log('Available line prefixes: ' + sdpLines.slice(0, 10).map(l => l.substring(0, 5)).join(', '));
+          log('Available line prefixes: ' + processedLines.slice(0, 10).map(l => l.substring(0, 5)).join(', '));
           throw new Error('Invalid SDP format: missing ' + required + ' line');
         }
       }
       
       log('✅ SDP validation passed');
       log('Final SDP preview (first 300 chars): ' + cleanedSDP.substring(0, 300));
+      log('Final SDP line count: ' + processedLines.length);
       
       return cleanedSDP;
     }
