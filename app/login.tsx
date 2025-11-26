@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
   Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,12 +23,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [screenName, setScreenName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   const handleLogin = async () => {
-    // Clear previous error
-    setErrorMessage('');
-
     if (!networkState.isConnected) {
       Alert.alert(
         'No Internet Connection',
@@ -49,44 +44,30 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    console.log('===========================================');
-    console.log('Login attempt started at:', new Date().toISOString());
-    console.log('Username:', username);
-    console.log('Screen Name:', screenName);
-    console.log('===========================================');
+    console.log('Attempting login...');
 
     try {
       const result = await login(username, password, screenName);
       
-      console.log('Login result:', result);
-      
       if (result.success) {
-        console.log('✅ Login successful, navigating to home');
+        console.log('Login successful, navigating to home');
         router.replace('/(tabs)/(home)');
       } else {
-        const errorMsg = result.error || 'Please check your credentials and try again.';
-        console.error('❌ Login failed:', errorMsg);
-        setErrorMessage(errorMsg);
         Alert.alert(
           'Login Failed',
-          errorMsg,
+          result.error || 'Please check your credentials and try again.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
-      console.error('❌ Login error:', error);
-      const errorMsg = error instanceof Error ? error.message : 'An error occurred during login. Please try again.';
-      setErrorMessage(errorMsg);
+      console.error('Login error:', error);
       Alert.alert(
         'Error',
-        errorMsg,
+        'An error occurred during login. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
       setIsLoading(false);
-      console.log('===========================================');
-      console.log('Login attempt completed at:', new Date().toISOString());
-      console.log('===========================================');
     }
   };
 
@@ -117,14 +98,6 @@ export default function LoginScreen() {
               </Text>
             </View>
           )}
-
-          {errorMessage ? (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorText}>
-                ❌ {errorMessage}
-              </Text>
-            </View>
-          ) : null}
 
           <View style={styles.formCard}>
             <View style={styles.inputContainer}>
@@ -178,16 +151,9 @@ export default function LoginScreen() {
               disabled={!isOnline || isLoading}
               activeOpacity={0.7}
             >
-              {isLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={colors.card} size="small" />
-                  <Text style={[styles.loginButtonText, { marginLeft: 12 }]}>
-                    Logging in...
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.loginButtonText}>Login</Text>
-              )}
+              <Text style={styles.loginButtonText}>
+                {isLoading ? 'Logging in...' : 'Login'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -248,20 +214,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  errorCard: {
-    backgroundColor: '#ff4444',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    width: '100%',
-    maxWidth: 500,
-  },
-  errorText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   formCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -305,11 +257,6 @@ const styles = StyleSheet.create({
     color: colors.card,
     fontSize: 18,
     fontWeight: 'bold',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   infoText: {
     marginTop: 32,

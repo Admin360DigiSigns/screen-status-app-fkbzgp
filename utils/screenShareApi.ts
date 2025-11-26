@@ -1,60 +1,107 @@
 
 /**
  * Screen Share API Service
- * Handles polling for screen share offers and sending answers
- * Uses centralized Supabase configuration
+ * 
+ * This service handles communication with the screen share API endpoints.
+ * It implements polling for screen share offers and sending answers back to the server.
  */
 
-import { API_ENDPOINTS } from './config';
+const BASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
 
-export interface ScreenShareOffer {
+export interface ScreenShareCredentials {
+  screen_username: string;
+  screen_password: string;
+  screen_name: string;
+}
+
+export interface ScreenShareOfferResponse {
+  display_id: string;
+  session: {
+    id: string;
+    display_id: string;
+    offer: string;
+    ice_candidates: Array<any>;
+    status: string;
+    created_at: string;
+  } | null;
+}
+
+export interface ScreenShareAnswerRequest {
+  screen_username: string;
+  screen_password: string;
+  screen_name: string;
   session_id: string;
-  offer: string;
-  ice_candidates: string;
+  answer: string;
+  answer_ice_candidates: Array<any>;
+}
+
+export interface ScreenShareAnswerResponse {
+  success: boolean;
+  message: string;
 }
 
 /**
  * Poll for screen share offers
- * Returns null if no offer is available
+ * This should be called every 2-3 seconds to check for new screen share sessions
  */
 export const getScreenShareOffer = async (
-  username: string,
-  password: string,
-  screenName: string
-): Promise<{ success: boolean; data?: ScreenShareOffer; error?: string }> => {
+  credentials: ScreenShareCredentials
+): Promise<{ success: boolean; data?: ScreenShareOfferResponse; error?: string; status?: number }> => {
   try {
     console.log('Polling for screen share offer...');
-    console.log('Using endpoint:', API_ENDPOINTS.screenShareGetOffer);
     
-    const response = await fetch(API_ENDPOINTS.screenShareGetOffer, {
+    const response = await fetch(`${BASE_URL}/screen-share-get-offer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        screen_username: username,
-        screen_password: password,
-        screen_name: screenName,
-      }),
+      body: JSON.stringify(credentials),
     });
 
-    if (response.ok) {
-      const data = await response.json();
+    console.log('Get offer response status:', response.status);
+
+    if (response.status === 200) {
+      const data: ScreenShareOfferResponse = await response.json();
+      console.log('Offer response:', data.session ? 'Session available' : 'No session available');
       
-      // If no offer available, data will be null
-      if (!data || !data.session_id) {
-        return { success: true, data: undefined };
+      if (data.session) {
+        console.log('Session details:', {
+          id: data.session.id,
+          status: data.session.status,
+          offerLength: data.session.offer?.length || 0,
+          iceCandidatesCount: Array.isArray(data.session.ice_candidates) 
+            ? data.session.ice_candidates.length 
+            : 0,
+        });
       }
       
-      console.log('Screen share offer received:', data.session_id);
-      return { success: true, data };
+      return {
+        success: true,
+        data,
+        status: response.status,
+      };
+    } else if (response.status === 401) {
+      const errorData = await response.json().catch(() => ({ error: 'Invalid display credentials' }));
+      console.error('Authentication failed:', errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Invalid display credentials',
+        status: response.status,
+      };
     } else {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Failed to get screen share offer:', errorData);
-      return { success: false, error: errorData.error || 'Failed to get offer' };
+      console.error('Failed to get offer:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to get screen share offer',
+        status: response.status,
+      };
     }
   } catch (error) {
     console.error('Error getting screen share offer:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',
@@ -63,45 +110,83 @@ export const getScreenShareOffer = async (
 };
 
 /**
- * Send screen share answer back to the web app
+ * Send screen share answer back to the server
  */
 export const sendScreenShareAnswer = async (
-  username: string,
-  password: string,
-  screenName: string,
-  sessionId: string,
-  answer: string,
-  answerIceCandidates: string
-): Promise<{ success: boolean; error?: string }> => {
+  request: ScreenShareAnswerRequest
+): Promise<{ success: boolean; data?: ScreenShareAnswerResponse; error?: string; status?: number }> => {
   try {
-    console.log('Sending screen share answer for session:', sessionId);
-    console.log('Using endpoint:', API_ENDPOINTS.screenShareSendAnswer);
+    console.log('Sending screen share answer for session:', request.session_id);
+    console.log('Answer length:', request.answer.length);
+    console.log('Answer ICE candidates:', request.answer_ice_candidates.length);
     
-    const response = await fetch(API_ENDPOINTS.screenShareSendAnswer, {
+    // Ensure ICE candidates are properly formatted
+    const formattedRequest = {
+      ...request,
+      answer_ice_candidates: request.answer_ice_candidates.map((candidate) => {
+        // Ensure each candidate is a proper object
+        if (typeof candidate === 'string') {
+          try {
+            return JSON.parse(candidate);
+          } catch (e) {
+            console.error('Failed to parse ICE candidate:', e);
+            return candidate;
+          }
+        }
+        return candidate;
+      }),
+    };
+    
+    console.log('Formatted request ICE candidates:', formattedRequest.answer_ice_candidates.length);
+    
+    const response = await fetch(`${BASE_URL}/screen-share-send-answer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        screen_username: username,
-        screen_password: password,
-        screen_name: screenName,
-        session_id: sessionId,
-        answer,
-        answer_ice_candidates: answerIceCandidates,
-      }),
+      body: JSON.stringify(formattedRequest),
     });
 
-    if (response.ok) {
-      console.log('Screen share answer sent successfully');
-      return { success: true };
+    console.log('Send answer response status:', response.status);
+
+    if (response.status === 200) {
+      const data: ScreenShareAnswerResponse = await response.json();
+      console.log('Answer sent successfully:', data.message);
+      return {
+        success: true,
+        data,
+        status: response.status,
+      };
+    } else if (response.status === 403) {
+      const errorData = await response.json().catch(() => ({ error: 'Session not found or unauthorized' }));
+      console.error('Forbidden:', errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Session not found or unauthorized',
+        status: response.status,
+      };
+    } else if (response.status === 401) {
+      const errorData = await response.json().catch(() => ({ error: 'Invalid display credentials' }));
+      console.error('Authentication failed:', errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Invalid display credentials',
+        status: response.status,
+      };
     } else {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('Failed to send screen share answer:', errorData);
-      return { success: false, error: errorData.error || 'Failed to send answer' };
+      console.error('Failed to send answer:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to send screen share answer',
+        status: response.status,
+      };
     }
   } catch (error) {
     console.error('Error sending screen share answer:', error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',

@@ -1,95 +1,91 @@
 
-/**
- * API Service for device status and content management
- * All API calls use the centralized Supabase configuration
- */
-
-import { API_ENDPOINTS } from './config';
+import { Platform } from 'react-native';
 
 export interface DeviceStatusPayload {
+  deviceId: string;
+  screenName: string;
+  screen_username: string;
+  screen_password: string;
+  screen_name: string;
+  status: 'online' | 'offline';
+  timestamp: string;
+}
+
+export interface LoginPayload {
   screen_username: string;
   screen_password: string;
   screen_name: string;
   device_id: string;
-  status: 'online' | 'offline';
 }
 
-export interface DisplayContent {
-  playlist_id: string;
-  playlist_name: string;
-  items: Array<{
-    id: string;
-    type: 'image' | 'video';
-    url: string;
-    duration: number;
-  }>;
+export interface LoginResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
 }
 
-/**
- * Register or update display credentials
- * This should be called when a user logs in
- */
-export const registerDisplay = async (
-  screen_username: string,
-  screen_password: string,
-  screen_name: string,
-  device_id: string
-): Promise<{ success: boolean; error?: string }> => {
+export interface PlaylistItem {
+  id: string;
+  media_type: 'image' | 'video';
+  media_url: string;
+  duration: number;
+  display_order: number;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+  transition_type: string;
+  transition_duration: number;
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  display_order: number;
+  is_active: boolean;
+  schedule_days: string[];
+  schedule_start_time: string;
+  schedule_end_time: string;
+  items: PlaylistItem[];
+}
+
+export interface Solution {
+  id: string;
+  name: string;
+  duration: number;
+  canvas_settings: Record<string, any>;
+  playlists: Playlist[];
+}
+
+export interface DisplayConnectResponse {
+  display_id: string;
+  screen_name: string;
+  location: string;
+  solution: Solution;
+}
+
+export const login = async (
+  username: string,
+  password: string,
+  screenName: string,
+  deviceId: string
+): Promise<LoginResponse> => {
   try {
-    console.log('Registering display:', { screen_username, screen_name, device_id });
-    console.log('Using endpoint:', API_ENDPOINTS.displayRegister);
+    console.log('Attempting login with API:', { username, screenName, deviceId });
     
-    const response = await fetch(API_ENDPOINTS.displayRegister, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        screen_username,
-        screen_password,
-        screen_name,
-        device_id,
-      }),
-    });
-
-    const responseText = await response.text();
-    console.log('Register response status:', response.status);
-    console.log('Register response body:', responseText);
-
-    if (response.ok) {
-      const data = JSON.parse(responseText);
-      console.log('Display registered successfully:', data);
-      return { success: true };
-    } else {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseText);
-      } catch {
-        errorData = { error: responseText || 'Unknown error' };
-      }
-      console.error('Failed to register display:', errorData);
-      return { success: false, error: errorData.error || 'Failed to register display' };
-    }
-  } catch (error) {
-    console.error('Error registering display:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    
+    const payload: LoginPayload = {
+      screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
+      device_id: deviceId,
     };
-  }
-};
 
-/**
- * Send device status update
- */
-export const sendDeviceStatus = async (
-  payload: DeviceStatusPayload
-): Promise<{ success: boolean; error?: string }> => {
-  try {
-    console.log('Sending device status:', payload.status);
-    console.log('Using endpoint:', API_ENDPOINTS.displayConnect);
+    console.log('Sending login request to:', API_ENDPOINT);
+    console.log('Login payload:', { ...payload, screen_password: '***' });
     
-    const response = await fetch(API_ENDPOINTS.displayConnect, {
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -97,24 +93,25 @@ export const sendDeviceStatus = async (
       body: JSON.stringify(payload),
     });
 
-    const responseText = await response.text();
-    console.log('Status update response status:', response.status);
-    console.log('Status update response body:', responseText);
+    console.log('Login response status:', response.status);
 
     if (response.ok) {
-      return { success: true };
+      const data = await response.json();
+      console.log('Login successful:', data);
+      return {
+        success: true,
+        message: data.message || 'Login successful',
+      };
     } else {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseText);
-      } catch {
-        errorData = { error: responseText || 'Unknown error' };
-      }
-      console.error('Failed to send device status:', errorData);
-      return { success: false, error: errorData.error || 'Failed to send device status' };
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Login failed:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || errorData.message || 'Login failed',
+      };
     }
   } catch (error) {
-    console.error('Error sending device status:', error);
+    console.error('Error during login request:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',
@@ -122,50 +119,108 @@ export const sendDeviceStatus = async (
   }
 };
 
-/**
- * Fetch display content for preview
- */
-export const fetchDisplayContent = async (
-  screen_username: string,
-  screen_password: string,
-  screen_name: string
-): Promise<{ success: boolean; data?: DisplayContent; error?: string }> => {
+export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<boolean> => {
   try {
-    console.log('Fetching display content...');
-    console.log('Using endpoint:', API_ENDPOINTS.displayGetContent);
+    // Log the complete payload structure (with hidden password)
+    console.log('=== DEVICE STATUS PAYLOAD ===');
+    console.log('Full payload structure:', {
+      deviceId: payload.deviceId,
+      screenName: payload.screenName,
+      screen_username: payload.screen_username,
+      screen_password: '***',
+      screen_name: payload.screen_name,
+      status: payload.status,
+      timestamp: payload.timestamp,
+    });
+    console.log('Payload keys:', Object.keys(payload));
+    console.log('============================');
     
-    const response = await fetch(API_ENDPOINTS.displayGetContent, {
+    // Using the same Supabase endpoint for status updates
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status';
+    
+    console.log('Sending POST request to:', API_ENDPOINT);
+    console.log('Request body (stringified):', JSON.stringify({
+      ...payload,
+      screen_password: '***'
+    }));
+    
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        screen_username,
-        screen_password,
-        screen_name,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const responseText = await response.text();
-    console.log('Content fetch response status:', response.status);
-    console.log('Content fetch response body:', responseText);
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
 
     if (response.ok) {
-      const data = JSON.parse(responseText);
-      console.log('Content fetched successfully');
-      return { success: true, data };
+      const responseData = await response.json().catch(() => null);
+      console.log('Device status sent successfully. Response:', responseData);
+      return true;
     } else {
-      let errorData;
-      try {
-        errorData = JSON.parse(responseText);
-      } catch {
-        errorData = { error: responseText || 'Unknown error' };
-      }
-      console.error('Failed to fetch content:', errorData);
-      return { success: false, error: errorData.error || 'Failed to fetch content' };
+      console.error('Failed to send device status. Status code:', response.status);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Status error details:', errorData);
+      console.error('Error message:', errorData.error || errorData.message);
+      return false;
     }
   } catch (error) {
-    console.error('Error fetching content:', error);
+    console.error('Error sending device status:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    return false;
+  }
+};
+
+export const fetchDisplayContent = async (
+  username: string,
+  password: string,
+  screenName: string
+): Promise<{ success: boolean; data?: DisplayConnectResponse; error?: string }> => {
+  try {
+    console.log('Fetching display content for:', { username, screenName });
+    
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    
+    const payload = {
+      screen_username: username,
+      screen_password: password,
+      screen_name: screenName,
+    };
+
+    console.log('Sending display-connect request to:', API_ENDPOINT);
+    
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('Display-connect response status:', response.status);
+
+    if (response.ok) {
+      const data: DisplayConnectResponse = await response.json();
+      console.log('Display content fetched successfully:', data);
+      return {
+        success: true,
+        data,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to fetch display content:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || errorData.message || 'Failed to fetch content',
+      };
+    }
+  } catch (error) {
+    console.error('Error fetching display content:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',

@@ -55,8 +55,6 @@ export class WebRTCService {
   private config: WebRTCConfig;
   private localIceCandidates: Array<any> = [];
   private iceGatheringComplete: boolean = false;
-  private remoteIceCandidatesQueue: Array<any> = [];
-  private isRemoteDescriptionSet: boolean = false;
 
   constructor() {
     // Check if WebRTC is available
@@ -65,7 +63,6 @@ export class WebRTCService {
     }
 
     // Enhanced STUN/TURN servers for better connectivity
-    // Using multiple STUN servers increases chances of successful connection
     this.config = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -73,10 +70,6 @@ export class WebRTCService {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun3.l.google.com:19302' },
         { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.services.mozilla.com' },
-        // Add more public STUN servers for redundancy
-        { urls: 'stun:stun.stunprotocol.org:3478' },
-        { urls: 'stun:stun.voip.blackberry.com:3478' },
       ],
     };
   }
@@ -87,34 +80,16 @@ export class WebRTCService {
   ): Promise<any> {
     console.log('Creating peer connection with config:', JSON.stringify(this.config));
 
-    // Create peer connection with additional configuration
-    this.peerConnection = new RTCPeerConnection({
-      ...this.config,
-      iceCandidatePoolSize: 10, // Pre-gather ICE candidates
-      bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require',
-    });
+    this.peerConnection = new RTCPeerConnection(this.config);
 
     // Handle remote stream
     this.peerConnection.ontrack = (event: any) => {
       console.log('Received remote track:', event.track.kind);
       console.log('Track enabled:', event.track.enabled);
       console.log('Track readyState:', event.track.readyState);
-      console.log('Track muted:', event.track.muted);
       
       if (event.streams && event.streams[0]) {
         console.log('Remote stream received with', event.streams[0].getTracks().length, 'tracks');
-        const tracks = event.streams[0].getTracks();
-        tracks.forEach((track: any, index: number) => {
-          console.log(`Track ${index}:`, {
-            kind: track.kind,
-            id: track.id,
-            enabled: track.enabled,
-            readyState: track.readyState,
-            muted: track.muted,
-          });
-        });
-        
         this.remoteStream = event.streams[0];
         onRemoteStream(event.streams[0]);
       } else {
@@ -132,16 +107,6 @@ export class WebRTCService {
         console.error('Connection failed - checking ICE connection state');
         console.error('ICE connection state:', this.peerConnection?.iceConnectionState);
         console.error('ICE gathering state:', this.peerConnection?.iceGatheringState);
-        console.error('Signaling state:', this.peerConnection?.signalingState);
-        console.error('Local candidates collected:', this.localIceCandidates.length);
-      } else if (state === 'connected') {
-        console.log('✅ WebRTC connection established successfully!');
-        console.log('Connection stats:', {
-          iceConnectionState: this.peerConnection?.iceConnectionState,
-          iceGatheringState: this.peerConnection?.iceGatheringState,
-          signalingState: this.peerConnection?.signalingState,
-          localCandidates: this.localIceCandidates.length,
-        });
       }
     };
 
@@ -153,17 +118,8 @@ export class WebRTCService {
       if (state === 'failed') {
         console.error('ICE connection failed - possible network/firewall issue');
         console.error('Local candidates collected:', this.localIceCandidates.length);
-        console.error('Remote candidates in queue:', this.remoteIceCandidatesQueue.length);
-        
-        // Attempt ICE restart
-        console.log('Attempting ICE restart...');
-        this.restartIce();
       } else if (state === 'connected' || state === 'completed') {
-        console.log('✅ ICE connection established successfully');
-      } else if (state === 'checking') {
-        console.log('ICE checking connectivity...');
-      } else if (state === 'disconnected') {
-        console.warn('ICE connection disconnected - may reconnect automatically');
+        console.log('ICE connection established successfully');
       }
     };
 
@@ -174,15 +130,7 @@ export class WebRTCService {
       
       if (state === 'complete') {
         this.iceGatheringComplete = true;
-        console.log('✅ ICE gathering completed with', this.localIceCandidates.length, 'candidates');
-        
-        // Log candidate types
-        const candidateTypes = this.localIceCandidates.reduce((acc: any, candidate: any) => {
-          const type = this.extractCandidateType(candidate.candidate);
-          acc[type] = (acc[type] || 0) + 1;
-          return acc;
-        }, {});
-        console.log('Candidate types:', candidateTypes);
+        console.log('ICE gathering completed with', this.localIceCandidates.length, 'candidates');
       }
     };
 
@@ -192,37 +140,7 @@ export class WebRTCService {
       console.log('Signaling state:', state);
     };
 
-    // Handle negotiation needed
-    this.peerConnection.onnegotiationneeded = () => {
-      console.log('Negotiation needed');
-    };
-
     return this.peerConnection;
-  }
-
-  private extractCandidateType(candidateString: string): string {
-    if (candidateString.includes('typ host')) return 'host';
-    if (candidateString.includes('typ srflx')) return 'srflx';
-    if (candidateString.includes('typ relay')) return 'relay';
-    if (candidateString.includes('typ prflx')) return 'prflx';
-    return 'unknown';
-  }
-
-  private async restartIce(): Promise<void> {
-    if (!this.peerConnection) {
-      console.error('Cannot restart ICE: peer connection not initialized');
-      return;
-    }
-
-    try {
-      console.log('Restarting ICE...');
-      // Create a new offer with iceRestart flag
-      const offer = await this.peerConnection.createOffer({ iceRestart: true });
-      await this.peerConnection.setLocalDescription(offer);
-      console.log('ICE restart initiated');
-    } catch (error) {
-      console.error('Failed to restart ICE:', error);
-    }
   }
 
   async handleOffer(
@@ -237,11 +155,9 @@ export class WebRTCService {
     console.log('Offer SDP length:', offerSdp.length);
     console.log('Remote ICE candidates count:', iceCandidates.length);
 
-    // Reset state
+    // Reset local ICE candidates
     this.localIceCandidates = [];
     this.iceGatheringComplete = false;
-    this.remoteIceCandidatesQueue = [];
-    this.isRemoteDescriptionSet = false;
 
     // Set up ICE candidate collection
     return new Promise((resolve, reject) => {
@@ -252,13 +168,11 @@ export class WebRTCService {
       // Handle ICE candidates
       this.peerConnection.onicecandidate = (event: any) => {
         if (event.candidate) {
-          const candidateType = this.extractCandidateType(event.candidate.candidate);
           console.log('New local ICE candidate:', {
-            type: candidateType,
+            type: event.candidate.type,
             protocol: event.candidate.protocol,
             address: event.candidate.address,
             port: event.candidate.port,
-            priority: event.candidate.priority,
           });
           
           // Store the candidate in a serializable format
@@ -270,7 +184,7 @@ export class WebRTCService {
           
           this.localIceCandidates.push(candidateObj);
         } else {
-          console.log('✅ ICE gathering complete (null candidate received)');
+          console.log('ICE gathering complete (null candidate received)');
           this.iceGatheringComplete = true;
           
           // All ICE candidates have been gathered
@@ -279,7 +193,7 @@ export class WebRTCService {
             if (iceCandidateTimeout) {
               clearTimeout(iceCandidateTimeout);
             }
-            console.log('✅ Resolving with', this.localIceCandidates.length, 'ICE candidates');
+            console.log('Resolving with', this.localIceCandidates.length, 'ICE candidates');
             resolve({
               answer: answerSdp,
               answerIceCandidates: this.localIceCandidates,
@@ -296,57 +210,33 @@ export class WebRTCService {
             type: 'offer',
             sdp: offerSdp,
           });
-          
           await this.peerConnection.setRemoteDescription(offerDescription);
-          this.isRemoteDescriptionSet = true;
-          console.log('✅ Remote description set successfully');
+          console.log('Remote description set successfully');
 
-          // Add remote ICE candidates AFTER setting remote description
+          // Add remote ICE candidates
           console.log('Adding', iceCandidates.length, 'remote ICE candidates');
           for (let i = 0; i < iceCandidates.length; i++) {
             const candidate = iceCandidates[i];
-            try {
-              await this.addIceCandidate(candidate);
-              console.log(`✅ Added remote ICE candidate ${i + 1}/${iceCandidates.length}`);
-            } catch (error) {
-              console.error(`Failed to add remote ICE candidate ${i + 1}:`, error);
-              // Continue with other candidates
-            }
+            console.log(`Adding remote ICE candidate ${i + 1}/${iceCandidates.length}`);
+            await this.addIceCandidate(candidate);
           }
-          console.log('✅ All remote ICE candidates processed');
-
-          // Process any queued candidates
-          if (this.remoteIceCandidatesQueue.length > 0) {
-            console.log('Processing', this.remoteIceCandidatesQueue.length, 'queued candidates');
-            for (const candidate of this.remoteIceCandidatesQueue) {
-              try {
-                await this.addIceCandidate(candidate);
-              } catch (error) {
-                console.error('Failed to add queued candidate:', error);
-              }
-            }
-            this.remoteIceCandidatesQueue = [];
-          }
+          console.log('All remote ICE candidates added');
 
           console.log('Creating answer');
-          const answer = await this.peerConnection.createAnswer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true,
-          });
-          
+          const answer = await this.peerConnection.createAnswer();
           console.log('Answer created, setting as local description');
           await this.peerConnection.setLocalDescription(answer);
           answerSdp = answer.sdp;
 
-          console.log('✅ Answer SDP length:', answerSdp.length);
+          console.log('Answer SDP length:', answerSdp.length);
           console.log('Waiting for ICE candidates...');
 
           // Set a timeout to resolve even if ICE gathering doesn't complete
-          // Increased timeout to 15 seconds for better candidate collection
+          // Increased timeout to 10 seconds for better candidate collection
           iceCandidateTimeout = setTimeout(() => {
             if (!resolved) {
               resolved = true;
-              console.log('⏱️ ICE gathering timeout - resolving with', this.localIceCandidates.length, 'collected candidates');
+              console.log('ICE gathering timeout - resolving with', this.localIceCandidates.length, 'collected candidates');
               if (answerSdp) {
                 resolve({
                   answer: answerSdp,
@@ -356,9 +246,9 @@ export class WebRTCService {
                 reject(new Error('Answer SDP not created'));
               }
             }
-          }, 15000); // Increased to 15 seconds
+          }, 10000); // Increased to 10 seconds
         } catch (error) {
-          console.error('❌ Error handling offer:', error);
+          console.error('Error handling offer:', error);
           if (error instanceof Error) {
             console.error('Error message:', error.message);
             console.error('Error stack:', error.stack);
@@ -392,23 +282,11 @@ export class WebRTCService {
         return;
       }
 
-      // If remote description is not set yet, queue the candidate
-      if (!this.isRemoteDescriptionSet) {
-        console.log('Queueing ICE candidate (remote description not set yet)');
-        this.remoteIceCandidatesQueue.push(candidateObj);
-        return;
-      }
-
       const iceCandidate = new RTCIceCandidate(candidateObj);
       await this.peerConnection.addIceCandidate(iceCandidate);
-      
-      const candidateType = this.extractCandidateType(candidateObj.candidate);
-      console.log('✅ ICE candidate added successfully:', {
-        type: candidateType,
-        preview: candidateObj.candidate.substring(0, 50) + '...',
-      });
+      console.log('ICE candidate added successfully:', candidateObj.candidate.substring(0, 50) + '...');
     } catch (error) {
-      console.error('❌ Error adding ICE candidate:', error);
+      console.error('Error adding ICE candidate:', error);
       if (error instanceof Error) {
         console.error('Error details:', error.message);
       }
@@ -431,8 +309,6 @@ export class WebRTCService {
     this.remoteStream = null;
     this.localIceCandidates = [];
     this.iceGatheringComplete = false;
-    this.remoteIceCandidatesQueue = [];
-    this.isRemoteDescriptionSet = false;
   }
 
   getConnectionState(): string {
@@ -453,12 +329,5 @@ export class WebRTCService {
 
   getLocalCandidatesCount(): number {
     return this.localIceCandidates.length;
-  }
-
-  getStats(): Promise<any> {
-    if (!this.peerConnection) {
-      return Promise.reject(new Error('Peer connection not initialized'));
-    }
-    return this.peerConnection.getStats();
   }
 }

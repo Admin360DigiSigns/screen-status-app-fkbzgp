@@ -75,21 +75,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Construct payload with all required fields
           const payload: apiService.DeviceStatusPayload = {
+            deviceId: deviceId,
+            screenName: screenName,
             screen_username: username,
             screen_password: password,
             screen_name: screenName,
-            device_id: deviceId,
             status: status,
+            timestamp: new Date().toISOString(),
           };
 
           console.log('Sending status update...');
           
-          const result = await apiService.sendDeviceStatus(payload);
+          const success = await apiService.sendDeviceStatus(payload);
           
-          if (result.success) {
+          if (success) {
             console.log('✓ Status update sent successfully');
           } else {
-            console.log('✗ Status update failed:', result.error);
+            console.log('✗ Status update failed');
           }
           console.log('===========================================');
         } catch (error) {
@@ -175,34 +177,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Device ID not available. Please try again.' };
       }
 
-      // Register the display first
-      console.log('Registering display...');
-      const registerResult = await apiService.registerDisplay(
-        inputUsername,
-        inputPassword,
-        inputScreenName,
-        deviceId
-      );
-
-      if (!registerResult.success) {
-        console.error('Failed to register display:', registerResult.error);
-        return { success: false, error: registerResult.error || 'Failed to register display' };
+      // Call the API service to authenticate with device ID
+      const response = await apiService.login(inputUsername, inputPassword, inputScreenName, deviceId);
+      
+      if (response.success) {
+        // Store credentials on successful login
+        await AsyncStorage.setItem('username', inputUsername);
+        await AsyncStorage.setItem('password', inputPassword);
+        await AsyncStorage.setItem('screenName', inputScreenName);
+        
+        setUsername(inputUsername);
+        setPassword(inputPassword);
+        setScreenName(inputScreenName);
+        setIsAuthenticated(true);
+        
+        console.log('Login successful, credentials stored');
+        return { success: true };
+      } else {
+        console.log('Login failed:', response.error);
+        return { success: false, error: response.error };
       }
-
-      console.log('✅ Display registered successfully');
-
-      // Store credentials on successful registration
-      await AsyncStorage.setItem('username', inputUsername);
-      await AsyncStorage.setItem('password', inputPassword);
-      await AsyncStorage.setItem('screenName', inputScreenName);
-      
-      setUsername(inputUsername);
-      setPassword(inputPassword);
-      setScreenName(inputScreenName);
-      setIsAuthenticated(true);
-      
-      console.log('Login successful, credentials stored');
-      return { success: true };
     } catch (error) {
       console.error('Error during login:', error);
       return { 
@@ -227,11 +221,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (deviceId && screenName && username && password) {
         console.log('Sending offline status before logout');
         await apiService.sendDeviceStatus({
+          deviceId,
+          screenName,
           screen_username: username,
           screen_password: password,
           screen_name: screenName,
-          device_id: deviceId,
           status: 'offline',
+          timestamp: new Date().toISOString(),
         });
       }
 
