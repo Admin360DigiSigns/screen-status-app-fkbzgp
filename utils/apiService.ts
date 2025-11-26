@@ -3,7 +3,7 @@
  * API Service for device status and content management
  */
 
-const SUPABASE_URL = 'https://pgcdokfiaarnhzryfzwf.supabase.co';
+const SUPABASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co';
 const BASE_URL = `${SUPABASE_URL}/functions/v1`;
 
 export interface DeviceStatusPayload {
