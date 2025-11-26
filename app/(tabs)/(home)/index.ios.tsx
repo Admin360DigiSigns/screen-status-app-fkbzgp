@@ -8,6 +8,7 @@ import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
 import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
+import { isTV } from '@/utils/deviceUtils';
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -19,6 +20,8 @@ export default function HomeScreen() {
   const [isScreenShareMode, setIsScreenShareMode] = useState(false);
   const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const isTVDevice = isTV();
 
   // Track when the screen is focused/unfocused
   useFocusEffect(
@@ -167,6 +170,150 @@ export default function HomeScreen() {
   const isOnline = networkState.isConnected === true;
   const statusColor = isOnline ? colors.accent : colors.secondary;
 
+  // TV Layout - Single screen, no scrolling, optimized button placement
+  if (isTVDevice) {
+    return (
+      <View style={styles.tvContainer}>
+        <View style={styles.tvContent}>
+          <Text style={styles.tvTitle}>TV Status Monitor</Text>
+          
+          <View style={styles.tvMainRow}>
+            {/* Left Column - Status and Info */}
+            <View style={styles.tvLeftColumn}>
+              <View style={[styles.tvStatusCard, { borderColor: statusColor }]}>
+                <View style={[styles.tvStatusIndicator, { backgroundColor: statusColor }]} />
+                <Text style={[styles.tvStatusText, { color: statusColor }]}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+
+              <View style={styles.tvInfoCard}>
+                <View style={styles.tvInfoRow}>
+                  <Text style={styles.tvInfoLabel}>Username:</Text>
+                  <Text style={styles.tvInfoValue}>{username}</Text>
+                </View>
+
+                <View style={styles.tvInfoRow}>
+                  <Text style={styles.tvInfoLabel}>Screen:</Text>
+                  <Text style={styles.tvInfoValue}>{screenName}</Text>
+                </View>
+                
+                <View style={styles.tvInfoRow}>
+                  <Text style={styles.tvInfoLabel}>Device ID:</Text>
+                  <Text style={styles.tvInfoValue} numberOfLines={1} ellipsizeMode="middle">
+                    {deviceId}
+                  </Text>
+                </View>
+
+                {lastSyncTime && (
+                  <View style={styles.tvInfoRow}>
+                    <Text style={styles.tvInfoLabel}>Last Sync:</Text>
+                    <Text style={styles.tvInfoValue}>
+                      {lastSyncTime.toLocaleTimeString()}
+                    </Text>
+                  </View>
+                )}
+
+                {syncStatus && (
+                  <View style={styles.tvInfoRow}>
+                    <Text style={styles.tvInfoLabel}>Status:</Text>
+                    <Text style={[
+                      styles.tvInfoValue,
+                      { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+                    ]}>
+                      {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Right Column - Action Buttons */}
+            <View style={styles.tvRightColumn}>
+              <TouchableOpacity 
+                style={styles.tvPreviewButton}
+                onPress={handlePreview}
+                activeOpacity={0.7}
+                disabled={isLoadingPreview}
+              >
+                {isLoadingPreview ? (
+                  <ActivityIndicator size="small" color={colors.card} />
+                ) : (
+                  <Text style={styles.tvButtonText}>Preview Content</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.tvScreenShareButton}
+                onPress={handleScreenShare}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.tvButtonText}>📺 Screen Share</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.tvSyncButton}
+                onPress={handleManualSync}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.tvButtonText}>Sync Status Now</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.tvLogoutButton}
+                onPress={handleLogout}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.tvButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.tvFooter}>
+            <Text style={styles.tvFooterText}>
+              ℹ️ Status updates sent every 1 minute • Updates only when on this screen
+            </Text>
+          </View>
+        </View>
+
+        {/* Preview Modal */}
+        <Modal
+          visible={isPreviewMode}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleClosePreview}
+        >
+          {displayContent && displayContent.solution && displayContent.solution.playlists ? (
+            <ContentPlayer
+              playlists={displayContent.solution.playlists}
+              onClose={handleClosePreview}
+            />
+          ) : (
+            <View style={styles.container}>
+              <View style={styles.content}>
+                <Text style={styles.errorText}>No content available</Text>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleClosePreview}>
+                  <Text style={styles.logoutButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </Modal>
+
+        {/* Screen Share Modal */}
+        <Modal
+          visible={isScreenShareMode}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleCloseScreenShare}
+        >
+          <ScreenShareReceiver onClose={handleCloseScreenShare} />
+        </Modal>
+      </View>
+    );
+  }
+
+  // Mobile Layout - Original scrollable design
   return (
     <View style={styles.container}>
       <ScrollView 
@@ -320,6 +467,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Mobile styles
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -478,5 +626,141 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     marginBottom: 20,
+  },
+
+  // TV styles - optimized for single screen display
+  tvContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 30,
+  },
+  tvContent: {
+    width: '100%',
+    maxWidth: 1400,
+    height: '100%',
+    justifyContent: 'space-between',
+  },
+  tvTitle: {
+    fontSize: 42,
+    fontWeight: 'bold',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  tvMainRow: {
+    flexDirection: 'row',
+    flex: 1,
+    gap: 30,
+  },
+  tvLeftColumn: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  tvRightColumn: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 16,
+  },
+  tvStatusCard: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    borderWidth: 4,
+    boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.2)',
+    elevation: 6,
+  },
+  tvStatusIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  tvStatusText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  tvInfoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 24,
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+    elevation: 4,
+  },
+  tvInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tvInfoLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  tvInfoValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 2,
+    textAlign: 'right',
+  },
+  tvPreviewButton: {
+    backgroundColor: colors.accent,
+    paddingVertical: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  tvScreenShareButton: {
+    backgroundColor: '#9333EA',
+    paddingVertical: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  tvSyncButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  tvLogoutButton: {
+    backgroundColor: colors.secondary,
+    paddingVertical: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  tvButtonText: {
+    color: colors.card,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  tvFooter: {
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+  },
+  tvFooterText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });

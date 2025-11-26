@@ -21,3 +21,35 @@ export const getDeviceId = async (): Promise<string> => {
     return 'unknown-device';
   }
 };
+
+// TV detection utility
+export const isTV = (): boolean => {
+  // Check if running on TV platform
+  if (Platform.isTV) {
+    console.log('Device detected as TV via Platform.isTV');
+    return true;
+  }
+
+  // Additional heuristic checks for Android TV
+  if (Platform.OS === 'android') {
+    const model = Platform.constants?.Model || '';
+    const brand = Platform.constants?.Brand || '';
+    
+    const isTVModel = model.toLowerCase().includes('tv') || 
+                      brand.toLowerCase().includes('tv') ||
+                      model.toLowerCase().includes('aftm') || // Fire TV
+                      model.toLowerCase().includes('aftb'); // Fire TV
+    
+    if (isTVModel) {
+      console.log('Device detected as TV via model/brand heuristics:', { model, brand });
+      return true;
+    }
+  }
+
+  console.log('Device detected as mobile/tablet');
+  return false;
+};
+
+export const isAndroid = Platform.OS === 'android';
+export const isIOS = Platform.OS === 'ios';
+export const isWeb = Platform.OS === 'web';
