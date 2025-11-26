@@ -46,6 +46,20 @@ export default function EditableElement_(_props: PropsWithChildren<any>) {
   }
 
   // Only access context on web platform
+  // Use try-catch to handle cases where context is not provided
+  let contextValue;
+  try {
+    contextValue = useContext(EditableContext);
+  } catch (error) {
+    console.log('EditableContext not available, rendering children normally');
+    return cloneElement(children, props);
+  }
+
+  // If context is not properly initialized (empty object), return children normally
+  if (!contextValue || typeof contextValue.editModeEnabled === 'undefined') {
+    return cloneElement(children, props);
+  }
+
   const {
     editModeEnabled,
     selected,
@@ -54,7 +68,7 @@ export default function EditableElement_(_props: PropsWithChildren<any>) {
     hovered,
     pushHovered,
     popHovered,
-  } = useContext(EditableContext);
+  } = contextValue;
 
   const type = getType(children);
   const __sourceLocation = props.__sourceLocation;
