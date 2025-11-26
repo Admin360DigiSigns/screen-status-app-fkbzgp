@@ -33,8 +33,6 @@ export default function LoginScreen() {
   const fadeInAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const buttonScaleAnim = useRef(new Animated.Value(1)).current;
-  const logoGlowAnim = useRef(new Animated.Value(0)).current;
-  const logoScaleAnim = useRef(new Animated.Value(1)).current;
 
   const isTVDevice = isTV();
 
@@ -51,46 +49,6 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
-
-  // Logo glow animation
-  useEffect(() => {
-    const logoGlow = Animated.loop(
-      Animated.sequence([
-        Animated.timing(logoGlowAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(logoGlowAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: false,
-        }),
-      ])
-    );
-    logoGlow.start();
-    return () => logoGlow.stop();
-  }, []);
-
-  // Logo scale animation
-  useEffect(() => {
-    const logoScale = Animated.loop(
-      Animated.sequence([
-        Animated.timing(logoScaleAnim, {
-          toValue: 1.05,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoScaleAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    logoScale.start();
-    return () => logoScale.stop();
   }, []);
 
   const handleLogin = async () => {
@@ -157,11 +115,6 @@ export default function LoginScreen() {
 
   const isOnline = networkState.isConnected === true;
 
-  const logoGlowColor = logoGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(59, 130, 246, 0.3)', 'rgba(168, 85, 247, 0.6)'],
-  });
-
   // TV Layout - Professional design
   if (isTVDevice) {
     return (
@@ -173,18 +126,11 @@ export default function LoginScreen() {
           end={{ x: 1, y: 1 }}
         >
           <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }] }]}>
-            {/* Logo with glow effect */}
-            <Animated.View style={[styles.tvLogoContainer, { shadowColor: logoGlowColor }]}>
-              <View style={styles.tvLogoGlowWrapper}>
-                <Animated.View style={[styles.tvLogoGlow, { backgroundColor: logoGlowColor }]} />
-                <Animated.View style={[styles.tvLogoGlow2, { backgroundColor: logoGlowColor, opacity: 0.5 }]} />
-              </View>
-              <Animated.Image
-                source={require('@/assets/images/0bd1582e-6ccf-4e31-967e-71dccf6a0b14.png')}
-                style={[styles.tvLogo, { transform: [{ scale: logoScaleAnim }] }]}
-                resizeMode="contain"
-              />
-            </Animated.View>
+            <Image
+              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+              style={styles.tvLogo}
+              resizeMode="contain"
+            />
             
             <View style={styles.tvConnectionBadgeContainer}>
               <LinearGradient
@@ -298,18 +244,11 @@ export default function LoginScreen() {
             showsVerticalScrollIndicator={false}
           >
             <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
-              {/* Logo with glow effect */}
-              <Animated.View style={[styles.mobileLogoContainer, { shadowColor: logoGlowColor }]}>
-                <View style={styles.mobileLogoGlowWrapper}>
-                  <Animated.View style={[styles.mobileLogoGlow, { backgroundColor: logoGlowColor }]} />
-                  <Animated.View style={[styles.mobileLogoGlow2, { backgroundColor: logoGlowColor, opacity: 0.5 }]} />
-                </View>
-                <Animated.Image
-                  source={require('@/assets/images/0bd1582e-6ccf-4e31-967e-71dccf6a0b14.png')}
-                  style={[styles.mobileLogo, { transform: [{ scale: logoScaleAnim }] }]}
-                  resizeMode="contain"
-                />
-              </Animated.View>
+              <Image
+                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+                style={styles.mobileLogo}
+                resizeMode="contain"
+              />
               
               <View style={styles.mobileConnectionBadgeContainer}>
                 <LinearGradient
@@ -444,40 +383,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  mobileLogoContainer: {
-    position: 'relative',
-    marginBottom: 32,
-    elevation: 12,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-  },
-  mobileLogoGlowWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mobileLogoGlow: {
-    position: 'absolute',
-    width: 260,
-    height: 120,
-    borderRadius: 60,
-    opacity: 0.4,
-  },
-  mobileLogoGlow2: {
-    position: 'absolute',
-    width: 300,
-    height: 140,
-    borderRadius: 70,
-    opacity: 0.2,
-  },
   mobileLogo: {
     width: 240,
     height: 100,
+    marginBottom: 32,
   },
   mobileConnectionBadgeContainer: {
     marginBottom: 24,
@@ -602,40 +511,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tvLogoContainer: {
-    position: 'relative',
-    marginBottom: 40,
-    elevation: 16,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.7,
-    shadowRadius: 30,
-  },
-  tvLogoGlowWrapper: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tvLogoGlow: {
-    position: 'absolute',
-    width: 450,
-    height: 160,
-    borderRadius: 80,
-    opacity: 0.5,
-  },
-  tvLogoGlow2: {
-    position: 'absolute',
-    width: 520,
-    height: 190,
-    borderRadius: 95,
-    opacity: 0.3,
-  },
   tvLogo: {
     width: 400,
     height: 140,
+    marginBottom: 40,
   },
   tvConnectionBadgeContainer: {
     marginBottom: 40,
