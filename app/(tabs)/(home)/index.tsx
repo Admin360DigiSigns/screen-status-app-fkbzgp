@@ -180,14 +180,14 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.logoBlue} />
         <Text style={[styles.loadingText, isTV && styles.loadingTextTV]}>Initializing device...</Text>
       </View>
     );
   }
 
   const isOnline = networkState.isConnected === true;
-  const statusColor = isOnline ? colors.accent : colors.secondary;
+  const statusColor = isOnline ? colors.logoGreen : colors.secondary;
   const isWebPlatform = Platform.OS === 'web';
 
   return (
@@ -201,8 +201,9 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={true}
       >
         <View style={[styles.content, isTV && styles.contentTV]}>
-          <Text style={[styles.title, isTV && styles.titleTV]}>TV Status Monitor</Text>
+          <Text style={[styles.title, isTV && styles.titleTV]}>Display Status Monitor</Text>
           
+          {/* Smaller Online Status Widget */}
           <View style={[styles.statusCard, { borderColor: statusColor }, isTV && styles.statusCardTV]}>
             <View style={[styles.statusIndicator, { backgroundColor: statusColor }, isTV && styles.statusIndicatorTV]} />
             <Text style={[styles.statusText, { color: statusColor }, isTV && styles.statusTextTV]}>
@@ -250,7 +251,7 @@ export default function HomeScreen() {
                 <Text style={[
                   styles.infoValue,
                   isTV && styles.infoValueTV,
-                  { color: syncStatus === 'success' ? colors.accent : colors.secondary }
+                  { color: syncStatus === 'success' ? colors.logoGreen : colors.secondary }
                 ]}>
                   {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
                 </Text>
@@ -259,6 +260,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={[styles.buttonContainer, isTV && styles.buttonContainerTV]}>
+            {/* Preview Button - Green from logo */}
             <TouchableOpacity 
               style={[styles.previewButton, isTV && styles.buttonTV]}
               onPress={handlePreview}
@@ -275,6 +277,7 @@ export default function HomeScreen() {
             {/* Only show Screen Share button on native platforms */}
             {!isWebPlatform && (
               <React.Fragment>
+                {/* Screen Share Button - Red from logo */}
                 <TouchableOpacity 
                   style={[styles.screenShareButton, isTV && styles.buttonTV]}
                   onPress={handleScreenShare}
@@ -283,6 +286,7 @@ export default function HomeScreen() {
                   <Text style={[styles.screenShareButtonText, isTV && styles.buttonTextTV]}>📺 Screen Share</Text>
                 </TouchableOpacity>
 
+                {/* Test Connection Button - Blue from logo */}
                 <TouchableOpacity 
                   style={[styles.testerButton, isTV && styles.buttonTV]}
                   onPress={handleOpenTester}
@@ -293,6 +297,7 @@ export default function HomeScreen() {
               </React.Fragment>
             )}
 
+            {/* Sync Button - Blue from logo */}
             <TouchableOpacity 
               style={[styles.syncButton, isTV && styles.buttonTV]}
               onPress={handleManualSync}
@@ -301,6 +306,7 @@ export default function HomeScreen() {
               <Text style={[styles.syncButtonText, isTV && styles.buttonTextTV]}>Sync Status Now</Text>
             </TouchableOpacity>
 
+            {/* Logout Button - Secondary gray */}
             <TouchableOpacity 
               style={[styles.logoutButton, isTV && styles.buttonTV]}
               onPress={handleLogout}
@@ -421,51 +427,51 @@ const styles = StyleSheet.create({
     fontSize: isMobile ? 28 : 36,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 32,
+    marginBottom: 24,
     textAlign: 'center',
   },
   titleTV: {
     fontSize: 56,
-    marginBottom: 60,
+    marginBottom: 48,
   },
   statusCard: {
     backgroundColor: colors.card,
-    borderRadius: isMobile ? 16 : 24,
-    padding: isMobile ? 24 : 40,
+    borderRadius: isMobile ? 12 : 16,
+    padding: isMobile ? 16 : 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
     width: '100%',
-    borderWidth: 3,
+    borderWidth: 2,
     boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
     elevation: 4,
   },
   statusCardTV: {
-    borderRadius: 32,
-    padding: 60,
+    borderRadius: 24,
+    padding: 40,
     marginBottom: 48,
-    borderWidth: 5,
+    borderWidth: 4,
   },
   statusIndicator: {
-    width: isMobile ? 20 : 28,
-    height: isMobile ? 20 : 28,
-    borderRadius: isMobile ? 10 : 14,
-    marginBottom: 16,
+    width: isMobile ? 12 : 16,
+    height: isMobile ? 12 : 16,
+    borderRadius: isMobile ? 6 : 8,
+    marginBottom: 8,
   },
   statusIndicatorTV: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginBottom: 32,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginBottom: 16,
   },
   statusText: {
-    fontSize: isMobile ? 32 : 42,
+    fontSize: isMobile ? 20 : 26,
     fontWeight: 'bold',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   statusTextTV: {
-    fontSize: 72,
-    letterSpacing: 4,
+    fontSize: 48,
+    letterSpacing: 2,
   },
   infoCard: {
     backgroundColor: colors.card,
@@ -516,7 +522,7 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   previewButton: {
-    backgroundColor: colors.accent,
+    backgroundColor: colors.logoGreen,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -539,7 +545,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
   },
   screenShareButton: {
-    backgroundColor: '#9333EA',
+    backgroundColor: colors.logoRed,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -551,7 +557,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   testerButton: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.logoBlue,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
@@ -563,7 +569,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   syncButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.logoBlue,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,

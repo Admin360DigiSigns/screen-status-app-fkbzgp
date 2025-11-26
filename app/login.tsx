@@ -11,6 +11,7 @@ import {
   ScrollView,
   Alert,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,15 +93,21 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={true}
       >
         <View style={[styles.content, isTV && styles.contentTV]}>
-          <Text style={[styles.title, isTV && styles.titleTV]}>TV App Login</Text>
+          {/* Logo */}
+          <Image
+            source={require('@/assets/images/d079802c-d5af-4189-8d0a-949785f2f7f3.png')}
+            style={[styles.logo, isTV && styles.logoTV]}
+            resizeMode="contain"
+          />
           
+          {/* Smaller Online Status Badge */}
           <View style={[
             styles.connectionBadge, 
-            { backgroundColor: isOnline ? colors.accent : colors.secondary },
+            { backgroundColor: isOnline ? colors.logoGreen : colors.secondary },
             isTV && styles.connectionBadgeTV
           ]}>
             <Text style={[styles.connectionText, isTV && styles.connectionTextTV]}>
-              {isOnline ? '● Connected' : '● Offline'}
+              {isOnline ? '● Online' : '● Offline'}
             </Text>
           </View>
 
@@ -155,6 +162,7 @@ export default function LoginScreen() {
               />
             </View>
 
+            {/* Login Button with Blue color from logo */}
             <TouchableOpacity
               style={[
                 styles.loginButton,
@@ -172,7 +180,7 @@ export default function LoginScreen() {
           </View>
 
           <Text style={[styles.infoText, isTV && styles.infoTextTV]}>
-            This app monitors your TV&apos;s online status and sends updates to the server.
+            This app monitors your display&apos;s online status and sends updates to the server.
           </Text>
         </View>
       </ScrollView>
@@ -208,36 +216,35 @@ const styles = StyleSheet.create({
   contentTV: {
     maxWidth: 1200,
   },
-  title: {
-    fontSize: isMobile ? 32 : 40,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 24,
-    textAlign: 'center',
+  logo: {
+    width: isMobile ? 280 : 360,
+    height: isMobile ? 120 : 160,
+    marginBottom: 32,
   },
-  titleTV: {
-    fontSize: 64,
-    marginBottom: 48,
+  logoTV: {
+    width: 600,
+    height: 260,
+    marginBottom: 60,
   },
   connectionBadge: {
-    paddingHorizontal: isMobile ? 16 : 24,
-    paddingVertical: isMobile ? 8 : 12,
-    borderRadius: 20,
+    paddingHorizontal: isMobile ? 12 : 16,
+    paddingVertical: isMobile ? 6 : 8,
+    borderRadius: 16,
     marginBottom: 24,
   },
   connectionBadgeTV: {
-    paddingHorizontal: 48,
-    paddingVertical: 20,
-    borderRadius: 32,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 24,
     marginBottom: 48,
   },
   connectionText: {
     color: colors.card,
-    fontSize: isMobile ? 14 : 18,
+    fontSize: isMobile ? 12 : 14,
     fontWeight: '600',
   },
   connectionTextTV: {
-    fontSize: 32,
+    fontSize: 24,
   },
   warningCard: {
     backgroundColor: colors.highlight,
@@ -303,7 +310,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
   loginButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.logoBlue,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

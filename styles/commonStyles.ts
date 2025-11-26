@@ -6,12 +6,15 @@ export const colors = {
   text: '#333333',
   textSecondary: '#777777',
   secondaryText: '#999999',
-  primary: '#007BFF',
+  primary: '#4267B2', // Blue from logo
   secondary: '#6C757D',
-  accent: '#28A745',
+  accent: '#7CB342', // Green from logo
   card: '#FFFFFF',
   cardBackground: '#FFFFFF',
   highlight: '#FFC107',
+  logoRed: '#FF0000', // Red from logo
+  logoGreen: '#7CB342', // Green from logo
+  logoBlue: '#4267B2', // Blue from logo
 };
 
 export const buttonStyles = StyleSheet.create({
