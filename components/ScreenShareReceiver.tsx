@@ -159,7 +159,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   <script>
     const API_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
     const POLL_INTERVAL = ${POLL_INTERVAL};
-    const ICE_GATHERING_TIMEOUT = 5000;
+    const ICE_GATHERING_TIMEOUT = 3000; // Reduced to 3 seconds
     
     const credentials = ${JSON.stringify(credentials)};
     
@@ -179,7 +179,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     
     // Send message to React Native
     function sendMessage(type, data) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...data }));
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...data }));
+      }
     }
     
     function log(message) {
@@ -222,13 +224,20 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       // Handle ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          log('ICE candidate generated');
+          log('ICE candidate generated: ' + event.candidate.candidate.substring(0, 50) + '...');
           iceCandidates.push({
             candidate: event.candidate.candidate,
             sdpMLineIndex: event.candidate.sdpMLineIndex,
             sdpMid: event.candidate.sdpMid,
           });
+        } else {
+          log('ICE gathering complete');
         }
+      };
+      
+      // Handle ICE gathering state
+      pc.onicegatheringstatechange = () => {
+        log('ICE gathering state: ' + pc.iceGatheringState);
       };
       
       // Handle connection state changes
@@ -243,13 +252,18 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         }
       };
       
+      // Handle ICE connection state
+      pc.oniceconnectionstatechange = () => {
+        log('ICE connection state: ' + pc.iceConnectionState);
+      };
+      
       return pc;
     }
     
     // Handle screen share offer
     async function handleOffer(offerData) {
       if (isProcessingOffer) {
-        log('Already processing an offer');
+        log('Already processing an offer, skipping...');
         return;
       }
       
@@ -258,75 +272,124 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       try {
         log('Processing offer for session: ' + offerData.id);
+        log('Offer SDP length: ' + offerData.offer.length);
+        log('Offer ICE candidates: ' + (offerData.ice_candidates?.length || 0));
         
         // Create peer connection
         peerConnection = createPeerConnection();
         iceCandidates = [];
         
         // Set remote description (offer)
+        log('Setting remote description...');
         await peerConnection.setRemoteDescription({
           type: 'offer',
           sdp: offerData.offer,
         });
         
-        log('Remote description set');
+        log('✅ Remote description set successfully');
+        
+        // Add remote ICE candidates immediately
+        if (Array.isArray(offerData.ice_candidates) && offerData.ice_candidates.length > 0) {
+          log('Adding ' + offerData.ice_candidates.length + ' remote ICE candidates...');
+          for (const candidate of offerData.ice_candidates) {
+            try {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              log('Added remote ICE candidate');
+            } catch (e) {
+              log('Failed to add remote ICE candidate: ' + e.message);
+            }
+          }
+          log('✅ Remote ICE candidates added');
+        }
         
         // Create answer
+        log('Creating answer...');
         const answer = await peerConnection.createAnswer();
+        
+        log('Answer created, SDP length: ' + answer.sdp.length);
+        log('Setting local description...');
+        
         await peerConnection.setLocalDescription(answer);
         
-        log('Answer created, waiting for ICE candidates...');
+        log('✅ Local description set, waiting for ICE candidates...');
         
-        // Wait for ICE candidates
-        await new Promise(resolve => setTimeout(resolve, ICE_GATHERING_TIMEOUT));
+        // Wait for ICE gathering to complete or timeout
+        await new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            log('ICE gathering timeout reached, proceeding with ' + iceCandidates.length + ' candidates');
+            resolve();
+          }, ICE_GATHERING_TIMEOUT);
+          
+          if (peerConnection.iceGatheringState === 'complete') {
+            clearTimeout(timeout);
+            log('ICE gathering already complete');
+            resolve();
+          } else {
+            const checkState = () => {
+              if (peerConnection.iceGatheringState === 'complete') {
+                clearTimeout(timeout);
+                peerConnection.removeEventListener('icegatheringstatechange', checkState);
+                log('ICE gathering completed');
+                resolve();
+              }
+            };
+            peerConnection.addEventListener('icegatheringstatechange', checkState);
+          }
+        });
         
         log('Collected ' + iceCandidates.length + ' ICE candidates');
         
-        // Send answer to server with credentials
-        log('Sending answer with credentials: ' + JSON.stringify({
+        // Prepare answer payload
+        const answerPayload = {
           screen_username: credentials.screen_username,
+          screen_password: credentials.screen_password,
           screen_name: credentials.screen_name,
-          hasPassword: !!credentials.screen_password,
-        }));
+          session_id: offerData.id,
+          answer: peerConnection.localDescription.sdp,
+          answer_ice_candidates: iceCandidates,
+        };
         
+        log('Sending answer to server...');
+        log('Answer SDP preview: ' + answerPayload.answer.substring(0, 100) + '...');
+        log('Answer ICE candidates count: ' + answerPayload.answer_ice_candidates.length);
+        
+        // Send answer to server with credentials
         const response = await fetch(API_URL + '/screen-share-send-answer', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            screen_username: credentials.screen_username,
-            screen_password: credentials.screen_password,
-            screen_name: credentials.screen_name,
-            session_id: offerData.id,
-            answer: answer.sdp,
-            answer_ice_candidates: iceCandidates,
-          }),
+          headers: { 
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(answerPayload),
         });
         
         log('Answer response status: ' + response.status);
         
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch (e) {
+            errorData = { error: errorText };
+          }
           throw new Error('Failed to send answer: ' + response.status + ' - ' + (errorData.error || 'Unknown error'));
         }
         
-        log('Answer sent successfully');
-        
-        // Add remote ICE candidates
-        if (Array.isArray(offerData.ice_candidates)) {
-          log('Adding ' + offerData.ice_candidates.length + ' remote ICE candidates');
-          for (const candidate of offerData.ice_candidates) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-          }
-        }
+        const responseData = await response.json();
+        log('✅ Answer sent successfully: ' + responseData.message);
         
         // Stop polling
         if (pollingInterval) {
           clearInterval(pollingInterval);
           pollingInterval = null;
+          log('Stopped polling for offers');
         }
         
+        updateStatus('connecting', '🔄 Establishing connection...');
+        
       } catch (error) {
-        log('Error handling offer: ' + error.message);
+        log('❌ Error handling offer: ' + error.message);
+        console.error('Full error:', error);
         showError(error.message);
         isProcessingOffer = false;
         cleanup();
@@ -336,15 +399,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     // Poll for offers
     async function pollForOffers() {
       if (isProcessingOffer) {
+        log('Skipping poll - already processing offer');
         return;
       }
       
       try {
-        log('Polling for offers with credentials: ' + JSON.stringify({
-          screen_username: credentials.screen_username,
-          screen_name: credentials.screen_name,
-          hasPassword: !!credentials.screen_password,
-        }));
+        log('Polling for offers...');
         
         const response = await fetch(API_URL + '/screen-share-get-offer', {
           method: 'POST',
@@ -357,10 +417,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         if (response.status === 200) {
           const data = await response.json();
           if (data.session) {
-            log('Screen share offer available');
+            log('✅ Screen share offer available!');
             await handleOffer(data.session);
           } else {
-            log('No session available');
+            log('No session available yet');
           }
         } else if (response.status === 401) {
           const errorData = await response.json().catch(() => ({ error: 'Invalid credentials' }));
@@ -368,18 +428,23 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           if (pollingInterval) {
             clearInterval(pollingInterval);
           }
+        } else if (response.status === 400) {
+          const errorData = await response.json().catch(() => ({ error: 'Bad request' }));
+          showError('Bad request: ' + errorData.error);
+          log('❌ Bad request - check credentials format');
         } else {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
           log('Poll error: ' + response.status + ' - ' + errorData.error);
         }
       } catch (error) {
         log('Polling error: ' + error.message);
+        console.error('Full polling error:', error);
       }
     }
     
     // Cleanup
     function cleanup() {
-      log('Cleaning up');
+      log('Cleaning up resources...');
       
       if (pollingInterval) {
         clearInterval(pollingInterval);
@@ -398,17 +463,30 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       iceCandidates = [];
       isProcessingOffer = false;
+      
+      log('Cleanup complete');
     }
     
     // Start polling
-    log('Starting screen share receiver');
+    log('🚀 Starting screen share receiver');
+    log('Credentials: ' + JSON.stringify({
+      screen_username: credentials.screen_username,
+      screen_name: credentials.screen_name,
+      hasPassword: !!credentials.screen_password
+    }));
+    
     updateStatus('polling', '⏳ Waiting for screen share...');
     
+    // Initial poll
     pollForOffers();
+    
+    // Set up polling interval
     pollingInterval = setInterval(pollForOffers, POLL_INTERVAL);
     
     // Cleanup on page unload
     window.addEventListener('beforeunload', cleanup);
+    
+    log('Polling started with ' + POLL_INTERVAL + 'ms interval');
   </script>
 </body>
 </html>
