@@ -7,6 +7,7 @@ import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@
 import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
 import ContentPlayer from '@/components/ContentPlayer';
+import ScreenShareReceiver from '@/components/ScreenShareReceiver';
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -15,6 +16,7 @@ export default function HomeScreen() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isScreenShareMode, setIsScreenShareMode] = useState(false);
   const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -74,19 +76,25 @@ export default function HomeScreen() {
   }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
 
   const handleLogout = async () => {
-    // Send offline status before logging out
-    if (deviceId && screenName && username && password) {
-      await sendDeviceStatus({
-        deviceId,
-        screenName,
-        screen_username: username,
-        screen_password: password,
-        screen_name: screenName,
-        status: 'offline',
-        timestamp: new Date().toISOString(),
-      });
+    try {
+      // Send offline status before logging out
+      if (deviceId && screenName && username && password) {
+        await sendDeviceStatus({
+          deviceId,
+          screenName,
+          screen_username: username,
+          screen_password: password,
+          screen_name: screenName,
+          status: 'offline',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      await logout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still logout even if status update fails
+      await logout();
     }
-    await logout();
   };
 
   const handleManualSync = () => {
@@ -123,6 +131,24 @@ export default function HomeScreen() {
   const handleClosePreview = () => {
     setIsPreviewMode(false);
     setDisplayContent(null);
+  };
+
+  const handleScreenShare = () => {
+    console.log('🎬 Screen Share button pressed - Opening screen share receiver');
+    
+    // Verify credentials before opening
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for screen share');
+      return;
+    }
+    
+    console.log('✅ Credentials verified, opening screen share modal');
+    setIsScreenShareMode(true);
+  };
+
+  const handleCloseScreenShare = () => {
+    console.log('Closing screen share receiver');
+    setIsScreenShareMode(false);
   };
 
   if (!isAuthenticated) {
@@ -213,6 +239,15 @@ export default function HomeScreen() {
           )}
         </TouchableOpacity>
 
+        {/* Screen Share button for iOS */}
+        <TouchableOpacity 
+          style={styles.screenShareButton}
+          onPress={handleScreenShare}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.screenShareButtonText}>📺 Screen Share</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity 
           style={styles.syncButton}
           onPress={handleManualSync}
@@ -265,6 +300,16 @@ export default function HomeScreen() {
           </View>
         )}
       </Modal>
+
+      {/* Screen Share Modal */}
+      <Modal
+        visible={isScreenShareMode}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseScreenShare}
+      >
+        <ScreenShareReceiver onClose={handleCloseScreenShare} />
+      </Modal>
     </View>
   );
 }
@@ -273,6 +318,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    paddingTop: 48,
   },
   content: {
     flex: 1,
@@ -359,6 +405,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   previewButtonText: {
+    color: colors.card,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  screenShareButton: {
+    backgroundColor: '#9333EA',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  screenShareButtonText: {
     color: colors.card,
     fontSize: 18,
     fontWeight: '600',

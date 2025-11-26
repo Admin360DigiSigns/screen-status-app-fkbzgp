@@ -134,7 +134,15 @@ export default function HomeScreen() {
   };
 
   const handleScreenShare = () => {
-    console.log('Opening screen share receiver');
+    console.log('🎬 Screen Share button pressed - Opening screen share receiver');
+    
+    // Verify credentials before opening
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for screen share');
+      return;
+    }
+    
+    console.log('✅ Credentials verified, opening screen share modal');
     setIsScreenShareMode(true);
   };
 

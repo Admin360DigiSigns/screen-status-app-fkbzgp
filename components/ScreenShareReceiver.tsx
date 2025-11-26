@@ -1,20 +1,11 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, Platform, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { colors } from '../styles/commonStyles';
 import { useAuth } from '../contexts/AuthContext';
-import { getScreenShareOffer, sendScreenShareAnswer } from '../utils/screenShareApi';
-import { 
-  createReceiverPeerConnection, 
-  handleOffer, 
-  addIceCandidate,
-  isWebRTCAvailable,
-  WebRTCPeerConnection,
-  ICECandidate 
-} from '../utils/webrtcService';
 
 const POLL_INTERVAL = 2500; // Poll every 2.5 seconds
-const ICE_GATHERING_TIMEOUT = 5000; // Wait 5 seconds for ICE candidates
 
 interface ScreenShareReceiverProps {
   onClose?: () => void;
@@ -24,162 +15,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const { user } = useAuth();
   const [status, setStatus] = useState<'idle' | 'polling' | 'connecting' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [remoteStream, setRemoteStream] = useState<any>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  
-  const peerConnectionRef = useRef<WebRTCPeerConnection | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const iceCandidatesRef = useRef<ICECandidate[]>([]);
-  const isProcessingOfferRef = useRef(false);
+  const webViewRef = useRef<WebView>(null);
 
-  // Check if WebRTC is available
-  const webRTCAvailable = isWebRTCAvailable();
-
-  // Cleanup function
-  const cleanup = useCallback(() => {
-    console.log('Cleaning up screen share receiver');
-    
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-    }
-    
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.cleanup();
-      peerConnectionRef.current = null;
-    }
-    
-    iceCandidatesRef.current = [];
-    isProcessingOfferRef.current = false;
-  }, []);
-
-  // Handle incoming screen share offer
-  const handleScreenShareOffer = useCallback(async (offerData: any) => {
-    if (isProcessingOfferRef.current) {
-      console.log('Already processing an offer, skipping');
-      return;
-    }
-
-    isProcessingOfferRef.current = true;
-    setStatus('connecting');
-    setSessionId(offerData.id);
-    
-    console.log('Processing screen share offer for session:', offerData.id);
-
-    try {
-      // Create peer connection
-      const connection = await createReceiverPeerConnection(
-        (stream) => {
-          console.log('Remote stream received');
-          setRemoteStream(stream);
-          setStatus('connected');
-        },
-        (candidate) => {
-          console.log('ICE candidate generated');
-          iceCandidatesRef.current.push(candidate);
-        },
-        (state) => {
-          console.log('Connection state:', state);
-          if (state === 'failed' || state === 'disconnected' || state === 'closed') {
-            setStatus('error');
-            setErrorMessage('Connection lost');
-            cleanup();
-          }
-        }
-      );
-
-      if (!connection) {
-        throw new Error('Failed to create peer connection');
-      }
-
-      peerConnectionRef.current = connection;
-
-      // Handle the offer and create answer
-      const answerSdp = await handleOffer(connection.peerConnection, offerData.offer);
-      
-      if (!answerSdp) {
-        throw new Error('Failed to create answer');
-      }
-
-      console.log('Answer created, waiting for ICE candidates...');
-
-      // Wait for ICE candidates to be gathered
-      await new Promise((resolve) => setTimeout(resolve, ICE_GATHERING_TIMEOUT));
-
-      console.log('Collected', iceCandidatesRef.current.length, 'ICE candidates');
-
-      // Send answer back to server
-      if (!user?.screen_username || !user?.screen_password || !user?.screen_name) {
-        throw new Error('Missing authentication credentials');
-      }
-
-      const answerResult = await sendScreenShareAnswer({
-        screen_username: user.screen_username,
-        screen_password: user.screen_password,
-        screen_name: user.screen_name,
-        session_id: offerData.id,
-        answer: answerSdp,
-        answer_ice_candidates: iceCandidatesRef.current,
-      });
-
-      if (!answerResult.success) {
-        throw new Error(answerResult.error || 'Failed to send answer');
-      }
-
-      console.log('Answer sent successfully');
-
-      // Add remote ICE candidates if available
-      if (Array.isArray(offerData.ice_candidates)) {
-        console.log('Adding', offerData.ice_candidates.length, 'remote ICE candidates');
-        for (const candidate of offerData.ice_candidates) {
-          await addIceCandidate(connection.peerConnection, candidate);
-        }
-      }
-
-      // Stop polling once connected
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-
-    } catch (error) {
-      console.error('Error handling screen share offer:', error);
-      setStatus('error');
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to establish connection');
-      isProcessingOfferRef.current = false;
-      cleanup();
-    }
-  }, [user, cleanup]);
-
-  // Poll for screen share offers
-  const pollForOffers = useCallback(async () => {
-    if (!user?.screen_username || !user?.screen_password || !user?.screen_name) {
-      console.log('Missing credentials, skipping poll');
-      return;
-    }
-
-    if (isProcessingOfferRef.current) {
-      console.log('Already processing offer, skipping poll');
-      return;
-    }
-
-    try {
-      const result = await getScreenShareOffer({
-        screen_username: user.screen_username,
-        screen_password: user.screen_password,
-        screen_name: user.screen_name,
-      });
-
-      if (result.success && result.data?.session) {
-        console.log('Screen share offer available');
-        await handleScreenShareOffer(result.data.session);
-      }
-    } catch (error) {
-      console.error('Error polling for offers:', error);
-    }
-  }, [user, handleScreenShareOffer]);
-
-  // Start polling when component mounts
+  // Check if we have the required credentials
   useEffect(() => {
     if (!user?.screen_username || !user?.screen_password || !user?.screen_name) {
       setStatus('error');
@@ -187,65 +25,351 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       return;
     }
 
-    console.log('Starting screen share receiver polling');
+    console.log('Starting screen share receiver');
     setStatus('polling');
+  }, [user]);
 
-    // Initial poll
-    pollForOffers();
+  // Handle messages from WebView
+  const handleWebViewMessage = useCallback((event: any) => {
+    try {
+      const message = JSON.parse(event.nativeEvent.data);
+      console.log('WebView message:', message.type);
 
-    // Set up polling interval
-    pollingIntervalRef.current = setInterval(pollForOffers, POLL_INTERVAL);
-
-    // Cleanup on unmount
-    return () => {
-      cleanup();
-    };
-  }, [user, pollForOffers, cleanup]);
-
-  // Disconnect handler
-  const handleDisconnect = useCallback(() => {
-    cleanup();
-    setStatus('polling');
-    setRemoteStream(null);
-    setSessionId(null);
-    setErrorMessage('');
-    
-    // Restart polling
-    if (user?.screen_username && user?.screen_password && user?.screen_name) {
-      pollingIntervalRef.current = setInterval(pollForOffers, POLL_INTERVAL);
+      switch (message.type) {
+        case 'status':
+          setStatus(message.status);
+          break;
+        case 'error':
+          setStatus('error');
+          setErrorMessage(message.message);
+          break;
+        case 'log':
+          console.log('[WebView]', message.message);
+          break;
+        default:
+          console.log('Unknown message type:', message.type);
+      }
+    } catch (error) {
+      console.error('Error parsing WebView message:', error);
     }
-  }, [cleanup, user, pollForOffers]);
+  }, []);
 
   // Close handler
   const handleClose = useCallback(() => {
-    cleanup();
+    console.log('Closing screen share receiver');
     if (onClose) {
       onClose();
     }
-  }, [cleanup, onClose]);
+  }, [onClose]);
 
-  if (!webRTCAvailable) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.messageContainer}>
-          <Text style={styles.title}>Screen Sharing Not Available</Text>
-          <Text style={styles.message}>
-            WebRTC is not available on this platform. Screen sharing requires a custom development build with react-native-webrtc.
-          </Text>
-          {Platform.OS === 'web' && (
-            <Text style={styles.webNote}>
-              Note: WebRTC screen sharing is not supported on web in this configuration.
-            </Text>
-          )}
-          {onClose && (
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  }
+  // Retry handler
+  const handleRetry = useCallback(() => {
+    setStatus('polling');
+    setErrorMessage('');
+    if (webViewRef.current) {
+      webViewRef.current.reload();
+    }
+  }, []);
+
+  // Generate the HTML content for WebView
+  const generateHTML = () => {
+    const credentials = {
+      screen_username: user?.screen_username || '',
+      screen_password: user?.screen_password || '',
+      screen_name: user?.screen_name || '',
+    };
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      overflow: hidden;
+    }
+    #container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+    #status {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 10;
+    }
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="status">Waiting for screen share...</div>
+    <video id="video" autoplay playsinline></video>
+  </div>
+
+  <script>
+    const API_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
+    const POLL_INTERVAL = ${POLL_INTERVAL};
+    const ICE_GATHERING_TIMEOUT = 5000;
+    
+    const credentials = ${JSON.stringify(credentials)};
+    
+    let peerConnection = null;
+    let pollingInterval = null;
+    let isProcessingOffer = false;
+    let iceCandidates = [];
+    
+    const statusEl = document.getElementById('status');
+    const videoEl = document.getElementById('video');
+    
+    // Send message to React Native
+    function sendMessage(type, data) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...data }));
+    }
+    
+    function log(message) {
+      console.log(message);
+      sendMessage('log', { message });
+    }
+    
+    function updateStatus(status, message) {
+      statusEl.textContent = message;
+      sendMessage('status', { status });
+    }
+    
+    function showError(message) {
+      statusEl.textContent = '❌ ' + message;
+      sendMessage('error', { message });
+    }
+    
+    // ICE servers configuration
+    const iceServers = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+    ];
+    
+    // Create peer connection
+    function createPeerConnection() {
+      log('Creating peer connection');
+      
+      const pc = new RTCPeerConnection({ iceServers });
+      
+      // Handle incoming stream
+      pc.ontrack = (event) => {
+        log('Received remote stream');
+        if (event.streams && event.streams[0]) {
+          videoEl.srcObject = event.streams[0];
+          updateStatus('connected', '✅ Connected');
+        }
+      };
+      
+      // Handle ICE candidates
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          log('ICE candidate generated');
+          iceCandidates.push({
+            candidate: event.candidate.candidate,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            sdpMid: event.candidate.sdpMid,
+          });
+        }
+      };
+      
+      // Handle connection state changes
+      pc.onconnectionstatechange = () => {
+        log('Connection state: ' + pc.connectionState);
+        
+        if (pc.connectionState === 'connected') {
+          updateStatus('connected', '✅ Connected');
+        } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          showError('Connection lost');
+          cleanup();
+        }
+      };
+      
+      return pc;
+    }
+    
+    // Handle screen share offer
+    async function handleOffer(offerData) {
+      if (isProcessingOffer) {
+        log('Already processing an offer');
+        return;
+      }
+      
+      isProcessingOffer = true;
+      updateStatus('connecting', '🔄 Connecting...');
+      
+      try {
+        log('Processing offer for session: ' + offerData.id);
+        
+        // Create peer connection
+        peerConnection = createPeerConnection();
+        iceCandidates = [];
+        
+        // Set remote description (offer)
+        await peerConnection.setRemoteDescription({
+          type: 'offer',
+          sdp: offerData.offer,
+        });
+        
+        log('Remote description set');
+        
+        // Create answer
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        log('Answer created, waiting for ICE candidates...');
+        
+        // Wait for ICE candidates
+        await new Promise(resolve => setTimeout(resolve, ICE_GATHERING_TIMEOUT));
+        
+        log('Collected ' + iceCandidates.length + ' ICE candidates');
+        
+        // Send answer to server
+        const response = await fetch(API_URL + '/screen-share-send-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            screen_username: credentials.screen_username,
+            screen_password: credentials.screen_password,
+            screen_name: credentials.screen_name,
+            session_id: offerData.id,
+            answer: answer.sdp,
+            answer_ice_candidates: iceCandidates,
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to send answer: ' + response.status);
+        }
+        
+        log('Answer sent successfully');
+        
+        // Add remote ICE candidates
+        if (Array.isArray(offerData.ice_candidates)) {
+          log('Adding ' + offerData.ice_candidates.length + ' remote ICE candidates');
+          for (const candidate of offerData.ice_candidates) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          }
+        }
+        
+        // Stop polling
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+        }
+        
+      } catch (error) {
+        log('Error handling offer: ' + error.message);
+        showError(error.message);
+        isProcessingOffer = false;
+        cleanup();
+      }
+    }
+    
+    // Poll for offers
+    async function pollForOffers() {
+      if (isProcessingOffer) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(API_URL + '/screen-share-get-offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials),
+        });
+        
+        if (response.status === 200) {
+          const data = await response.json();
+          if (data.session) {
+            log('Screen share offer available');
+            await handleOffer(data.session);
+          }
+        } else if (response.status === 401) {
+          showError('Invalid credentials');
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+          }
+        }
+      } catch (error) {
+        log('Polling error: ' + error.message);
+      }
+    }
+    
+    // Cleanup
+    function cleanup() {
+      log('Cleaning up');
+      
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      
+      if (videoEl.srcObject) {
+        videoEl.srcObject.getTracks().forEach(track => track.stop());
+        videoEl.srcObject = null;
+      }
+      
+      iceCandidates = [];
+      isProcessingOffer = false;
+    }
+    
+    // Start polling
+    log('Starting screen share receiver');
+    updateStatus('polling', '⏳ Waiting for screen share...');
+    
+    pollForOffers();
+    pollingInterval = setInterval(pollForOffers, POLL_INTERVAL);
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', cleanup);
+  </script>
+</body>
+</html>
+    `;
+  };
 
   // Render based on status
   if (status === 'error') {
@@ -255,7 +379,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           <Text style={styles.title}>Connection Error</Text>
           <Text style={styles.errorText}>{errorMessage}</Text>
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.retryButton} onPress={handleDisconnect}>
+            <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
             {onClose && (
@@ -269,57 +393,62 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     );
   }
 
-  if (status === 'connected' && remoteStream) {
+  if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
-        <View style={styles.videoPlaceholder}>
-          <Text style={styles.videoPlaceholderText}>
-            Screen share connected but video rendering requires react-native-webrtc
+        <View style={styles.messageContainer}>
+          <Text style={styles.title}>Screen Sharing Not Available</Text>
+          <Text style={styles.message}>
+            Screen sharing is not supported on web platform in this configuration.
+            Please use the Android or iOS app.
           </Text>
-        </View>
-        <View style={styles.controlsContainer}>
-          <Text style={styles.sessionText}>Session: {sessionId}</Text>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
-              <Text style={styles.disconnectButtonText}>Disconnect</Text>
+          {onClose && (
+            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+              <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
-            {onClose && (
-              <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
         </View>
       </View>
     );
   }
 
-  if (status === 'connecting') {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.statusText}>Connecting to screen share...</Text>
-        {onClose && (
-          <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }
-
-  // Polling state
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={styles.statusText}>Waiting for screen share...</Text>
-      <Text style={styles.infoText}>
-        Start a screen share from your web app to see it here
-      </Text>
+      <WebView
+        ref={webViewRef}
+        source={{ html: generateHTML() }}
+        style={styles.webview}
+        onMessage={handleWebViewMessage}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        mediaPlaybackRequiresUserAction={false}
+        allowsInlineMediaPlayback={true}
+        onError={(syntheticEvent) => {
+          const { nativeEvent } = syntheticEvent;
+          console.error('WebView error:', nativeEvent);
+          setStatus('error');
+          setErrorMessage('WebView failed to load');
+        }}
+      />
+      
+      {/* Close button overlay */}
       {onClose && (
-        <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
-          <Text style={styles.cancelButtonText}>Close</Text>
-        </TouchableOpacity>
+        <View style={styles.closeButtonContainer}>
+          <TouchableOpacity style={styles.closeButtonOverlay} onPress={handleClose}>
+            <Text style={styles.closeButtonOverlayText}>✕ Close</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* Loading overlay */}
+      {status === 'polling' && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Waiting for screen share...</Text>
+          <Text style={styles.loadingSubtext}>
+            Start a screen share from your web app to see it here
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -328,17 +457,20 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: colors.background,
-    padding: 20,
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#000000',
   },
   messageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: colors.cardBackground,
     padding: 24,
+    margin: 20,
     borderRadius: 12,
-    maxWidth: 500,
-    alignItems: 'center',
   },
   title: {
     fontSize: 20,
@@ -353,26 +485,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
     lineHeight: 24,
-  },
-  webNote: {
-    fontSize: 12,
-    color: colors.secondaryText,
-    marginTop: 12,
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  statusText: {
-    fontSize: 18,
-    color: colors.text,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  infoText: {
-    fontSize: 14,
-    color: colors.secondaryText,
-    marginTop: 12,
-    textAlign: 'center',
-    maxWidth: 300,
   },
   errorText: {
     fontSize: 16,
@@ -407,57 +519,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  cancelButton: {
-    backgroundColor: colors.secondary,
-    paddingHorizontal: 24,
+  closeButtonContainer: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 100,
+  },
+  closeButtonOverlay: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
-    marginTop: 20,
   },
-  cancelButtonText: {
+  closeButtonOverlayText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
-  videoPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-  },
-  videoPlaceholderText: {
-    fontSize: 16,
-    color: colors.text,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  controlsContainer: {
+  loadingOverlay: {
     position: 'absolute',
-    bottom: 40,
+    top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    padding: 20,
   },
-  sessionText: {
-    fontSize: 12,
+  loadingText: {
+    fontSize: 18,
     color: colors.text,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    marginBottom: 12,
+    marginTop: 20,
+    textAlign: 'center',
   },
-  disconnectButton: {
-    backgroundColor: '#ff4444',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  disconnectButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  loadingSubtext: {
+    fontSize: 14,
+    color: colors.secondaryText,
+    marginTop: 12,
+    textAlign: 'center',
+    maxWidth: 300,
   },
 });
