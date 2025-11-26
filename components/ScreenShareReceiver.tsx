@@ -16,14 +16,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const [status, setStatus] = useState<'idle' | 'polling' | 'connecting' | 'connected' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
-  const [displayId, setDisplayId] = useState<string>('');
-  const [connectionDetails, setConnectionDetails] = useState<string>('');
   const webViewRef = useRef<WebView>(null);
 
   // Check if we have the required credentials
   useEffect(() => {
     if (!username || !password || !screenName) {
-      console.error('❌ Missing credentials:', { 
+      console.error('Missing credentials:', { 
         hasUsername: !!username, 
         hasPassword: !!password, 
         hasScreenName: !!screenName 
@@ -33,11 +31,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       return;
     }
 
-    console.log('✅ Starting screen share receiver with credentials:');
-    console.log('   Username:', username);
-    console.log('   Screen Name:', screenName);
-    console.log('   Display ID will be:', screenName);
-    setDisplayId(screenName);
+    console.log('Starting screen share receiver with credentials:', {
+      username,
+      screenName,
+      hasPassword: !!password,
+    });
     setStatus('polling');
   }, [username, password, screenName]);
 
@@ -45,19 +43,13 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   const handleWebViewMessage = useCallback((event: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      console.log('📨 WebView message:', message.type, message);
+      console.log('WebView message:', message.type, message);
 
       switch (message.type) {
         case 'status':
           setStatus(message.status);
           if (message.sessionId) {
             setSessionId(message.sessionId);
-          }
-          if (message.displayId) {
-            setDisplayId(message.displayId);
-          }
-          if (message.details) {
-            setConnectionDetails(message.details);
           }
           break;
         case 'error':
@@ -88,7 +80,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     setStatus('polling');
     setErrorMessage('');
     setSessionId('');
-    setConnectionDetails('');
     if (webViewRef.current) {
       webViewRef.current.reload();
     }
@@ -102,10 +93,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       screen_name: screenName || '',
     };
 
-    console.log('🔧 Generating HTML with credentials:');
-    console.log('   screen_username:', credentials.screen_username);
-    console.log('   screen_name:', credentials.screen_name);
-    console.log('   display_id will be:', credentials.screen_name);
+    console.log('Generating HTML with credentials:', {
+      screen_username: credentials.screen_username,
+      screen_name: credentials.screen_name,
+      hasPassword: !!credentials.screen_password,
+    });
 
     return `
 <!DOCTYPE html>
@@ -174,26 +166,21 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
   <script>
     const API_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1';
     const POLL_INTERVAL = ${POLL_INTERVAL};
-    const ICE_GATHERING_TIMEOUT = 8000; // Increased to 8 seconds
+    const ICE_GATHERING_TIMEOUT = 5000; // 5 seconds
     
     const credentials = ${JSON.stringify(credentials)};
     
-    // IMPORTANT: display_id is the screen_name
-    const display_id = credentials.screen_name;
-    
-    console.log('🚀 WebView initialized');
-    console.log('📋 Credentials:');
-    console.log('   screen_username:', credentials.screen_username);
-    console.log('   screen_name:', credentials.screen_name);
-    console.log('   display_id:', display_id);
-    console.log('   hasPassword:', !!credentials.screen_password);
+    console.log('WebView initialized with credentials:', {
+      screen_username: credentials.screen_username,
+      screen_name: credentials.screen_name,
+      hasPassword: !!credentials.screen_password,
+    });
     
     let peerConnection = null;
     let pollingInterval = null;
     let isProcessingOffer = false;
     let iceCandidates = [];
     let currentSessionId = null;
-    let iceGatheringComplete = false;
     
     const statusEl = document.getElementById('status');
     const videoEl = document.getElementById('video');
@@ -210,14 +197,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('log', { message });
     }
     
-    function updateStatus(status, message, sessionId, displayIdParam, details) {
+    function updateStatus(status, message, sessionId) {
       statusEl.textContent = message;
-      sendMessage('status', { 
-        status, 
-        sessionId, 
-        displayId: displayIdParam || display_id,
-        details: details || ''
-      });
+      sendMessage('status', { status, sessionId });
     }
     
     function showError(message) {
@@ -225,7 +207,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // Enhanced SDP validation and cleaning
+    // Enhanced SDP validation and cleaning - handles dynamic session data
     function validateAndCleanSDP(sdpInput, type) {
       log('🔍 Validating ' + type + ' SDP...');
       
@@ -257,13 +239,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       }
       
       // Normalize line endings - handle all escape sequence variations
+      // This handles both actual newlines and escaped newlines
       cleanedSDP = cleanedSDP
-        .replace(/\\\\r\\\\n/g, '\\n')
-        .replace(/\\\\n/g, '\\n')
-        .replace(/\\\\r/g, '\\n')
-        .replace(/\\r\\n/g, '\\n')
-        .replace(/\\r/g, '\\n')
-        .replace(/\\n/g, '\\n');
+        .replace(/\\\\r\\\\n/g, '\\n')  // Double-escaped CRLF
+        .replace(/\\\\n/g, '\\n')        // Double-escaped LF
+        .replace(/\\\\r/g, '\\n')        // Double-escaped CR
+        .replace(/\\r\\n/g, '\\n')       // Escaped CRLF
+        .replace(/\\r/g, '\\n')          // Escaped CR
+        .replace(/\\n/g, '\\n');         // Normalize to LF
       
       // Split into lines
       const lines = cleanedSDP.split('\\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -298,7 +281,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       return reconstructedSDP;
     }
     
-    // ICE servers configuration - using multiple STUN servers for better connectivity
+    // ICE servers configuration
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
@@ -314,10 +297,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       log('Creating peer connection with ICE servers');
       
       try {
-        const pc = new RTCPeerConnection({ 
-          iceServers,
-          iceCandidatePoolSize: 10 // Pre-gather more candidates
-        });
+        const pc = new RTCPeerConnection({ iceServers });
         log('✅ RTCPeerConnection created successfully');
         
         // Handle incoming stream
@@ -326,14 +306,14 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           if (event.streams && event.streams[0]) {
             videoEl.srcObject = event.streams[0];
             log('✅ Video element srcObject set');
-            updateStatus('connected', '✅ Connected - Receiving video', currentSessionId, display_id, 'Video streaming');
+            updateStatus('connected', '✅ Connected - Receiving video', currentSessionId);
           }
         };
         
         // Handle ICE candidates
         pc.onicecandidate = (event) => {
           if (event.candidate) {
-            log('🧊 ICE candidate generated: ' + event.candidate.type);
+            log('🧊 ICE candidate generated');
             iceCandidates.push({
               candidate: event.candidate.candidate,
               sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -341,16 +321,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             });
           } else {
             log('🧊 ICE gathering complete! Total candidates: ' + iceCandidates.length);
-            iceGatheringComplete = true;
           }
         };
         
         // Handle ICE gathering state
         pc.onicegatheringstatechange = () => {
           log('🧊 ICE gathering state: ' + pc.iceGatheringState);
-          if (pc.iceGatheringState === 'complete') {
-            iceGatheringComplete = true;
-          }
         };
         
         // Handle connection state changes
@@ -358,11 +334,11 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('🔌 Connection state: ' + pc.connectionState);
           
           if (pc.connectionState === 'connected') {
-            updateStatus('connected', '✅ Connected - Stream active', currentSessionId, display_id, 'WebRTC connected');
+            updateStatus('connected', '✅ Connected - Stream active', currentSessionId);
           } else if (pc.connectionState === 'connecting') {
-            updateStatus('connecting', '🔄 Establishing WebRTC connection...', currentSessionId, display_id, 'ICE negotiation in progress');
+            updateStatus('connecting', '🔄 Connecting...', currentSessionId);
           } else if (pc.connectionState === 'failed') {
-            showError('WebRTC connection failed - check network/firewall');
+            showError('Connection failed');
             cleanup();
           } else if (pc.connectionState === 'disconnected') {
             showError('Connection disconnected');
@@ -373,20 +349,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         // Handle ICE connection state
         pc.oniceconnectionstatechange = () => {
           log('🧊 ICE connection state: ' + pc.iceConnectionState);
-          
-          if (pc.iceConnectionState === 'checking') {
-            updateStatus('connecting', '🔄 Checking connectivity...', currentSessionId, display_id, 'Testing ICE candidates');
-          } else if (pc.iceConnectionState === 'connected') {
-            updateStatus('connected', '✅ ICE connected', currentSessionId, display_id, 'Peer-to-peer link established');
-          } else if (pc.iceConnectionState === 'completed') {
-            updateStatus('connected', '✅ Connection completed', currentSessionId, display_id, 'Optimal path found');
-          } else if (pc.iceConnectionState === 'failed') {
-            log('❌ ICE connection failed - this usually means:');
-            log('   1. Network/firewall blocking WebRTC');
-            log('   2. No common network path found');
-            log('   3. TURN server needed (not configured)');
-            showError('ICE connection failed - network/firewall issue');
-          }
         };
         
         return pc;
@@ -405,24 +367,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       }
       
       isProcessingOffer = true;
-      iceGatheringComplete = false;
       currentSessionId = offerData.id;
-      updateStatus('connecting', '🔄 Processing offer...', currentSessionId, display_id, 'Preparing WebRTC');
+      updateStatus('connecting', '🔄 Processing offer...', currentSessionId);
       
       try {
         log('📥 Processing offer for session: ' + offerData.id);
-        log('   Display ID: ' + offerData.display_id);
-        log('   Expected display_id: ' + display_id);
-        log('   Offer data type: ' + typeof offerData.offer);
-        
-        // Verify this offer is for our display
-        if (offerData.display_id !== display_id) {
-          log('⚠️ Offer is for different display: ' + offerData.display_id + ' (expected: ' + display_id + ')');
-          isProcessingOffer = false;
-          return;
-        }
-        
-        log('✅ Offer is for this display');
+        log('Offer data type: ' + typeof offerData.offer);
         
         // Validate and clean the offer SDP
         let cleanedOfferSDP;
@@ -454,7 +404,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Set remote description (offer)
         log('📝 Setting remote description...');
-        updateStatus('connecting', '📝 Setting remote offer...', currentSessionId, display_id, 'Configuring WebRTC');
         
         try {
           await peerConnection.setRemoteDescription({
@@ -467,10 +416,9 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           throw new Error('Failed to set remote description: ' + error.message);
         }
         
-        // Add remote ICE candidates BEFORE creating answer
+        // Add remote ICE candidates
         if (remoteCandidates.length > 0) {
           log('🧊 Adding ' + remoteCandidates.length + ' remote ICE candidates...');
-          updateStatus('connecting', '🧊 Adding remote ICE candidates...', currentSessionId, display_id, 'Processing ' + remoteCandidates.length + ' candidates');
           let addedCount = 0;
           for (const candidate of remoteCandidates) {
             try {
@@ -485,21 +433,18 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         // Create answer
         log('📝 Creating answer...');
-        updateStatus('connecting', '📝 Creating answer...', currentSessionId, display_id, 'Generating response');
         const answer = await peerConnection.createAnswer();
         
         log('✅ Answer created, setting local description...');
         await peerConnection.setLocalDescription(answer);
         
-        log('✅ Local description set, gathering ICE candidates...');
-        updateStatus('connecting', '🧊 Gathering ICE candidates...', currentSessionId, display_id, 'Discovering network paths');
+        log('✅ Local description set, waiting for ICE candidates...');
+        updateStatus('connecting', '🧊 Gathering ICE candidates...', currentSessionId);
         
-        // Wait for ICE gathering with longer timeout
-        const gatheringStartTime = Date.now();
+        // Wait for ICE gathering to complete or timeout
         await new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            const elapsed = Date.now() - gatheringStartTime;
-            log('⏱️ ICE gathering timeout after ' + elapsed + 'ms, proceeding with ' + iceCandidates.length + ' candidates');
+            log('⏱️ ICE gathering timeout, proceeding with ' + iceCandidates.length + ' candidates');
             resolve();
           }, ICE_GATHERING_TIMEOUT);
           
@@ -509,11 +454,10 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             resolve();
           } else {
             const checkState = () => {
-              if (peerConnection.iceGatheringState === 'complete' || iceGatheringComplete) {
+              if (peerConnection.iceGatheringState === 'complete') {
                 clearTimeout(timeout);
                 peerConnection.removeEventListener('icegatheringstatechange', checkState);
-                const elapsed = Date.now() - gatheringStartTime;
-                log('✅ ICE gathering completed in ' + elapsed + 'ms');
+                log('✅ ICE gathering completed');
                 resolve();
               }
             };
@@ -522,16 +466,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         });
         
         log('🧊 Collected ' + iceCandidates.length + ' ICE candidates');
-        
-        // Log candidate types for debugging
-        const candidateTypes = {};
-        iceCandidates.forEach(c => {
-          const type = c.candidate.includes('typ host') ? 'host' :
-                      c.candidate.includes('typ srflx') ? 'srflx' :
-                      c.candidate.includes('typ relay') ? 'relay' : 'unknown';
-          candidateTypes[type] = (candidateTypes[type] || 0) + 1;
-        });
-        log('Candidate types: ' + JSON.stringify(candidateTypes));
         
         // Prepare answer payload
         const answerPayload = {
@@ -544,12 +478,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         };
         
         log('📤 Sending answer to server...');
-        log('   Session ID: ' + offerData.id);
-        log('   Display ID: ' + display_id);
-        log('   Screen Name: ' + credentials.screen_name);
-        log('   Answer SDP length: ' + answerPayload.answer.length);
-        log('   ICE candidates: ' + iceCandidates.length);
-        updateStatus('connecting', '📤 Sending answer...', currentSessionId, display_id, 'Uploading response');
+        updateStatus('connecting', '📤 Sending answer...', currentSessionId);
         
         // Send answer to server
         const response = await fetch(API_URL + '/screen-share-send-answer', {
@@ -583,9 +512,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           log('⏹️ Stopped polling for offers');
         }
         
-        updateStatus('connecting', '🔄 Waiting for WebRTC connection...', currentSessionId, display_id, 'ICE negotiation starting');
-        log('⏳ WebRTC connection state: ' + peerConnection.connectionState);
-        log('⏳ ICE connection state: ' + peerConnection.iceConnectionState);
+        updateStatus('connecting', '🔄 Waiting for connection...', currentSessionId);
         
       } catch (error) {
         log('❌ Error handling offer: ' + error.message);
@@ -605,10 +532,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       try {
         log('🔍 Polling for offers...');
-        log('   Using credentials:');
-        log('   - screen_username: ' + credentials.screen_username);
-        log('   - screen_name: ' + credentials.screen_name);
-        log('   - display_id: ' + display_id);
         
         const response = await fetch(API_URL + '/screen-share-get-offer', {
           method: 'POST',
@@ -620,19 +543,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         if (response.status === 200) {
           const data = await response.json();
-          log('📦 Response data:');
-          log('   - display_id: ' + data.display_id);
-          log('   - has session: ' + !!data.session);
-          
           if (data.session) {
             log('✅ Screen share offer available!');
-            log('   Session ID: ' + data.session.id);
-            log('   Session display_id: ' + data.session.display_id);
-            log('   Our display_id: ' + display_id);
-            log('   Match: ' + (data.session.display_id === display_id));
+            log('Session ID: ' + data.session.id);
             await handleOffer(data.session);
           } else {
-            log('⏳ No session available yet for display: ' + display_id);
+            log('⏳ No session available yet');
           }
         } else if (response.status === 401) {
           const errorData = await response.json().catch(() => ({ error: 'Invalid credentials' }));
@@ -674,7 +590,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       iceCandidates = [];
       isProcessingOffer = false;
-      iceGatheringComplete = false;
       currentSessionId = null;
       
       log('✅ Cleanup complete');
@@ -682,15 +597,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
     
     // Start polling
     log('🚀 Starting screen share receiver');
-    log('📋 Configuration:');
-    log('   - API URL: ' + API_URL);
-    log('   - Poll interval: ' + POLL_INTERVAL + 'ms');
-    log('   - ICE gathering timeout: ' + ICE_GATHERING_TIMEOUT + 'ms');
-    log('   - Display ID: ' + display_id);
-    log('   - Screen Name: ' + credentials.screen_name);
-    log('   - Username: ' + credentials.screen_username);
-    
-    updateStatus('polling', '⏳ Waiting for screen share...', null, display_id, 'Ready to receive');
+    updateStatus('polling', '⏳ Waiting for screen share...', null);
     
     // Initial poll
     pollForOffers();
@@ -719,7 +626,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             Debug Info:{'\n'}
             Username: {username || 'missing'}{'\n'}
             Screen Name: {screenName || 'missing'}{'\n'}
-            Display ID: {displayId || screenName || 'missing'}{'\n'}
             Password: {password ? 'present' : 'missing'}
           </Text>
           <View style={styles.buttonRow}>
@@ -793,8 +699,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             Start a screen share from your web app to see it here
           </Text>
           <Text style={styles.debugText}>
-            Authenticated as: {username} ({screenName}){'\n'}
-            Display ID: {displayId || screenName}
+            Authenticated as: {username} ({screenName})
           </Text>
         </View>
       )}
@@ -807,16 +712,6 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           {sessionId && (
             <Text style={styles.sessionIdText}>
               Session: {sessionId.substring(0, 8)}...
-            </Text>
-          )}
-          {displayId && (
-            <Text style={styles.sessionIdText}>
-              Display: {displayId}
-            </Text>
-          )}
-          {connectionDetails && (
-            <Text style={styles.connectionDetailsText}>
-              {connectionDetails}
             </Text>
           )}
         </View>
@@ -962,12 +857,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     fontFamily: 'monospace',
-  },
-  connectionDetailsText: {
-    fontSize: 14,
-    color: colors.primary,
-    marginTop: 12,
-    textAlign: 'center',
-    fontWeight: '500',
   },
 });

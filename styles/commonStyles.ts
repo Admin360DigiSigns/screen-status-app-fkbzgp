@@ -2,19 +2,16 @@
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 
 export const colors = {
-  background: '#FFFFFF',
+  background: '#f0f0f0',
   text: '#333333',
   textSecondary: '#777777',
   secondaryText: '#999999',
-  primary: '#4267B2', // Blue from logo
+  primary: '#007BFF',
   secondary: '#6C757D',
-  accent: '#7CB342', // Green from logo
+  accent: '#28A745',
   card: '#FFFFFF',
   cardBackground: '#FFFFFF',
   highlight: '#FFC107',
-  logoRed: '#FF0000', // Red from logo
-  logoGreen: '#7CB342', // Green from logo
-  logoBlue: '#4267B2', // Blue from logo
 };
 
 export const buttonStyles = StyleSheet.create({
