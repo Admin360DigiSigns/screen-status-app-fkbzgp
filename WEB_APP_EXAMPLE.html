@@ -81,6 +81,13 @@
         .status-error {
             background-color: #f8d7da;
         }
+        .note {
+            background-color: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #ffc107;
+        }
     </style>
 </head>
 <body>
@@ -88,9 +95,13 @@
     
     <div class="container">
         <h2>Configuration</h2>
+        <div class="note">
+            <strong>⚠️ Important:</strong> Enter the exact screen name that matches your mobile app login.
+            <br>Examples: STORE1, STORE2, STORE3, etc.
+        </div>
         <div>
-            <label>Display Name:</label>
-            <input type="text" id="displayName" value="test-display" placeholder="Enter display name">
+            <label>Display Name (Screen Name):</label>
+            <input type="text" id="displayName" value="" placeholder="e.g., STORE1, STORE2">
         </div>
         <div id="status" class="status-idle">Status: Idle</div>
     </div>
@@ -136,13 +147,13 @@
 
         async function startScreenShare() {
             try {
-                const displayName = document.getElementById('displayName').value;
+                const displayName = document.getElementById('displayName').value.trim();
                 if (!displayName) {
-                    alert('Please enter a display name');
+                    alert('Please enter a display name (screen name)');
                     return;
                 }
 
-                log('Starting screen share...', 'info');
+                log(`Starting screen share for display: ${displayName}`, 'info');
                 setStatus('Starting...', 'connecting');
                 
                 document.getElementById('startBtn').disabled = true;
@@ -231,7 +242,7 @@
                 log(`Collected ${iceCandidates.length} ICE candidates`, 'info');
 
                 // Send offer to server
-                log('Sending offer to server...', 'info');
+                log(`Sending offer to server for display: ${displayName}`, 'info');
                 const response = await fetch(`${API_BASE}/screen-share-create-offer`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -243,16 +254,18 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Failed to create offer: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(`Failed to create offer: ${response.status} - ${errorData.error}`);
                 }
 
                 const data = await response.json();
                 sessionId = data.session_id;
                 log(`✅ Offer sent successfully. Session ID: ${sessionId}`, 'success');
+                log(`Display ID: ${data.display_id}`, 'info');
 
                 // Start polling for answer
-                setStatus('Waiting for mobile app...', 'connecting');
-                log('Polling for answer from mobile app...', 'info');
+                setStatus(`Waiting for ${displayName} to connect...`, 'connecting');
+                log(`Polling for answer from mobile app (${displayName})...`, 'info');
                 pollForAnswer();
 
                 document.getElementById('stopBtn').disabled = false;
@@ -342,7 +355,8 @@
             stopScreenShare();
         });
 
-        log('Web app ready. Enter display name and click "Start Screen Share"', 'info');
+        log('Web app ready. Enter the screen name (e.g., STORE1, STORE2) and click "Start Screen Share"', 'info');
+        log('⚠️ Make sure the screen name matches exactly with your mobile app login!', 'info');
     </script>
 </body>
 </html>
