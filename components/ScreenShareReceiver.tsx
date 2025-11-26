@@ -199,7 +199,61 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       sendMessage('error', { message });
     }
     
-    // ICE servers configuration - FIXED: All URLs now have proper 'stun:' prefix
+    // Validate and clean SDP string
+    function validateAndCleanSDP(sdp, type) {
+      log('Validating ' + type + ' SDP...');
+      
+      if (!sdp || typeof sdp !== 'string') {
+        throw new Error('SDP is not a valid string');
+      }
+      
+      // Remove any leading/trailing whitespace
+      let cleanedSDP = sdp.trim();
+      
+      // Remove any quotes that might wrap the SDP
+      if (cleanedSDP.startsWith('"') && cleanedSDP.endsWith('"')) {
+        cleanedSDP = cleanedSDP.slice(1, -1);
+        log('Removed wrapping quotes from SDP');
+      }
+      
+      // Unescape any escaped newlines
+      cleanedSDP = cleanedSDP.replace(/\\\\r\\\\n/g, '\\r\\n');
+      cleanedSDP = cleanedSDP.replace(/\\\\n/g, '\\n');
+      
+      // Normalize line endings to \\r\\n (SDP standard)
+      cleanedSDP = cleanedSDP.replace(/\\r\\n/g, '\\n');
+      cleanedSDP = cleanedSDP.replace(/\\r/g, '\\n');
+      cleanedSDP = cleanedSDP.replace(/\\n/g, '\\r\\n');
+      
+      // Check if SDP starts with v=0 (required first line)
+      if (!cleanedSDP.startsWith('v=')) {
+        log('❌ SDP does not start with v= line');
+        log('SDP first 100 chars: ' + cleanedSDP.substring(0, 100));
+        throw new Error('Invalid SDP format: must start with v= line');
+      }
+      
+      // Validate that SDP has required lines
+      const requiredLines = ['v=', 'o=', 's=', 't='];
+      const sdpLines = cleanedSDP.split('\\r\\n');
+      
+      log('SDP has ' + sdpLines.length + ' lines');
+      log('First line: ' + sdpLines[0]);
+      
+      for (const required of requiredLines) {
+        const hasLine = sdpLines.some(line => line.startsWith(required));
+        if (!hasLine) {
+          log('❌ Missing required SDP line: ' + required);
+          throw new Error('Invalid SDP format: missing ' + required + ' line');
+        }
+      }
+      
+      log('✅ SDP validation passed');
+      log('SDP preview (first 200 chars): ' + cleanedSDP.substring(0, 200));
+      
+      return cleanedSDP;
+    }
+    
+    // ICE servers configuration
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
@@ -283,7 +337,17 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
       
       try {
         log('Processing offer for session: ' + offerData.id);
-        log('Offer SDP length: ' + offerData.offer.length);
+        log('Raw offer type: ' + typeof offerData.offer);
+        log('Raw offer length: ' + (offerData.offer ? offerData.offer.length : 0));
+        
+        // Validate and clean the offer SDP
+        let cleanedOfferSDP;
+        try {
+          cleanedOfferSDP = validateAndCleanSDP(offerData.offer, 'offer');
+        } catch (error) {
+          log('❌ SDP validation failed: ' + error.message);
+          throw new Error('Invalid offer SDP format: ' + error.message);
+        }
         
         // Parse ice_candidates if it's a string
         let remoteCandidates = [];
@@ -305,15 +369,19 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         iceCandidates = [];
         
         // Set remote description (offer)
-        log('Setting remote description...');
-        log('Offer SDP preview: ' + offerData.offer.substring(0, 100) + '...');
+        log('Setting remote description with cleaned SDP...');
         
-        await peerConnection.setRemoteDescription({
-          type: 'offer',
-          sdp: offerData.offer,
-        });
-        
-        log('✅ Remote description set successfully');
+        try {
+          await peerConnection.setRemoteDescription({
+            type: 'offer',
+            sdp: cleanedOfferSDP,
+          });
+          log('✅ Remote description set successfully');
+        } catch (error) {
+          log('❌ setRemoteDescription failed: ' + error.message);
+          log('Failed SDP (first 500 chars): ' + cleanedOfferSDP.substring(0, 500));
+          throw new Error('Failed to set remote description: ' + error.message);
+        }
         
         // Add remote ICE candidates
         if (remoteCandidates.length > 0) {
@@ -366,7 +434,7 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
         
         log('Collected ' + iceCandidates.length + ' ICE candidates');
         
-        // IMPORTANT: Convert ICE candidates array to JSON string as expected by the API
+        // Convert ICE candidates array to JSON string as expected by the API
         const iceCandidatesString = JSON.stringify(iceCandidates);
         
         // Prepare answer payload according to API specification
@@ -376,13 +444,12 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
           screen_name: credentials.screen_name,
           session_id: offerData.id,
           answer: peerConnection.localDescription.sdp,
-          answer_ice_candidates: iceCandidatesString, // Send as JSON string
+          answer_ice_candidates: iceCandidatesString,
         };
         
         log('Sending answer to server...');
-        log('Answer SDP preview: ' + answerPayload.answer.substring(0, 100) + '...');
-        log('Answer ICE candidates (string length): ' + iceCandidatesString.length);
-        log('Answer ICE candidates (parsed count): ' + iceCandidates.length);
+        log('Answer SDP length: ' + answerPayload.answer.length);
+        log('Answer ICE candidates count: ' + iceCandidates.length);
         
         // Send answer to server with credentials
         const response = await fetch(API_URL + '/screen-share-send-answer', {
@@ -451,6 +518,8 @@ export default function ScreenShareReceiver({ onClose }: ScreenShareReceiverProp
             log('✅ Screen share offer available!');
             log('Session ID: ' + data.session.id);
             log('Session status: ' + data.session.status);
+            log('Offer type: ' + typeof data.session.offer);
+            log('Offer length: ' + (data.session.offer ? data.session.offer.length : 0));
             await handleOffer(data.session);
           } else {
             log('No session available yet');
