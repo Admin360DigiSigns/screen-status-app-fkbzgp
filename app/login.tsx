@@ -32,6 +32,7 @@ export default function LoginScreen() {
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
+  const buttonScaleAnim = useRef(new Animated.Value(1)).current;
 
   const isTVDevice = isTV();
 
@@ -95,6 +96,21 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const animateButtonPress = () => {
+    Animated.sequence([
+      Animated.timing(buttonScaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const isOnline = networkState.isConnected === true;
@@ -209,202 +225,273 @@ export default function LoginScreen() {
     );
   }
 
-  // Mobile Layout - Original scrollable design
+  // Mobile Layout - Professional design with gradients and animations
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+    <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
+      <LinearGradient
+        colors={['#0F172A', '#1E293B', '#334155']}
+        style={styles.mobileGradientBackground}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       >
-        <View style={styles.content}>
-          <Image
-            source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          
-          <View style={[styles.connectionBadge, { backgroundColor: isOnline ? colors.accent : colors.secondary }]}>
-            <Text style={styles.connectionText}>
-              {isOnline ? '● Connected' : '● Offline'}
-            </Text>
-          </View>
-
-          {!isOnline && (
-            <View style={styles.warningCard}>
-              <Text style={styles.warningText}>
-                ⚠️ Internet connection required to login
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.formCard}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter username"
-                placeholderTextColor={colors.textSecondary}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
+        <KeyboardAvoidingView
+          style={styles.mobileKeyboardView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.mobileScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
+              <Image
+                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+                style={styles.mobileLogo}
+                resizeMode="contain"
               />
-            </View>
+              
+              <View style={styles.mobileConnectionBadgeContainer}>
+                <LinearGradient
+                  colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                  style={styles.mobileConnectionBadge}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.mobileConnectionText}>
+                    {isOnline ? '● Connected' : '● Offline'}
+                  </Text>
+                </LinearGradient>
+              </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter password"
-                placeholderTextColor={colors.textSecondary}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-            </View>
+              {!isOnline && (
+                <View style={styles.mobileWarningCard}>
+                  <Text style={styles.mobileWarningText}>
+                    ⚠️ Internet connection required to login
+                  </Text>
+                </View>
+              )}
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Screen Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Main Lobby Display"
-                placeholderTextColor={colors.textSecondary}
-                value={screenName}
-                onChangeText={setScreenName}
-                autoCapitalize="words"
-                editable={!isLoading}
-              />
-            </View>
+              <View style={styles.mobileFormCard}>
+                <LinearGradient
+                  colors={['#1E293B', '#334155']}
+                  style={styles.mobileFormGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                >
+                  <View style={styles.mobileInputContainer}>
+                    <Text style={styles.mobileLabel}>Username</Text>
+                    <TextInput
+                      style={styles.mobileInput}
+                      placeholder="Enter username"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isLoading}
+                    />
+                  </View>
 
-            <TouchableOpacity
-              style={[
-                styles.loginButton,
-                (!isOnline || isLoading) && styles.loginButtonDisabled,
-              ]}
-              onPress={handleLogin}
-              disabled={!isOnline || isLoading}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.loginButtonText}>
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+                  <View style={styles.mobileInputContainer}>
+                    <Text style={styles.mobileLabel}>Password</Text>
+                    <TextInput
+                      style={styles.mobileInput}
+                      placeholder="Enter password"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isLoading}
+                    />
+                  </View>
 
-          <Text style={styles.infoText}>
-            This app monitors your TV&apos;s online status and sends updates to the server.
-          </Text>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+                  <View style={styles.mobileInputContainer}>
+                    <Text style={styles.mobileLabel}>Screen Name</Text>
+                    <TextInput
+                      style={styles.mobileInput}
+                      placeholder="e.g., Main Lobby Display"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={screenName}
+                      onChangeText={setScreenName}
+                      autoCapitalize="words"
+                      editable={!isLoading}
+                    />
+                  </View>
+
+                  <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.mobileLoginButton,
+                        (!isOnline || isLoading) && styles.mobileLoginButtonDisabled,
+                      ]}
+                      onPress={() => {
+                        animateButtonPress();
+                        handleLogin();
+                      }}
+                      disabled={!isOnline || isLoading}
+                      activeOpacity={0.9}
+                    >
+                      <LinearGradient
+                        colors={['#2563EB', '#1E40AF', '#1E3A8A']}
+                        style={styles.mobileLoginButtonGradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Text style={styles.mobileLoginButtonText}>
+                          {isLoading ? 'Logging in...' : 'Login'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </Animated.View>
+                </LinearGradient>
+              </View>
+
+              <View style={styles.mobileInfoBox}>
+                <Text style={styles.mobileInfoText}>
+                  This app monitors your display&apos;s online status and sends updates to the server.
+                </Text>
+              </View>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Mobile styles
-  container: {
+  // Mobile styles - Professional design
+  mobileContainer: {
     flex: 1,
-    backgroundColor: colors.background,
   },
-  scrollContent: {
+  mobileGradientBackground: {
+    flex: 1,
+  },
+  mobileKeyboardView: {
+    flex: 1,
+  },
+  mobileScrollContent: {
     flexGrow: 1,
-    paddingTop: 48,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
-  content: {
+  mobileContent: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 40,
   },
-  logo: {
-    width: 280,
-    height: 120,
+  mobileLogo: {
+    width: 240,
+    height: 100,
     marginBottom: 32,
   },
-  connectionBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
+  mobileConnectionBadgeContainer: {
     marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
-  connectionText: {
-    color: colors.card,
+  mobileConnectionBadge: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  mobileConnectionText: {
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
-  warningCard: {
-    backgroundColor: colors.highlight,
+  mobileWarningCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
     width: '100%',
-    maxWidth: 500,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
   },
-  warningText: {
-    color: colors.text,
+  mobileWarningText: {
+    color: '#FCA5A5',
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
-  formCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 32,
+  mobileFormCard: {
     width: '100%',
-    maxWidth: 500,
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
-    elevation: 4,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
-  inputContainer: {
-    marginBottom: 24,
+  mobileFormGradient: {
+    padding: 28,
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+  mobileInputContainer: {
+    marginBottom: 20,
+  },
+  mobileLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     marginBottom: 8,
+    letterSpacing: 0.5,
   },
-  input: {
-    backgroundColor: '#f5f5f5',
+  mobileInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: colors.text,
+    color: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  loginButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
+  mobileLoginButton: {
+    marginTop: 12,
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  mobileLoginButtonDisabled: {
+    opacity: 0.5,
+  },
+  mobileLoginButtonGradient: {
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
-  loginButtonDisabled: {
-    backgroundColor: colors.textSecondary,
-    opacity: 0.6,
-  },
-  loginButtonText: {
-    color: colors.card,
+  mobileLoginButtonText: {
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
-  infoText: {
+  mobileInfoBox: {
     marginTop: 32,
-    fontSize: 14,
-    color: colors.textSecondary,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+  },
+  mobileInfoText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-    paddingHorizontal: 32,
     lineHeight: 20,
+    fontWeight: '500',
   },
 
   // TV styles - Professional design
