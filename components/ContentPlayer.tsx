@@ -4,6 +4,7 @@ import { View, StyleSheet, Image, Dimensions, ActivityIndicator, Text, Touchable
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors } from '@/styles/commonStyles';
 import type { PlaylistItem, Playlist } from '@/utils/apiService';
+import { isTV } from '@/utils/deviceUtils';
 
 interface ContentPlayerProps {
   playlists: Playlist[];
@@ -15,7 +16,10 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isTVDevice = isTV();
 
   // Listen for dimension changes (orientation, window resize)
   useEffect(() => {
@@ -67,6 +71,81 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     }
   }, [currentItemIndex, currentItems.length, currentPlaylistIndex, activePlaylists.length]);
 
+  // Calculate optimal resize mode based on image and screen dimensions
+  const getOptimalResizeMode = useCallback(() => {
+    if (!imageAspectRatio) {
+      return 'contain'; // Default to contain until we know the image dimensions
+    }
+
+    const screenAspectRatio = screenDimensions.width / screenDimensions.height;
+    const isImageLandscape = imageAspectRatio > 1;
+    const isScreenLandscape = screenAspectRatio > 1;
+
+    console.log('Calculating resize mode:', {
+      imageAspectRatio,
+      screenAspectRatio,
+      isImageLandscape,
+      isScreenLandscape,
+      isTVDevice,
+      screenSize: `${screenDimensions.width}x${screenDimensions.height}`,
+    });
+
+    // For TV devices
+    if (isTVDevice) {
+      if (isImageLandscape) {
+        // Landscape image on TV: fit width, height adjusts
+        return 'contain';
+      } else {
+        // Portrait image on TV: fit height, width adjusts
+        return 'contain';
+      }
+    }
+
+    // For mobile/tablet devices
+    if (isScreenLandscape) {
+      // Mobile in landscape mode
+      if (isImageLandscape) {
+        // Landscape image on landscape screen: fit width
+        return 'contain';
+      } else {
+        // Portrait image on landscape screen: fit height
+        return 'contain';
+      }
+    } else {
+      // Mobile in portrait mode
+      if (isImageLandscape) {
+        // Landscape image on portrait screen: fit width
+        return 'contain';
+      } else {
+        // Portrait image on portrait screen: fit height
+        return 'contain';
+      }
+    }
+  }, [imageAspectRatio, screenDimensions, isTVDevice]);
+
+  // Get image dimensions when image loads
+  const handleImageLoad = useCallback((uri: string) => {
+    Image.getSize(
+      uri,
+      (width, height) => {
+        const aspectRatio = width / height;
+        console.log('Image dimensions loaded:', {
+          width,
+          height,
+          aspectRatio,
+          isLandscape: aspectRatio > 1,
+        });
+        setImageAspectRatio(aspectRatio);
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error('Failed to get image dimensions:', error);
+        setImageAspectRatio(1); // Default to square aspect ratio
+        setIsLoading(false);
+      }
+    );
+  }, []);
+
   useEffect(() => {
     if (!currentItem) {
       console.log('No current item available');
@@ -78,10 +157,11 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
       url: currentItem.media_url,
       duration: currentItem.duration,
       screenSize: `${screenDimensions.width}x${screenDimensions.height}`,
-      deviceType: Platform.isTV ? 'TV' : 'Mobile/Tablet',
+      deviceType: isTVDevice ? 'TV' : 'Mobile/Tablet',
     });
 
     setIsLoading(true);
+    setImageAspectRatio(null); // Reset aspect ratio for new item
 
     // Clear any existing timeout
     if (timeoutRef.current) {
@@ -89,8 +169,9 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     }
 
     if (currentItem.media_type === 'image') {
-      // For images, show for the specified duration
-      setIsLoading(false);
+      // For images, get dimensions first, then show for the specified duration
+      handleImageLoad(currentItem.media_url);
+      
       timeoutRef.current = setTimeout(() => {
         moveToNextItem();
       }, currentItem.duration);
@@ -113,7 +194,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentPlaylistIndex, currentItemIndex, currentItem, screenDimensions, moveToNextItem, videoPlayer]);
+  }, [currentPlaylistIndex, currentItemIndex, currentItem, screenDimensions, moveToNextItem, videoPlayer, handleImageLoad, isTVDevice]);
 
   if (!currentItem) {
     return (
@@ -127,6 +208,8 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
       </View>
     );
   }
+
+  const resizeMode = getOptimalResizeMode();
 
   return (
     <View style={styles.container}>
@@ -146,17 +229,10 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         {currentItem.media_type === 'image' ? (
           <Image
             source={{ uri: currentItem.media_url }}
-            style={[
-              styles.media,
-              {
-                width: screenDimensions.width,
-                height: screenDimensions.height,
-              },
-            ]}
-            resizeMode="cover"
+            style={styles.media}
+            resizeMode={resizeMode}
             onLoadEnd={() => {
-              console.log('Image loaded successfully');
-              setIsLoading(false);
+              console.log('Image loaded successfully with resizeMode:', resizeMode);
             }}
             onError={(error) => {
               console.error('Image load error:', error);
@@ -166,14 +242,8 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         ) : currentItem.media_type === 'video' ? (
           <VideoView
             player={videoPlayer}
-            style={[
-              styles.media,
-              {
-                width: screenDimensions.width,
-                height: screenDimensions.height,
-              },
-            ]}
-            contentFit="cover"
+            style={styles.media}
+            contentFit="contain"
             nativeControls={false}
           />
         ) : null}
@@ -189,8 +259,13 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         </Text>
         <Text style={styles.infoText}>
           Screen: {Math.round(screenDimensions.width)}x{Math.round(screenDimensions.height)} 
-          {Platform.isTV ? ' (TV)' : ' (Mobile)'}
+          {isTVDevice ? ' (TV)' : ' (Mobile)'}
         </Text>
+        {imageAspectRatio && (
+          <Text style={styles.infoText}>
+            Image: {imageAspectRatio > 1 ? 'Landscape' : 'Portrait'} ({imageAspectRatio.toFixed(2)}) - Mode: {resizeMode}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -208,9 +283,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   media: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    width: '100%',
+    height: '100%',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
