@@ -10,6 +10,7 @@ import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
 import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
+import { commandListener, AppCommand } from '@/utils/commandListener';
 
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
@@ -103,6 +104,55 @@ export default function HomeScreen() {
       setIsLoading(false);
     }
   }, [deviceId]);
+
+  // Set up command handlers when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !deviceId) {
+      return;
+    }
+
+    console.log('🎯 Setting up command handlers');
+
+    // Register command handlers
+    commandListener.registerHandler('preview_content', handlePreviewCommand);
+    commandListener.registerHandler('screenshare', handleScreenShareCommand);
+    commandListener.registerHandler('sync_status', handleSyncCommand);
+    commandListener.registerHandler('logout', handleLogoutCommand);
+
+    // Start listening for commands
+    commandListener.startListening();
+
+    // Cleanup
+    return () => {
+      console.log('🧹 Cleaning up command handlers');
+      commandListener.stopListening();
+    };
+  }, [isAuthenticated, deviceId]);
+
+  // Command handlers
+  const handlePreviewCommand = async (command: AppCommand) => {
+    console.log('🎬 Executing preview_content command');
+    await handlePreview();
+  };
+
+  const handleScreenShareCommand = async (command: AppCommand) => {
+    console.log('📺 Executing screenshare command');
+    if (Platform.OS !== 'web') {
+      handleScreenShare();
+    } else {
+      throw new Error('Screen share not available on web platform');
+    }
+  };
+
+  const handleSyncCommand = async (command: AppCommand) => {
+    console.log('🔄 Executing sync_status command');
+    await syncDeviceStatus();
+  };
+
+  const handleLogoutCommand = async (command: AppCommand) => {
+    console.log('🚪 Executing logout command');
+    await handleLogout();
+  };
 
   const syncDeviceStatus = useCallback(async () => {
     if (!deviceId || !screenName || !username || !password) {
@@ -452,7 +502,7 @@ export default function HomeScreen() {
           {/* Compact Footer */}
           <View style={styles.tvFooter}>
             <Text style={styles.tvFooterText}>
-              ℹ️ Status updates sent every 1 minute • Updates only when on this screen
+              ℹ️ Status updates sent every 1 minute • Remote commands enabled • Updates only when on this screen
             </Text>
           </View>
         </LinearGradient>
@@ -688,6 +738,9 @@ export default function HomeScreen() {
             <View style={styles.mobileFooter}>
               <Text style={styles.mobileFooterText}>
                 ℹ️ Status updates sent every 1 minute
+              </Text>
+              <Text style={styles.mobileFooterText}>
+                🎯 Remote commands enabled
               </Text>
               <Text style={styles.mobileFooterText}>
                 Updates only when on this screen

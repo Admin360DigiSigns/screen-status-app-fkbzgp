@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
 import * as Network from 'expo-network';
+import { commandListener } from '@/utils/commandListener';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -33,6 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const id = await getDeviceId();
       setDeviceId(id);
       console.log('Device ID initialized:', id);
+
+      // Initialize command listener with device ID
+      commandListener.initialize(id);
 
       // Then load auth state
       await loadAuthState();
@@ -216,6 +220,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
       }
+
+      // Stop listening for commands
+      await commandListener.stopListening();
 
       // Send offline status before logging out
       if (deviceId && screenName && username && password) {
