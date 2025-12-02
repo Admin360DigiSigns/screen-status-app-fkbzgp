@@ -36,4 +36,6 @@ export const API_ENDPOINTS = {
   screenShareSendAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-send-answer`,
   screenShareCreateOffer: `${EDGE_FUNCTIONS_URL}/screen-share-create-offer`,
   screenShareGetAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-get-answer`,
+  getPendingCommands: `${EDGE_FUNCTIONS_URL}/get-pending-commands`,
+  acknowledgeCommand: `${EDGE_FUNCTIONS_URL}/acknowledge-command`,
 };
