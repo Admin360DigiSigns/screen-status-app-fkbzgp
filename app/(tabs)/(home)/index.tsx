@@ -105,13 +105,42 @@ export default function HomeScreen() {
     }
   }, [deviceId]);
 
+  // Command handlers - defined with useCallback to maintain stable references
+  const handlePreviewCommand = useCallback(async (command: AppCommand) => {
+    console.log('🎬 Executing preview_content command');
+    await handlePreview();
+  }, [username, password, screenName]);
+
+  const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
+    console.log('📺 Executing screenshare command');
+    if (Platform.OS !== 'web') {
+      handleScreenShare();
+    } else {
+      throw new Error('Screen share not available on web platform');
+    }
+  }, [username, password, screenName]);
+
+  const handleSyncCommand = useCallback(async (command: AppCommand) => {
+    console.log('🔄 Executing sync_status command');
+    await syncDeviceStatus();
+  }, [deviceId, screenName, username, password, networkState.isConnected]);
+
+  const handleLogoutCommand = useCallback(async (command: AppCommand) => {
+    console.log('🚪 Executing logout command');
+    await handleLogout();
+  }, [deviceId, screenName, username, password]);
+
   // Set up command handlers when authenticated
   useEffect(() => {
     if (!isAuthenticated || !deviceId) {
+      console.log('⏸️ Skipping command listener setup - not authenticated or no device ID');
       return;
     }
 
-    console.log('🎯 Setting up command handlers');
+    console.log('🎯 Setting up command handlers for device:', deviceId);
+
+    // Initialize command listener with device ID (in case it wasn't initialized yet)
+    commandListener.initialize(deviceId);
 
     // Register command handlers
     commandListener.registerHandler('preview_content', handlePreviewCommand);
@@ -127,32 +156,7 @@ export default function HomeScreen() {
       console.log('🧹 Cleaning up command handlers');
       commandListener.stopListening();
     };
-  }, [isAuthenticated, deviceId]);
-
-  // Command handlers
-  const handlePreviewCommand = async (command: AppCommand) => {
-    console.log('🎬 Executing preview_content command');
-    await handlePreview();
-  };
-
-  const handleScreenShareCommand = async (command: AppCommand) => {
-    console.log('📺 Executing screenshare command');
-    if (Platform.OS !== 'web') {
-      handleScreenShare();
-    } else {
-      throw new Error('Screen share not available on web platform');
-    }
-  };
-
-  const handleSyncCommand = async (command: AppCommand) => {
-    console.log('🔄 Executing sync_status command');
-    await syncDeviceStatus();
-  };
-
-  const handleLogoutCommand = async (command: AppCommand) => {
-    console.log('🚪 Executing logout command');
-    await handleLogout();
-  };
+  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
 
   const syncDeviceStatus = useCallback(async () => {
     if (!deviceId || !screenName || !username || !password) {
