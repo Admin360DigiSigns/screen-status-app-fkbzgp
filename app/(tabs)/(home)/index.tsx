@@ -5,7 +5,7 @@ import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
 import { colors } from '@/styles/commonStyles';
-import { Redirect, useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
 import { isTV } from '@/utils/deviceUtils';
@@ -15,6 +15,7 @@ import { commandListener, AppCommand } from '@/utils/commandListener';
 export default function HomeScreen() {
   const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
   const networkState = useNetworkState();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
@@ -23,6 +24,7 @@ export default function HomeScreen() {
   const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [focusedButton, setFocusedButton] = useState<string | null>(null);
+  const [commandListenerStatus, setCommandListenerStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
 
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -33,6 +35,7 @@ export default function HomeScreen() {
     screenshare: new Animated.Value(1),
     sync: new Animated.Value(1),
     logout: new Animated.Value(1),
+    diagnostics: new Animated.Value(1),
   }).current;
 
   const isTVDevice = isTV();
@@ -86,6 +89,16 @@ export default function HomeScreen() {
     }).start();
   }, []);
 
+  // Update command listener status periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const status = commandListener.getConnectionStatus();
+      setCommandListenerStatus(status);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Track when the screen is focused/unfocused
   useFocusEffect(
     React.useCallback(() => {
@@ -107,12 +120,12 @@ export default function HomeScreen() {
 
   // Command handlers - defined with useCallback to maintain stable references
   const handlePreviewCommand = useCallback(async (command: AppCommand) => {
-    console.log('🎬 Executing preview_content command');
+    console.log('🎬 [HomeScreen] Executing preview_content command');
     await handlePreview();
   }, [username, password, screenName]);
 
   const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
-    console.log('📺 Executing screenshare command');
+    console.log('📺 [HomeScreen] Executing screenshare command');
     if (Platform.OS !== 'web') {
       handleScreenShare();
     } else {
@@ -121,23 +134,23 @@ export default function HomeScreen() {
   }, [username, password, screenName]);
 
   const handleSyncCommand = useCallback(async (command: AppCommand) => {
-    console.log('🔄 Executing sync_status command');
+    console.log('🔄 [HomeScreen] Executing sync_status command');
     await syncDeviceStatus();
   }, [deviceId, screenName, username, password, networkState.isConnected]);
 
   const handleLogoutCommand = useCallback(async (command: AppCommand) => {
-    console.log('🚪 Executing logout command');
+    console.log('🚪 [HomeScreen] Executing logout command');
     await handleLogout();
   }, [deviceId, screenName, username, password]);
 
   // Set up command handlers when authenticated
   useEffect(() => {
     if (!isAuthenticated || !deviceId) {
-      console.log('⏸️ Skipping command listener setup - not authenticated or no device ID');
+      console.log('⏸️ [HomeScreen] Skipping command listener setup - not authenticated or no device ID');
       return;
     }
 
-    console.log('🎯 Setting up command handlers for device:', deviceId);
+    console.log('🎯 [HomeScreen] Setting up command handlers for device:', deviceId);
 
     // Initialize command listener with device ID (in case it wasn't initialized yet)
     commandListener.initialize(deviceId);
@@ -153,7 +166,7 @@ export default function HomeScreen() {
 
     // Cleanup
     return () => {
-      console.log('🧹 Cleaning up command handlers');
+      console.log('🧹 [HomeScreen] Cleaning up command handlers');
       commandListener.stopListening();
     };
   }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
@@ -270,6 +283,10 @@ export default function HomeScreen() {
     setIsScreenShareMode(false);
   };
 
+  const handleDiagnostics = () => {
+    router.push('/(tabs)/(home)/diagnostics');
+  };
+
   const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
     Animated.sequence([
       Animated.timing(buttonScaleAnims[buttonKey], {
@@ -306,6 +323,32 @@ export default function HomeScreen() {
     inputRange: [0, 1],
     outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
   });
+
+  const getCommandListenerStatusColor = () => {
+    switch (commandListenerStatus) {
+      case 'connected':
+        return '#10B981';
+      case 'connecting':
+        return '#F59E0B';
+      case 'disconnected':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const getCommandListenerStatusText = () => {
+    switch (commandListenerStatus) {
+      case 'connected':
+        return '● Connected';
+      case 'connecting':
+        return '● Connecting...';
+      case 'disconnected':
+        return '● Disconnected';
+      default:
+        return '● Unknown';
+    }
+  };
 
   // TV Layout - Compact professional design
   if (isTVDevice) {
@@ -346,6 +389,13 @@ export default function HomeScreen() {
                 </View>
               </LinearGradient>
             </Animated.View>
+
+            {/* Command Listener Status */}
+            <View style={[styles.tvCommandStatus, { backgroundColor: getCommandListenerStatusColor() + '20' }]}>
+              <Text style={[styles.tvCommandStatusText, { color: getCommandListenerStatusColor() }]}>
+                Remote Commands: {getCommandListenerStatusText()}
+              </Text>
+            </View>
           </View>
 
           {/* Compact Main Content */}
@@ -406,7 +456,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons Grid - 2x2 Layout */}
+            {/* Action Buttons Grid - 2x3 Layout */}
             <View style={styles.tvButtonsGrid}>
               <TouchableOpacity 
                 style={[
@@ -477,6 +527,27 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.tvButtonIcon}>🔄</Text>
                   <Text style={styles.tvButtonText}>Sync Status</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.tvButton,
+                  focusedButton === 'diagnostics' && styles.tvButtonFocused
+                ]}
+                onPress={handleDiagnostics}
+                onFocus={() => setFocusedButton('diagnostics')}
+                onBlur={() => setFocusedButton(null)}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={focusedButton === 'diagnostics' ? ['#F59E0B', '#D97706', '#B45309'] : ['#D97706', '#B45309', '#92400E']}
+                  style={styles.tvButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.tvButtonIcon}>🔍</Text>
+                  <Text style={styles.tvButtonText}>Diagnostics</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -593,6 +664,13 @@ export default function HomeScreen() {
                 </View>
               </LinearGradient>
             </Animated.View>
+
+            {/* Command Listener Status */}
+            <View style={[styles.mobileCommandStatus, { backgroundColor: getCommandListenerStatusColor() + '20' }]}>
+              <Text style={[styles.mobileCommandStatusText, { color: getCommandListenerStatusColor() }]}>
+                Remote Commands: {getCommandListenerStatusText()}
+              </Text>
+            </View>
 
             {/* Info Card */}
             <View style={styles.mobileInfoCard}>
@@ -713,6 +791,27 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.mobileButtonIcon}>🔄</Text>
                   <Text style={styles.mobileButtonText}>Sync Status</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+
+            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.diagnostics }] }}>
+              <TouchableOpacity 
+                style={styles.mobileButton}
+                onPress={() => {
+                  animateButtonPress('diagnostics');
+                  handleDiagnostics();
+                }}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={['#D97706', '#B45309', '#92400E']}
+                  style={styles.mobileButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.mobileButtonIcon}>🔍</Text>
+                  <Text style={styles.mobileButtonText}>Diagnostics</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -863,7 +962,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 12,
     elevation: 8,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
@@ -913,6 +1012,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+  mobileCommandStatus: {
+    width: '100%',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  mobileCommandStatusText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   mobileInfoCard: {
     width: '100%',
@@ -1027,6 +1139,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
+    marginBottom: 12,
   },
   tvStatusGradient: {
     paddingVertical: 16,
@@ -1070,6 +1183,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     letterSpacing: 0.8,
+  },
+  tvCommandStatus: {
+    width: '100%',
+    maxWidth: 900,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  tvCommandStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   tvMainContent: {
     flex: 1,
