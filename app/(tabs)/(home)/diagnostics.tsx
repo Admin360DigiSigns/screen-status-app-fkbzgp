@@ -221,7 +221,7 @@ export default function DiagnosticsScreen() {
               <Text style={styles.sectionTitle}>Troubleshooting Tips</Text>
               <View style={styles.tipBox}>
                 <Text style={styles.tipText}>
-                  1. Make sure you&apos;re logged in and the device is registered
+                  1. Make sure you're logged in and the device is registered
                 </Text>
                 <Text style={styles.tipText}>
                   2. Check that the device ID matches in both the app and your web app
@@ -235,17 +235,14 @@ export default function DiagnosticsScreen() {
                 <Text style={styles.tipText}>
                   5. Ensure RLS policies allow command insertion
                 </Text>
-                <Text style={styles.tipText}>
-                  6. If &quot;Not registered&quot;, logout and login again to re-register
-                </Text>
               </View>
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>API Endpoint (Correct Project)</Text>
+              <Text style={styles.sectionTitle}>API Endpoint</Text>
               <View style={styles.infoBox}>
                 <Text style={styles.infoText}>
-                  POST https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/send-app-command
+                  POST https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/send-app-command
                 </Text>
                 <Text style={styles.infoText} selectable>
                   {'\n'}Example payload:{'\n'}

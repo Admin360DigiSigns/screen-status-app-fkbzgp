@@ -136,9 +136,7 @@ export const login = async (
   try {
     console.log('Attempting login with API:', { username, screenName, deviceId });
     
-    // FIXED: Use the correct project (pgcdokfiaarnhzryfzwf) for login
-    // This will ensure the display is registered in the correct database
-    const API_ENDPOINT = 'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/display-register';
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
     
     const payload: LoginPayload = {
       screen_username: username,
@@ -172,7 +170,7 @@ export const login = async (
       console.error('Login failed:', response.status, errorData);
       return {
         success: false,
-        error: errorData.error || errorData.message || 'Invalid credentials',
+        error: errorData.error || errorData.message || 'Login failed',
       };
     }
   } catch (error) {
@@ -200,8 +198,8 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
     console.log('Payload keys:', Object.keys(payload));
     console.log('============================');
     
-    // FIXED: Use the correct project (pgcdokfiaarnhzryfzwf) for status updates
-    const API_ENDPOINT = 'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/display-status';
+    // Using the same Supabase endpoint for status updates
+    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status';
     
     console.log('Sending POST request to:', API_ENDPOINT);
     console.log('Request body (stringified):', JSON.stringify({
@@ -249,7 +247,6 @@ export const fetchDisplayContent = async (
   try {
     console.log('Fetching display content for:', { username, screenName });
     
-    // This can still use the other project for content fetching
     const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
     
     const payload = {
