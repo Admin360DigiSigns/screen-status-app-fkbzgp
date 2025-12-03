@@ -8,9 +8,11 @@ import { commandListener } from '@/utils/commandListener';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  username: string | null;
+  password: string | null;
   screenName: string | null;
   deviceId: string | null;
-  login: (screenName: string) => Promise<{ success: boolean; error?: string }>;
+  login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   setScreenActive: (active: boolean) => void;
 }
@@ -19,6 +21,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [password, setPassword] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
@@ -51,7 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAuthenticated, 
       isScreenActive,
       deviceId: !!deviceId, 
-      screenName: !!screenName
+      screenName: !!screenName, 
+      username: !!username 
     });
     
     // Clear any existing interval first
@@ -65,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. User is authenticated
     // 2. Screen is active (user is on the home screen)
     // 3. All required data is available
-    if (isAuthenticated && isScreenActive && deviceId && screenName) {
+    if (isAuthenticated && isScreenActive && deviceId && screenName && username && password) {
       console.log('✓ Setting up 1-minute status update interval (user logged in and on screen)');
       
       // Define the status update function inside useEffect to avoid stale closures
@@ -76,6 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Current auth state:', {
             deviceId,
             screenName,
+            username,
+            hasPassword: !!password,
           });
           
           // Get current network state
@@ -88,6 +95,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const payload: apiService.DeviceStatusPayload = {
             deviceId: deviceId,
             screenName: screenName,
+            screen_username: username,
+            screen_password: password,
+            screen_name: screenName,
             status: status,
             timestamp: new Date().toISOString(),
           };
@@ -134,18 +144,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isScreenActive,
         hasDeviceId: !!deviceId,
         hasScreenName: !!screenName,
+        hasUsername: !!username,
+        hasPassword: !!password,
       });
     }
-  }, [isAuthenticated, isScreenActive, deviceId, screenName]);
+  }, [isAuthenticated, isScreenActive, deviceId, screenName, username, password]);
 
   const loadAuthState = async () => {
     try {
+      const storedUsername = await AsyncStorage.getItem('username');
+      const storedPassword = await AsyncStorage.getItem('password');
       const storedScreenName = await AsyncStorage.getItem('screenName');
       
-      if (storedScreenName) {
+      if (storedUsername && storedPassword && storedScreenName) {
+        setUsername(storedUsername);
+        setPassword(storedPassword);
         setScreenName(storedScreenName);
         setIsAuthenticated(true);
-        console.log('Loaded auth state:', { storedScreenName });
+        console.log('Loaded auth state:', { storedUsername, storedScreenName });
       }
     } catch (error) {
       console.error('Error loading auth state:', error);
@@ -153,24 +169,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (
+    inputUsername: string,
+    inputPassword: string,
     inputScreenName: string
   ): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('Login attempt:', { inputScreenName, deviceId });
+      console.log('Login attempt:', { inputUsername, inputScreenName, deviceId });
       
       if (!deviceId) {
         console.error('Device ID not available');
         return { success: false, error: 'Device ID not available. Please try again.' };
       }
 
-      // Store screen name
-      await AsyncStorage.setItem('screenName', inputScreenName);
+      // Call the API service to authenticate with device ID
+      const response = await apiService.login(inputUsername, inputPassword, inputScreenName, deviceId);
       
-      setScreenName(inputScreenName);
-      setIsAuthenticated(true);
-      
-      console.log('Login successful, credentials stored');
-      return { success: true };
+      if (response.success) {
+        // Store credentials on successful login
+        await AsyncStorage.setItem('username', inputUsername);
+        await AsyncStorage.setItem('password', inputPassword);
+        await AsyncStorage.setItem('screenName', inputScreenName);
+        
+        setUsername(inputUsername);
+        setPassword(inputPassword);
+        setScreenName(inputScreenName);
+        setIsAuthenticated(true);
+        
+        console.log('Login successful, credentials stored');
+        return { success: true };
+      } else {
+        console.log('Login failed:', response.error);
+        return { success: false, error: response.error };
+      }
     } catch (error) {
       console.error('Error during login:', error);
       return { 
@@ -195,18 +225,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await commandListener.stopListening();
 
       // Send offline status before logging out
-      if (deviceId && screenName) {
+      if (deviceId && screenName && username && password) {
         console.log('Sending offline status before logout');
         await apiService.sendDeviceStatus({
           deviceId,
           screenName,
+          screen_username: username,
+          screen_password: password,
+          screen_name: screenName,
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
       }
 
+      await AsyncStorage.removeItem('username');
+      await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
+      setUsername(null);
+      setPassword(null);
       setScreenName(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
@@ -225,6 +262,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{ 
       isAuthenticated, 
+      username, 
+      password, 
       screenName, 
       deviceId, 
       login, 

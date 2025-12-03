@@ -23,6 +23,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 export default function LoginScreen() {
   const { login } = useAuth();
   const networkState = useNetworkState();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [screenName, setScreenName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [focusedButton, setFocusedButton] = useState<string | null>(null);
@@ -53,42 +55,42 @@ export default function LoginScreen() {
     if (!networkState.isConnected) {
       Alert.alert(
         'No Internet Connection',
-        'Please connect to the internet to continue.',
+        'Please connect to the internet to login.',
         [{ text: 'OK' }]
       );
       return;
     }
 
-    if (!screenName.trim()) {
+    if (!username.trim() || !password.trim() || !screenName.trim()) {
       Alert.alert(
         'Missing Information',
-        'Please enter a screen name to continue.',
+        'Please fill in all fields to continue.',
         [{ text: 'OK' }]
       );
       return;
     }
 
     setIsLoading(true);
-    console.log('Starting app with screen name:', screenName);
+    console.log('Attempting login...');
 
     try {
-      const result = await login(screenName);
+      const result = await login(username, password, screenName);
       
       if (result.success) {
-        console.log('Setup successful, navigating to home');
+        console.log('Login successful, navigating to home');
         router.replace('/(tabs)/(home)');
       } else {
         Alert.alert(
-          'Setup Failed',
-          result.error || 'Please try again.',
+          'Login Failed',
+          result.error || 'Please check your credentials and try again.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
-      console.error('Setup error:', error);
+      console.error('Login error:', error);
       Alert.alert(
         'Error',
-        'An error occurred during setup. Please try again.',
+        'An error occurred during login. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -151,6 +153,35 @@ export default function LoginScreen() {
                 end={{ x: 0, y: 1 }}
               >
                 <View style={styles.tvInputRow}>
+                  <Text style={styles.tvLabel}>Username</Text>
+                  <TextInput
+                    style={styles.tvInput}
+                    placeholder="Enter username"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                </View>
+
+                <View style={styles.tvInputRow}>
+                  <Text style={styles.tvLabel}>Password</Text>
+                  <TextInput
+                    style={styles.tvInput}
+                    placeholder="Enter password"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                </View>
+
+                <View style={styles.tvInputRow}>
                   <Text style={styles.tvLabel}>Screen Name</Text>
                   <TextInput
                     style={styles.tvInput}
@@ -182,17 +213,11 @@ export default function LoginScreen() {
                     end={{ x: 1, y: 0 }}
                   >
                     <Text style={styles.tvLoginButtonText}>
-                      {isLoading ? 'Starting...' : 'Start'}
+                      {isLoading ? 'Logging in...' : 'Login'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </LinearGradient>
-            </View>
-
-            <View style={styles.tvInfoBox}>
-              <Text style={styles.tvInfoText}>
-                Commands will be sent directly to this device using its unique Device ID
-              </Text>
             </View>
           </Animated.View>
         </LinearGradient>
@@ -241,7 +266,7 @@ export default function LoginScreen() {
               {!isOnline && (
                 <View style={styles.mobileWarningCard}>
                   <Text style={styles.mobileWarningText}>
-                    ⚠️ Internet connection required to continue
+                    ⚠️ Internet connection required to login
                   </Text>
                 </View>
               )}
@@ -253,6 +278,35 @@ export default function LoginScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                 >
+                  <View style={styles.mobileInputContainer}>
+                    <Text style={styles.mobileLabel}>Username</Text>
+                    <TextInput
+                      style={styles.mobileInput}
+                      placeholder="Enter username"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isLoading}
+                    />
+                  </View>
+
+                  <View style={styles.mobileInputContainer}>
+                    <Text style={styles.mobileLabel}>Password</Text>
+                    <TextInput
+                      style={styles.mobileInput}
+                      placeholder="Enter password"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isLoading}
+                    />
+                  </View>
+
                   <View style={styles.mobileInputContainer}>
                     <Text style={styles.mobileLabel}>Screen Name</Text>
                     <TextInput
@@ -286,7 +340,7 @@ export default function LoginScreen() {
                         end={{ x: 1, y: 0 }}
                       >
                         <Text style={styles.mobileLoginButtonText}>
-                          {isLoading ? 'Starting...' : 'Start'}
+                          {isLoading ? 'Logging in...' : 'Login'}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -296,8 +350,7 @@ export default function LoginScreen() {
 
               <View style={styles.mobileInfoBox}>
                 <Text style={styles.mobileInfoText}>
-                  This app monitors your display&apos;s online status and accepts remote commands.
-                  Commands will be sent directly to this device using its unique Device ID.
+                  This app monitors your display&apos;s online status and sends updates to the server.
                 </Text>
               </View>
             </Animated.View>
@@ -548,19 +601,5 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     letterSpacing: 1,
-  },
-  tvInfoBox: {
-    marginTop: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 20,
-    width: '100%',
-  },
-  tvInfoText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '500',
   },
 });
