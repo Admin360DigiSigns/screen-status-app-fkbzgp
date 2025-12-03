@@ -18,13 +18,6 @@ export interface LoginPayload {
   device_id: string;
 }
 
-export interface RegisterPayload {
-  screen_username: string;
-  screen_password: string;
-  screen_name: string;
-  device_id: string;
-}
-
 export interface LoginResponse {
   success: boolean;
   message?: string;
@@ -71,62 +64,6 @@ export interface DisplayConnectResponse {
   solution: Solution;
 }
 
-export const register = async (
-  username: string,
-  password: string,
-  screenName: string,
-  deviceId: string
-): Promise<LoginResponse> => {
-  try {
-    console.log('Attempting registration with API:', { username, screenName, deviceId });
-    
-    // Use the pgcdokfiaarnhzryfzwf project for registration
-    const API_ENDPOINT = 'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/display-register';
-    
-    const payload: RegisterPayload = {
-      screen_username: username,
-      screen_password: password,
-      screen_name: screenName,
-      device_id: deviceId,
-    };
-
-    console.log('Sending registration request to:', API_ENDPOINT);
-    console.log('Registration payload:', { ...payload, screen_password: '***' });
-    
-    const response = await fetch(API_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    console.log('Registration response status:', response.status);
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Registration successful:', data);
-      return {
-        success: true,
-        message: data.message || 'Registration successful',
-      };
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Registration failed:', response.status, errorData);
-      return {
-        success: false,
-        error: errorData.error || errorData.message || 'Registration failed',
-      };
-    }
-  } catch (error) {
-    console.error('Error during registration request:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    };
-  }
-};
-
 export const login = async (
   username: string,
   password: string,
@@ -136,7 +73,8 @@ export const login = async (
   try {
     console.log('Attempting login with API:', { username, screenName, deviceId });
     
-    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    // Use the correct Supabase project for login
+    const API_ENDPOINT = 'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/display-connect';
     
     const payload: LoginPayload = {
       screen_username: username,
@@ -198,8 +136,8 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
     console.log('Payload keys:', Object.keys(payload));
     console.log('============================');
     
-    // Using the same Supabase endpoint for status updates
-    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status';
+    // Using the correct Supabase endpoint for status updates
+    const API_ENDPOINT = 'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/display-status';
     
     console.log('Sending POST request to:', API_ENDPOINT);
     console.log('Request body (stringified):', JSON.stringify({
@@ -247,7 +185,8 @@ export const fetchDisplayContent = async (
   try {
     console.log('Fetching display content for:', { username, screenName });
     
-    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    // Use the correct Supabase project for fetching content
+    const API_ENDPOINT = 'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/display-get-content';
     
     const payload = {
       screen_username: username,
@@ -255,7 +194,7 @@ export const fetchDisplayContent = async (
       screen_name: screenName,
     };
 
-    console.log('Sending display-connect request to:', API_ENDPOINT);
+    console.log('Sending display-get-content request to:', API_ENDPOINT);
     
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
@@ -265,7 +204,7 @@ export const fetchDisplayContent = async (
       body: JSON.stringify(payload),
     });
 
-    console.log('Display-connect response status:', response.status);
+    console.log('Display-get-content response status:', response.status);
 
     if (response.ok) {
       const data: DisplayConnectResponse = await response.json();
