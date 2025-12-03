@@ -35,7 +35,6 @@ export default function HomeScreen() {
     screenshare: new Animated.Value(1),
     sync: new Animated.Value(1),
     logout: new Animated.Value(1),
-    diagnostics: new Animated.Value(1),
   }).current;
 
   const isTVDevice = isTV();
@@ -283,10 +282,6 @@ export default function HomeScreen() {
     setIsScreenShareMode(false);
   };
 
-  const handleDiagnostics = () => {
-    router.push('/(tabs)/(home)/diagnostics');
-  };
-
   const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
     Animated.sequence([
       Animated.timing(buttonScaleAnims[buttonKey], {
@@ -456,7 +451,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons Grid - 2x3 Layout */}
+            {/* Action Buttons Grid - 2x2 Layout (removed diagnostics) */}
             <View style={styles.tvButtonsGrid}>
               <TouchableOpacity 
                 style={[
@@ -527,27 +522,6 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.tvButtonIcon}>🔄</Text>
                   <Text style={styles.tvButtonText}>Sync Status</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[
-                  styles.tvButton,
-                  focusedButton === 'diagnostics' && styles.tvButtonFocused
-                ]}
-                onPress={handleDiagnostics}
-                onFocus={() => setFocusedButton('diagnostics')}
-                onBlur={() => setFocusedButton(null)}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={focusedButton === 'diagnostics' ? ['#F59E0B', '#D97706', '#B45309'] : ['#D97706', '#B45309', '#92400E']}
-                  style={styles.tvButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.tvButtonIcon}>🔍</Text>
-                  <Text style={styles.tvButtonText}>Diagnostics</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -722,7 +696,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons */}
+            {/* Action Buttons (removed diagnostics) */}
             <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
               <TouchableOpacity 
                 style={styles.mobileButton}
@@ -791,27 +765,6 @@ export default function HomeScreen() {
                 >
                   <Text style={styles.mobileButtonIcon}>🔄</Text>
                   <Text style={styles.mobileButtonText}>Sync Status</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.diagnostics }] }}>
-              <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('diagnostics');
-                  handleDiagnostics();
-                }}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={['#D97706', '#B45309', '#92400E']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileButtonIcon}>🔍</Text>
-                  <Text style={styles.mobileButtonText}>Diagnostics</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
