@@ -13,7 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { commandListener, AppCommand } from '@/utils/commandListener';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
+  const { isAuthenticated, screenName, deviceId, logout, setScreenActive } = useAuth();
   const networkState = useNetworkState();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +122,7 @@ export default function HomeScreen() {
   const handlePreviewCommand = useCallback(async (command: AppCommand) => {
     console.log('🎬 [HomeScreen] Executing preview_content command');
     await handlePreview();
-  }, [username, password, screenName]);
+  }, [screenName]);
 
   const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
     console.log('📺 [HomeScreen] Executing screenshare command');
@@ -131,17 +131,17 @@ export default function HomeScreen() {
     } else {
       throw new Error('Screen share not available on web platform');
     }
-  }, [username, password, screenName]);
+  }, [screenName]);
 
   const handleSyncCommand = useCallback(async (command: AppCommand) => {
     console.log('🔄 [HomeScreen] Executing sync_status command');
     await syncDeviceStatus();
-  }, [deviceId, screenName, username, password, networkState.isConnected]);
+  }, [deviceId, screenName, networkState.isConnected]);
 
   const handleLogoutCommand = useCallback(async (command: AppCommand) => {
     console.log('🚪 [HomeScreen] Executing logout command');
     await handleLogout();
-  }, [deviceId, screenName, username, password]);
+  }, [deviceId, screenName]);
 
   // Set up command handlers when authenticated
   useEffect(() => {
@@ -172,8 +172,8 @@ export default function HomeScreen() {
   }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
 
   const syncDeviceStatus = useCallback(async () => {
-    if (!deviceId || !screenName || !username || !password) {
-      console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
+    if (!deviceId || !screenName) {
+      console.log('Missing required data for sync:', { deviceId, screenName });
       return;
     }
 
@@ -181,14 +181,11 @@ export default function HomeScreen() {
     const payload = {
       deviceId,
       screenName,
-      screen_username: username,
-      screen_password: password,
-      screen_name: screenName,
       status,
       timestamp: new Date().toISOString(),
     };
 
-    console.log('Syncing device status with payload (password hidden)');
+    console.log('Syncing device status with payload');
     const success = await sendDeviceStatus(payload);
     
     if (success) {
@@ -199,24 +196,21 @@ export default function HomeScreen() {
       setSyncStatus('failed');
       console.log('Status sync failed');
     }
-  }, [deviceId, screenName, username, password, networkState.isConnected]);
+  }, [deviceId, screenName, networkState.isConnected]);
 
   useEffect(() => {
-    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
+    if (deviceId && screenName && networkState.isConnected !== undefined) {
       syncDeviceStatus();
     }
-  }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
+  }, [deviceId, screenName, networkState.isConnected, syncDeviceStatus]);
 
   const handleLogout = async () => {
     try {
       // Send offline status before logging out
-      if (deviceId && screenName && username && password) {
+      if (deviceId && screenName) {
         await sendDeviceStatus({
           deviceId,
           screenName,
-          screen_username: username,
-          screen_password: password,
-          screen_name: screenName,
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
@@ -234,8 +228,8 @@ export default function HomeScreen() {
   };
 
   const handlePreview = async () => {
-    if (!username || !password || !screenName) {
-      Alert.alert('Error', 'Missing credentials for preview');
+    if (!screenName) {
+      Alert.alert('Error', 'Missing screen name for preview');
       return;
     }
 
@@ -243,7 +237,7 @@ export default function HomeScreen() {
     console.log('Fetching preview content...');
 
     try {
-      const result = await fetchDisplayContent(username, password, screenName);
+      const result = await fetchDisplayContent(screenName);
       
       if (result.success && result.data) {
         console.log('Preview content loaded successfully');
@@ -268,13 +262,13 @@ export default function HomeScreen() {
   const handleScreenShare = () => {
     console.log('🎬 Screen Share button pressed - Opening screen share receiver');
     
-    // Verify credentials before opening
-    if (!username || !password || !screenName) {
-      Alert.alert('Error', 'Missing credentials for screen share');
+    // Verify screen name before opening
+    if (!screenName) {
+      Alert.alert('Error', 'Missing screen name for screen share');
       return;
     }
     
-    console.log('✅ Credentials verified, opening screen share modal');
+    console.log('✅ Screen name verified, opening screen share modal');
     setIsScreenShareMode(true);
   };
 
@@ -411,11 +405,6 @@ export default function HomeScreen() {
                 <Text style={styles.tvCardTitle}>Display Information</Text>
                 
                 <View style={styles.tvInfoRow}>
-                  <View style={styles.tvInfoItem}>
-                    <Text style={styles.tvInfoItemLabel}>Username</Text>
-                    <Text style={styles.tvInfoItemValue}>{username}</Text>
-                  </View>
-
                   <View style={styles.tvInfoItem}>
                     <Text style={styles.tvInfoItemLabel}>Screen Name</Text>
                     <Text style={styles.tvInfoItemValue}>{screenName}</Text>
@@ -682,11 +671,6 @@ export default function HomeScreen() {
               >
                 <Text style={styles.mobileCardTitle}>Display Information</Text>
                 
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Username</Text>
-                  <Text style={styles.mobileInfoItemValue}>{username}</Text>
-                </View>
-
                 <View style={styles.mobileInfoItem}>
                   <Text style={styles.mobileInfoItemLabel}>Screen Name</Text>
                   <Text style={styles.mobileInfoItemValue}>{screenName}</Text>
