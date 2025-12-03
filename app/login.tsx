@@ -74,37 +74,24 @@ export default function LoginScreen() {
     console.log('Attempting login/registration...');
 
     try {
-      // First, try to login
+      // The login function now uses display-register which handles both login and registration
+      // It will create a new display if credentials don't exist, or update existing one
       const loginResult = await login(username, password, screenName);
       
       if (loginResult.success) {
-        console.log('Login successful, navigating to home');
-        router.replace('/(tabs)/(home)');
-      } else if (loginResult.error?.includes('Invalid credentials')) {
-        // If login fails due to invalid credentials, try to register
-        console.log('Login failed, attempting auto-registration...');
-        
-        const registerResult = await register(username, password, screenName);
-        
-        if (registerResult.success) {
-          console.log('Auto-registration successful, navigating to home');
-          Alert.alert(
-            'Registration Successful',
-            'Your display has been registered and logged in.',
-            [{ text: 'OK' }]
-          );
-          router.replace('/(tabs)/(home)');
-        } else {
-          Alert.alert(
-            'Registration Failed',
-            registerResult.error || 'Failed to register. Please try again.',
-            [{ text: 'OK' }]
-          );
-        }
+        console.log('Login/Registration successful, navigating to home');
+        Alert.alert(
+          'Success',
+          'Display registered and connected successfully!',
+          [{ 
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)/(home)')
+          }]
+        );
       } else {
         Alert.alert(
-          'Login Failed',
-          loginResult.error || 'Please check your credentials and try again.',
+          'Connection Failed',
+          loginResult.error || 'Failed to connect. Please check your credentials and try again.',
           [{ text: 'OK' }]
         );
       }
@@ -235,7 +222,7 @@ export default function LoginScreen() {
                     end={{ x: 1, y: 0 }}
                   >
                     <Text style={styles.tvLoginButtonText}>
-                      {isLoading ? 'Connecting...' : 'Login / Register'}
+                      {isLoading ? 'Connecting...' : 'Connect Display'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -244,7 +231,10 @@ export default function LoginScreen() {
 
             <View style={styles.tvInfoBox}>
               <Text style={styles.tvInfoText}>
-                💡 If this is your first time, the app will automatically register your display
+                💡 Enter your credentials to connect this display
+              </Text>
+              <Text style={styles.tvInfoText}>
+                {'\n'}New displays will be automatically registered
               </Text>
             </View>
           </Animated.View>
@@ -368,7 +358,7 @@ export default function LoginScreen() {
                         end={{ x: 1, y: 0 }}
                       >
                         <Text style={styles.mobileLoginButtonText}>
-                          {isLoading ? 'Connecting...' : 'Login / Register'}
+                          {isLoading ? 'Connecting...' : 'Connect Display'}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -378,10 +368,13 @@ export default function LoginScreen() {
 
               <View style={styles.mobileInfoBox}>
                 <Text style={styles.mobileInfoText}>
-                  💡 If this is your first time, the app will automatically register your display
+                  💡 Enter your credentials to connect this display
                 </Text>
                 <Text style={styles.mobileInfoText}>
-                  {'\n'}This app monitors your display&apos;s online status and sends updates to the server.
+                  {'\n'}New displays will be automatically registered
+                </Text>
+                <Text style={styles.mobileInfoText}>
+                  {'\n'}This app monitors your display&apos;s online status and enables remote commands
                 </Text>
               </View>
             </Animated.View>
