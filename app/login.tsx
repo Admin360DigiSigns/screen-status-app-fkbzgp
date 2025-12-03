@@ -21,7 +21,7 @@ import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen() {
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const networkState = useNetworkState();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -71,40 +71,18 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    console.log('Attempting login/registration...');
+    console.log('Attempting login...');
 
     try {
-      // First, try to login
-      const loginResult = await login(username, password, screenName);
+      const result = await login(username, password, screenName);
       
-      if (loginResult.success) {
+      if (result.success) {
         console.log('Login successful, navigating to home');
         router.replace('/(tabs)/(home)');
-      } else if (loginResult.error?.includes('Invalid credentials')) {
-        // If login fails due to invalid credentials, try to register
-        console.log('Login failed, attempting auto-registration...');
-        
-        const registerResult = await register(username, password, screenName);
-        
-        if (registerResult.success) {
-          console.log('Auto-registration successful, navigating to home');
-          Alert.alert(
-            'Registration Successful',
-            'Your display has been registered and logged in.',
-            [{ text: 'OK' }]
-          );
-          router.replace('/(tabs)/(home)');
-        } else {
-          Alert.alert(
-            'Registration Failed',
-            registerResult.error || 'Failed to register. Please try again.',
-            [{ text: 'OK' }]
-          );
-        }
       } else {
         Alert.alert(
           'Login Failed',
-          loginResult.error || 'Please check your credentials and try again.',
+          result.error || 'Please check your credentials and try again.',
           [{ text: 'OK' }]
         );
       }
@@ -235,17 +213,11 @@ export default function LoginScreen() {
                     end={{ x: 1, y: 0 }}
                   >
                     <Text style={styles.tvLoginButtonText}>
-                      {isLoading ? 'Connecting...' : 'Login / Register'}
+                      {isLoading ? 'Logging in...' : 'Login'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </LinearGradient>
-            </View>
-
-            <View style={styles.tvInfoBox}>
-              <Text style={styles.tvInfoText}>
-                💡 If this is your first time, the app will automatically register your display
-              </Text>
             </View>
           </Animated.View>
         </LinearGradient>
@@ -368,7 +340,7 @@ export default function LoginScreen() {
                         end={{ x: 1, y: 0 }}
                       >
                         <Text style={styles.mobileLoginButtonText}>
-                          {isLoading ? 'Connecting...' : 'Login / Register'}
+                          {isLoading ? 'Logging in...' : 'Login'}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -378,10 +350,7 @@ export default function LoginScreen() {
 
               <View style={styles.mobileInfoBox}>
                 <Text style={styles.mobileInfoText}>
-                  💡 If this is your first time, the app will automatically register your display
-                </Text>
-                <Text style={styles.mobileInfoText}>
-                  {'\n'}This app monitors your display&apos;s online status and sends updates to the server.
+                  This app monitors your display&apos;s online status and sends updates to the server.
                 </Text>
               </View>
             </Animated.View>
@@ -632,21 +601,5 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     letterSpacing: 1,
-  },
-  tvInfoBox: {
-    marginTop: 32,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  tvInfoText: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '500',
   },
 });

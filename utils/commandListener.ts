@@ -2,9 +2,6 @@
 import { supabase } from './supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-// Supabase anon key for API calls
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnY2Rva2ZpYWFybmh6cnlmendmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwOTk1OTEsImV4cCI6MjA3OTY3NTU5MX0.wn4-y6x8Q-EbPGci_B27scrRXNOEvg7I4xsqeCEYqag';
-
 export interface AppCommand {
   id: string;
   device_id: string;
@@ -148,42 +145,27 @@ class CommandListenerService {
   }
 
   /**
-   * Poll for pending commands using the get-pending-commands Edge Function
+   * Poll for pending commands
    */
   private async pollForCommands() {
     if (!this.deviceId || !this.isListening) return;
 
     try {
-      // Call the get-pending-commands Edge Function
-      const response = await fetch(
-        'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/get-pending-commands',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            device_id: this.deviceId,
-          }),
-        }
-      );
+      // Query for pending commands for this device
+      const { data: commands, error } = await supabase
+        .from('app_commands')
+        .select('*')
+        .eq('device_id', this.deviceId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(10);
 
-      if (!response.ok) {
-        console.error('❌ [CommandListener] Error polling for commands:', response.status, response.statusText);
+      if (error) {
+        console.error('❌ [CommandListener] Error polling for commands:', error);
         return;
       }
 
-      const result = await response.json();
-
-      if (!result.success) {
-        console.error('❌ [CommandListener] Error polling for commands:', result.error);
-        return;
-      }
-
-      const commands = result.commands || [];
-
-      if (commands.length > 0) {
+      if (commands && commands.length > 0) {
         console.log(`📬 [CommandListener] ✅ Found ${commands.length} pending command(s) via polling`);
         
         for (const command of commands) {
@@ -269,7 +251,7 @@ class CommandListenerService {
   }
 
   /**
-   * Update command status using the acknowledge-command Edge Function
+   * Update command status in database
    */
   private async updateCommandStatus(
     commandId: string,
@@ -277,34 +259,24 @@ class CommandListenerService {
     errorMessage?: string
   ) {
     try {
-      console.log('💾 [CommandListener] Updating command status:', { commandId, status, errorMessage });
+      const updateData: any = {
+        status,
+        executed_at: new Date().toISOString(),
+      };
 
-      // Call the acknowledge-command Edge Function
-      const response = await fetch(
-        'https://pgcdokfiaarnhzryfzwf.supabase.co/functions/v1/acknowledge-command',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            command_id: commandId,
-            status,
-            error_message: errorMessage,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        console.error('❌ [CommandListener] Error updating command status:', response.status, response.statusText);
-        return;
+      if (errorMessage) {
+        updateData.error_message = errorMessage;
       }
 
-      const result = await response.json();
+      console.log('💾 [CommandListener] Updating command status:', { commandId, status, errorMessage });
 
-      if (!result.success) {
-        console.error('❌ [CommandListener] Error updating command status:', result.error);
+      const { error } = await supabase
+        .from('app_commands')
+        .update(updateData)
+        .eq('id', commandId);
+
+      if (error) {
+        console.error('❌ [CommandListener] Error updating command status:', error);
       } else {
         console.log(`✅ [CommandListener] Command status updated to: ${status}`);
       }

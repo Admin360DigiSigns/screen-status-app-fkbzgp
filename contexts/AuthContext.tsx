@@ -13,7 +13,6 @@ interface AuthContextType {
   screenName: string | null;
   deviceId: string | null;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
-  register: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   setScreenActive: (active: boolean) => void;
 }
@@ -169,48 +168,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (
-    inputUsername: string,
-    inputPassword: string,
-    inputScreenName: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      console.log('Registration attempt:', { inputUsername, inputScreenName, deviceId });
-      
-      if (!deviceId) {
-        console.error('Device ID not available');
-        return { success: false, error: 'Device ID not available. Please try again.' };
-      }
-
-      // Call the API service to register
-      const response = await apiService.register(inputUsername, inputPassword, inputScreenName, deviceId);
-      
-      if (response.success) {
-        // Store credentials on successful registration
-        await AsyncStorage.setItem('username', inputUsername);
-        await AsyncStorage.setItem('password', inputPassword);
-        await AsyncStorage.setItem('screenName', inputScreenName);
-        
-        setUsername(inputUsername);
-        setPassword(inputPassword);
-        setScreenName(inputScreenName);
-        setIsAuthenticated(true);
-        
-        console.log('Registration successful, credentials stored');
-        return { success: true };
-      } else {
-        console.log('Registration failed:', response.error);
-        return { success: false, error: response.error };
-      }
-    } catch (error) {
-      console.error('Error during registration:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'An unexpected error occurred' 
-      };
-    }
-  };
-
   const login = async (
     inputUsername: string,
     inputPassword: string,
@@ -309,8 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password, 
       screenName, 
       deviceId, 
-      login,
-      register,
+      login, 
       logout,
       setScreenActive 
     }}>
