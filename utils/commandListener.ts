@@ -25,8 +25,6 @@ class CommandListenerService {
   private pollInterval: NodeJS.Timeout | null = null;
   private lastProcessedCommandId: string | null = null;
   private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
-  private consecutiveErrors: number = 0;
-  private maxConsecutiveErrors: number = 5;
 
   /**
    * Initialize the command listener with device ID
@@ -34,7 +32,6 @@ class CommandListenerService {
   initialize(deviceId: string) {
     console.log('🎯 [CommandListener] Initializing for device:', deviceId);
     this.deviceId = deviceId;
-    this.consecutiveErrors = 0;
   }
 
   /**
@@ -78,12 +75,11 @@ class CommandListenerService {
     console.log('📋 [CommandListener] Registered handlers:', Array.from(this.commandHandlers.keys()));
     this.isListening = true;
     this.connectionStatus = 'connecting';
-    this.consecutiveErrors = 0;
 
     // Set up Realtime channel for instant command delivery
     this.setupRealtimeChannel();
 
-    // Set up polling as primary mechanism (every 2 seconds for better responsiveness)
+    // Set up polling as fallback (every 3 seconds for better responsiveness)
     this.startPolling();
   }
 
@@ -127,28 +123,28 @@ class CommandListenerService {
       .subscribe((status) => {
         console.log('📡 [CommandListener] Realtime channel status:', status);
         if (status === 'SUBSCRIBED') {
+          this.connectionStatus = 'connected';
           console.log('✅ [CommandListener] Successfully subscribed to Realtime channel');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          this.connectionStatus = 'disconnected';
           console.error('❌ [CommandListener] Realtime channel error:', status);
         }
       });
   }
 
   /**
-   * Start polling for commands (primary mechanism)
+   * Start polling for commands (fallback mechanism)
    */
   private startPolling() {
-    console.log('🔄 [CommandListener] Starting command polling (every 2 seconds)');
+    console.log('🔄 [CommandListener] Starting command polling (every 3 seconds)');
 
     // Poll immediately
     this.pollForCommands();
 
-    // Then poll every 2 seconds for better responsiveness
+    // Then poll every 3 seconds
     this.pollInterval = setInterval(() => {
-      if (this.isListening) {
-        this.pollForCommands();
-      }
-    }, 2000);
+      this.pollForCommands();
+    }, 3000);
   }
 
   /**
@@ -156,13 +152,6 @@ class CommandListenerService {
    */
   private async pollForCommands() {
     if (!this.deviceId || !this.isListening) return;
-
-    // Stop polling if too many consecutive errors
-    if (this.consecutiveErrors >= this.maxConsecutiveErrors) {
-      console.error('❌ [CommandListener] Too many consecutive errors, stopping polling');
-      this.connectionStatus = 'disconnected';
-      return;
-    }
 
     try {
       // Call the get-pending-commands Edge Function
@@ -182,8 +171,6 @@ class CommandListenerService {
 
       if (!response.ok) {
         console.error('❌ [CommandListener] Error polling for commands:', response.status, response.statusText);
-        this.consecutiveErrors++;
-        this.connectionStatus = 'disconnected';
         return;
       }
 
@@ -191,14 +178,8 @@ class CommandListenerService {
 
       if (!result.success) {
         console.error('❌ [CommandListener] Error polling for commands:', result.error);
-        this.consecutiveErrors++;
-        this.connectionStatus = 'disconnected';
         return;
       }
-
-      // Reset error counter on successful poll
-      this.consecutiveErrors = 0;
-      this.connectionStatus = 'connected';
 
       const commands = result.commands || [];
 
@@ -216,15 +197,17 @@ class CommandListenerService {
             id: command.id,
             command: command.command,
             device_id: command.device_id,
-            status: command.status,
           });
           await this.handleCommand(command as AppCommand);
+        }
+      } else {
+        // Only log occasionally to avoid spam
+        if (Math.random() < 0.1) {
+          console.log('📭 [CommandListener] No pending commands found');
         }
       }
     } catch (error) {
       console.error('❌ [CommandListener] Error in pollForCommands:', error);
-      this.consecutiveErrors++;
-      this.connectionStatus = 'disconnected';
     }
   }
 

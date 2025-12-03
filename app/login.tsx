@@ -21,7 +21,7 @@ import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const networkState = useNetworkState();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -71,18 +71,27 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    console.log('Attempting login...');
+    console.log('Attempting login/registration...');
 
     try {
+      // The login function now uses display-register which handles both login and registration
+      // It will create a new display if credentials don't exist, or update existing one
       const loginResult = await login(username, password, screenName);
       
       if (loginResult.success) {
-        console.log('Login successful, navigating to home');
-        router.replace('/(tabs)/(home)');
+        console.log('Login/Registration successful, navigating to home');
+        Alert.alert(
+          'Success',
+          'Display registered and connected successfully!',
+          [{ 
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)/(home)')
+          }]
+        );
       } else {
         Alert.alert(
-          'Login Failed',
-          loginResult.error || 'Please check your credentials and try again.',
+          'Connection Failed',
+          loginResult.error || 'Failed to connect. Please check your credentials and try again.',
           [{ text: 'OK' }]
         );
       }
@@ -213,7 +222,7 @@ export default function LoginScreen() {
                     end={{ x: 1, y: 0 }}
                   >
                     <Text style={styles.tvLoginButtonText}>
-                      {isLoading ? 'Connecting...' : 'Login'}
+                      {isLoading ? 'Connecting...' : 'Connect Display'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -222,7 +231,10 @@ export default function LoginScreen() {
 
             <View style={styles.tvInfoBox}>
               <Text style={styles.tvInfoText}>
-                💡 Enter your credentials to connect this display to your account
+                💡 Enter your credentials to connect this display
+              </Text>
+              <Text style={styles.tvInfoText}>
+                {'\n'}New displays will be automatically registered
               </Text>
             </View>
           </Animated.View>
@@ -346,7 +358,7 @@ export default function LoginScreen() {
                         end={{ x: 1, y: 0 }}
                       >
                         <Text style={styles.mobileLoginButtonText}>
-                          {isLoading ? 'Connecting...' : 'Login'}
+                          {isLoading ? 'Connecting...' : 'Connect Display'}
                         </Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -356,10 +368,13 @@ export default function LoginScreen() {
 
               <View style={styles.mobileInfoBox}>
                 <Text style={styles.mobileInfoText}>
-                  💡 Enter your credentials to connect this display to your account
+                  💡 Enter your credentials to connect this display
                 </Text>
                 <Text style={styles.mobileInfoText}>
-                  {'\n'}This app monitors your display&apos;s online status and receives remote commands.
+                  {'\n'}New displays will be automatically registered
+                </Text>
+                <Text style={styles.mobileInfoText}>
+                  {'\n'}This app monitors your display&apos;s online status and enables remote commands
                 </Text>
               </View>
             </Animated.View>
