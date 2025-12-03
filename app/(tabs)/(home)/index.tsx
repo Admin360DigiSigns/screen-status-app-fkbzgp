@@ -118,59 +118,6 @@ export default function HomeScreen() {
     }
   }, [deviceId]);
 
-  // Command handlers - defined with useCallback to maintain stable references
-  const handlePreviewCommand = useCallback(async (command: AppCommand) => {
-    console.log('🎬 [HomeScreen] Executing preview_content command');
-    await handlePreview();
-  }, [username, password, screenName]);
-
-  const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
-    console.log('📺 [HomeScreen] Executing screenshare command');
-    if (Platform.OS !== 'web') {
-      handleScreenShare();
-    } else {
-      throw new Error('Screen share not available on web platform');
-    }
-  }, [username, password, screenName]);
-
-  const handleSyncCommand = useCallback(async (command: AppCommand) => {
-    console.log('🔄 [HomeScreen] Executing sync_status command');
-    await syncDeviceStatus();
-  }, [deviceId, screenName, username, password, networkState.isConnected]);
-
-  const handleLogoutCommand = useCallback(async (command: AppCommand) => {
-    console.log('🚪 [HomeScreen] Executing logout command');
-    await handleLogout();
-  }, [deviceId, screenName, username, password]);
-
-  // Set up command handlers when authenticated
-  useEffect(() => {
-    if (!isAuthenticated || !deviceId) {
-      console.log('⏸️ [HomeScreen] Skipping command listener setup - not authenticated or no device ID');
-      return;
-    }
-
-    console.log('🎯 [HomeScreen] Setting up command handlers for device:', deviceId);
-
-    // Initialize command listener with device ID (in case it wasn't initialized yet)
-    commandListener.initialize(deviceId);
-
-    // Register command handlers
-    commandListener.registerHandler('preview_content', handlePreviewCommand);
-    commandListener.registerHandler('screenshare', handleScreenShareCommand);
-    commandListener.registerHandler('sync_status', handleSyncCommand);
-    commandListener.registerHandler('logout', handleLogoutCommand);
-
-    // Start listening for commands
-    commandListener.startListening();
-
-    // Cleanup
-    return () => {
-      console.log('🧹 [HomeScreen] Cleaning up command handlers');
-      commandListener.stopListening();
-    };
-  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
-
   const syncDeviceStatus = useCallback(async () => {
     if (!deviceId || !screenName || !username || !password) {
       console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
@@ -201,39 +148,7 @@ export default function HomeScreen() {
     }
   }, [deviceId, screenName, username, password, networkState.isConnected]);
 
-  useEffect(() => {
-    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
-      syncDeviceStatus();
-    }
-  }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
-
-  const handleLogout = async () => {
-    try {
-      // Send offline status before logging out
-      if (deviceId && screenName && username && password) {
-        await sendDeviceStatus({
-          deviceId,
-          screenName,
-          screen_username: username,
-          screen_password: password,
-          screen_name: screenName,
-          status: 'offline',
-          timestamp: new Date().toISOString(),
-        });
-      }
-      await logout();
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Still logout even if status update fails
-      await logout();
-    }
-  };
-
-  const handleManualSync = () => {
-    syncDeviceStatus();
-  };
-
-  const handlePreview = async () => {
+  const handlePreview = useCallback(async () => {
     if (!username || !password || !screenName) {
       Alert.alert('Error', 'Missing credentials for preview');
       return;
@@ -258,14 +173,9 @@ export default function HomeScreen() {
     } finally {
       setIsLoadingPreview(false);
     }
-  };
+  }, [username, password, screenName]);
 
-  const handleClosePreview = () => {
-    setIsPreviewMode(false);
-    setDisplayContent(null);
-  };
-
-  const handleScreenShare = () => {
+  const handleScreenShare = useCallback(() => {
     console.log('🎬 Screen Share button pressed - Opening screen share receiver');
     
     // Verify credentials before opening
@@ -276,6 +186,96 @@ export default function HomeScreen() {
     
     console.log('✅ Credentials verified, opening screen share modal');
     setIsScreenShareMode(true);
+  }, [username, password, screenName]);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      // Send offline status before logging out
+      if (deviceId && screenName && username && password) {
+        await sendDeviceStatus({
+          deviceId,
+          screenName,
+          screen_username: username,
+          screen_password: password,
+          screen_name: screenName,
+          status: 'offline',
+          timestamp: new Date().toISOString(),
+        });
+      }
+      await logout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still logout even if status update fails
+      await logout();
+    }
+  }, [deviceId, screenName, username, password, logout]);
+
+  // Command handlers - defined with useCallback to maintain stable references
+  const handlePreviewCommand = useCallback(async (command: AppCommand) => {
+    console.log('🎬 [HomeScreen] Executing preview_content command');
+    await handlePreview();
+  }, [handlePreview]);
+
+  const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
+    console.log('📺 [HomeScreen] Executing screenshare command');
+    if (Platform.OS !== 'web') {
+      handleScreenShare();
+    } else {
+      throw new Error('Screen share not available on web platform');
+    }
+  }, [handleScreenShare]);
+
+  const handleSyncCommand = useCallback(async (command: AppCommand) => {
+    console.log('🔄 [HomeScreen] Executing sync_status command');
+    await syncDeviceStatus();
+  }, [syncDeviceStatus]);
+
+  const handleLogoutCommand = useCallback(async (command: AppCommand) => {
+    console.log('🚪 [HomeScreen] Executing logout command');
+    await handleLogout();
+  }, [handleLogout]);
+
+  // Set up command handlers when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !deviceId) {
+      console.log('⏸️ [HomeScreen] Skipping command listener setup - not authenticated or no device ID');
+      return;
+    }
+
+    console.log('🎯 [HomeScreen] Setting up command handlers for device:', deviceId);
+
+    // Initialize command listener with device ID (in case it wasn't initialized yet)
+    commandListener.initialize(deviceId);
+
+    // Register command handlers
+    commandListener.registerHandler('preview_content', handlePreviewCommand);
+    commandListener.registerHandler('screenshare', handleScreenShareCommand);
+    commandListener.registerHandler('sync_status', handleSyncCommand);
+    commandListener.registerHandler('logout', handleLogoutCommand);
+
+    // Start listening for commands
+    commandListener.startListening();
+
+    // Cleanup
+    return () => {
+      console.log('🧹 [HomeScreen] Cleaning up command handlers');
+      commandListener.stopListening();
+    };
+  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
+
+  useEffect(() => {
+    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
+      syncDeviceStatus();
+    }
+  }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
+
+  const handleManualSync = () => {
+    syncDeviceStatus();
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewMode(false);
+    setDisplayContent(null);
   };
 
   const handleCloseScreenShare = () => {
