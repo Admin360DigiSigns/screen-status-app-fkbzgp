@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
   }, [initializeAuth]);
 
-  // Set up the 1-minute interval when user is authenticated AND screen is active
+  // Set up the 20-second interval when user is authenticated AND screen is active
   useEffect(() => {
     console.log('Auth/Screen state changed:', { 
       isAuthenticated, 
@@ -78,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 2. Screen is active (user is on the home screen)
     // 3. All required data is available
     if (isAuthenticated && isScreenActive && deviceId && screenName && username && password) {
-      console.log('✓ Setting up 1-minute status update interval (user logged in and on screen)');
+      console.log('✓ Setting up 20-second status update interval (user logged in and on screen)');
       
       // Define the status update function inside useEffect to avoid stale closures
       const sendStatusUpdate = async () => {
@@ -128,13 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Sending initial status update');
       sendStatusUpdate();
       
-      // Set up interval to send status every 1 minute (60000 milliseconds)
+      // Set up interval to send status every 20 seconds (20000 milliseconds)
       statusIntervalRef.current = setInterval(() => {
         console.log('Interval triggered - sending status update');
         sendStatusUpdate();
-      }, 60000);
+      }, 20000);
       
-      console.log('Interval set up successfully');
+      console.log('Interval set up successfully - updates every 20 seconds');
       
       // Cleanup function to clear interval when dependencies change or component unmounts
       return () => {
@@ -203,6 +203,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPassword(inputPassword);
         setScreenName(inputScreenName);
         setIsAuthenticated(true);
+        
+        // Clear auth code since we're now authenticated
+        setAuthCode(null);
+        setAuthCodeExpiry(null);
         
         console.log('Login successful, credentials stored');
         return { success: true };
@@ -353,12 +357,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Clear stored credentials
+      // Clear stored credentials FIRST - this is critical
+      console.log('Clearing stored credentials from AsyncStorage');
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
-      // Clear state
+      // Clear state - this will trigger navigation to login screen
+      console.log('Clearing authentication state');
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -368,23 +374,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsScreenActive(false);
       
       console.log('✓ Logout successful - credentials cleared');
-      
-      // Generate new authentication code after logout
-      console.log('Generating new authentication code after logout...');
-      if (deviceId) {
-        const result = await loginWithCode();
-        if (result.success) {
-          console.log('✓ New authentication code generated after logout:', result.code);
-        } else {
-          console.error('✗ Failed to generate code after logout:', result.error);
-        }
-      } else {
-        console.error('✗ Cannot generate code - device ID not available');
-      }
-      
+      console.log('User will be redirected to login screen where new code will be generated');
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('Error during logout:', error);
+      // Still clear state even if there's an error
+      await AsyncStorage.removeItem('username');
+      await AsyncStorage.removeItem('password');
+      await AsyncStorage.removeItem('screenName');
+      setUsername(null);
+      setPassword(null);
+      setScreenName(null);
+      setAuthCode(null);
+      setAuthCodeExpiry(null);
+      setIsAuthenticated(false);
+      setIsScreenActive(false);
     }
   };
 

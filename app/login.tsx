@@ -30,6 +30,7 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasGeneratedCodeRef = useRef(false);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -37,6 +38,14 @@ export default function LoginScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const isTVDevice = isTV();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('User is authenticated, redirecting to home');
+      router.replace('/(tabs)/(home)');
+    }
+  }, [isAuthenticated]);
 
   // Sync with context auth code
   useEffect(() => {
@@ -75,9 +84,10 @@ export default function LoginScreen() {
       }),
     ]).start();
 
-    // Generate code on mount if not already present
-    if (deviceId && networkState.isConnected && !contextAuthCode) {
+    // Generate code on mount if not already present and not already generated
+    if (deviceId && networkState.isConnected && !contextAuthCode && !hasGeneratedCodeRef.current) {
       console.log('Calling handleGenerateCode on mount');
+      hasGeneratedCodeRef.current = true;
       handleGenerateCode();
     } else if (contextAuthCode) {
       console.log('Using existing auth code from context');
@@ -96,10 +106,11 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // Regenerate code when device ID becomes available
+  // Regenerate code when device ID becomes available (only if not already generated)
   useEffect(() => {
-    if (deviceId && !authCode && !contextAuthCode && networkState.isConnected && !isLoading) {
+    if (deviceId && !authCode && !contextAuthCode && networkState.isConnected && !isLoading && !hasGeneratedCodeRef.current) {
       console.log('Device ID became available, generating code');
+      hasGeneratedCodeRef.current = true;
       handleGenerateCode();
     }
   }, [deviceId]);
@@ -142,6 +153,7 @@ export default function LoginScreen() {
           }
           // Auto-regenerate code
           console.log('Code expired, auto-regenerating');
+          hasGeneratedCodeRef.current = false; // Reset flag to allow regeneration
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -211,6 +223,7 @@ export default function LoginScreen() {
           errorMsg,
           [{ text: 'OK' }]
         );
+        hasGeneratedCodeRef.current = false; // Reset flag on error
       }
     } catch (error) {
       console.error('✗ Exception while generating code:', error);
@@ -221,6 +234,7 @@ export default function LoginScreen() {
         errorMsg,
         [{ text: 'OK' }]
       );
+      hasGeneratedCodeRef.current = false; // Reset flag on error
     } finally {
       setIsLoading(false);
     }
@@ -267,6 +281,7 @@ export default function LoginScreen() {
           setIsCheckingAuth(false);
           
           // Generate new code
+          hasGeneratedCodeRef.current = false; // Reset flag to allow regeneration
           handleGenerateCode();
         }
       } catch (error) {

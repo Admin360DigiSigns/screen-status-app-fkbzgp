@@ -551,7 +551,7 @@ export default function HomeScreen() {
           {/* Compact Footer */}
           <View style={styles.tvFooter}>
             <Text style={styles.tvFooterText}>
-              ℹ️ Status updates sent every 1 minute • Remote commands enabled • Updates only when on this screen
+              ℹ️ Status updates sent every 20 seconds • Remote commands enabled • Updates only when on this screen
             </Text>
           </View>
         </LinearGradient>
@@ -793,7 +793,7 @@ export default function HomeScreen() {
             {/* Footer Info */}
             <View style={styles.mobileFooter}>
               <Text style={styles.mobileFooterText}>
-                ℹ️ Status updates sent every 1 minute
+                ℹ️ Status updates sent every 20 seconds
               </Text>
               <Text style={styles.mobileFooterText}>
                 🎯 Remote commands enabled
