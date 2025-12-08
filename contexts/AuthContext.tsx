@@ -12,7 +12,11 @@ interface AuthContextType {
   password: string | null;
   screenName: string | null;
   deviceId: string | null;
+  authCode: string | null;
+  authCodeExpiry: string | null;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithCode: () => Promise<{ success: boolean; code?: string; error?: string }>;
+  checkAuthenticationStatus: () => Promise<{ success: boolean; authenticated: boolean; credentials?: { username: string; password: string; screenName: string }; error?: string }>;
   logout: () => Promise<void>;
   setScreenActive: (active: boolean) => void;
 }
@@ -25,8 +29,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [password, setPassword] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [authCode, setAuthCode] = useState<string | null>(null);
+  const [authCodeExpiry, setAuthCodeExpiry] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -210,15 +217,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithCode = async (): Promise<{ success: boolean; code?: string; error?: string }> => {
+    try {
+      console.log('Initiating code-based login');
+      
+      if (!deviceId) {
+        console.error('Device ID not available');
+        return { success: false, error: 'Device ID not available. Please try again.' };
+      }
+
+      // Generate auth code
+      const response = await apiService.generateAuthCode(deviceId);
+      
+      if (response.success && response.data) {
+        setAuthCode(response.data.code);
+        setAuthCodeExpiry(response.data.expires_at);
+        console.log('Auth code generated:', response.data.code);
+        return { success: true, code: response.data.code };
+      } else {
+        console.log('Failed to generate auth code:', response.error);
+        return { success: false, error: response.error };
+      }
+    } catch (error) {
+      console.error('Error during code-based login:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+      };
+    }
+  };
+
+  const checkAuthenticationStatus = async (): Promise<{ 
+    success: boolean; 
+    authenticated: boolean; 
+    credentials?: { username: string; password: string; screenName: string }; 
+    error?: string 
+  }> => {
+    try {
+      if (!authCode || !deviceId) {
+        return { success: false, authenticated: false, error: 'No auth code available' };
+      }
+
+      const response = await apiService.checkAuthStatus(authCode, deviceId);
+      
+      if (response.success && response.data) {
+        if (response.data.authenticated && response.data.screen_username && response.data.screen_password && response.data.screen_name) {
+          // Store credentials
+          await AsyncStorage.setItem('username', response.data.screen_username);
+          await AsyncStorage.setItem('password', response.data.screen_password);
+          await AsyncStorage.setItem('screenName', response.data.screen_name);
+          
+          setUsername(response.data.screen_username);
+          setPassword(response.data.screen_password);
+          setScreenName(response.data.screen_name);
+          setIsAuthenticated(true);
+          
+          // Clear auth code
+          setAuthCode(null);
+          setAuthCodeExpiry(null);
+          
+          console.log('Authentication successful via code');
+          return { 
+            success: true, 
+            authenticated: true,
+            credentials: {
+              username: response.data.screen_username,
+              password: response.data.screen_password,
+              screenName: response.data.screen_name,
+            }
+          };
+        } else if (response.data.expired) {
+          setAuthCode(null);
+          setAuthCodeExpiry(null);
+          return { success: true, authenticated: false, error: 'Code expired' };
+        } else {
+          return { success: true, authenticated: false };
+        }
+      } else {
+        return { success: false, authenticated: false, error: response.error };
+      }
+    } catch (error) {
+      console.error('Error checking authentication status:', error);
+      return { 
+        success: false, 
+        authenticated: false,
+        error: error instanceof Error ? error.message : 'An unexpected error occurred' 
+      };
+    }
+  };
+
   const logout = async () => {
     try {
       console.log('Logout initiated');
       
-      // Clear the interval before logging out
+      // Clear the intervals before logging out
       if (statusIntervalRef.current) {
-        console.log('Clearing interval during logout');
+        console.log('Clearing status interval during logout');
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
+      }
+
+      if (authCheckIntervalRef.current) {
+        console.log('Clearing auth check interval during logout');
+        clearInterval(authCheckIntervalRef.current);
+        authCheckIntervalRef.current = null;
       }
 
       // Stop listening for commands
@@ -245,6 +347,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUsername(null);
       setPassword(null);
       setScreenName(null);
+      setAuthCode(null);
+      setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
       
@@ -265,8 +369,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       username, 
       password, 
       screenName, 
-      deviceId, 
+      deviceId,
+      authCode,
+      authCodeExpiry,
       login, 
+      loginWithCode,
+      checkAuthenticationStatus,
       logout,
       setScreenActive 
     }}>

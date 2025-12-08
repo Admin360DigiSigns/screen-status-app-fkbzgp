@@ -1,5 +1,6 @@
 
 import { Platform } from 'react-native';
+import { API_ENDPOINTS } from './config';
 
 export interface DeviceStatusPayload {
   deviceId: string;
@@ -221,6 +222,103 @@ export const fetchDisplayContent = async (
     }
   } catch (error) {
     console.error('Error fetching display content:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+};
+
+// New authentication code-based methods
+export interface GenerateAuthCodeResponse {
+  code: string;
+  expires_at: string;
+}
+
+export const generateAuthCode = async (
+  deviceId: string
+): Promise<{ success: boolean; data?: GenerateAuthCodeResponse; error?: string }> => {
+  try {
+    console.log('Generating auth code for device:', deviceId);
+    
+    const response = await fetch(API_ENDPOINTS.generateAuthCode, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ device_id: deviceId }),
+    });
+
+    console.log('Generate auth code response status:', response.status);
+
+    if (response.ok) {
+      const data: GenerateAuthCodeResponse = await response.json();
+      console.log('Auth code generated successfully');
+      return {
+        success: true,
+        data,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to generate auth code:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to generate auth code',
+      };
+    }
+  } catch (error) {
+    console.error('Error generating auth code:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+};
+
+export interface CheckAuthStatusResponse {
+  authenticated: boolean;
+  screen_username?: string;
+  screen_password?: string;
+  screen_name?: string;
+  pending?: boolean;
+  expired?: boolean;
+  error?: string;
+}
+
+export const checkAuthStatus = async (
+  code: string,
+  deviceId: string
+): Promise<{ success: boolean; data?: CheckAuthStatusResponse; error?: string }> => {
+  try {
+    console.log('Checking auth status for code:', code);
+    
+    const response = await fetch(API_ENDPOINTS.checkAuthStatus, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code, device_id: deviceId }),
+    });
+
+    console.log('Check auth status response status:', response.status);
+
+    if (response.ok) {
+      const data: CheckAuthStatusResponse = await response.json();
+      console.log('Auth status checked successfully:', data.authenticated ? 'authenticated' : 'pending');
+      return {
+        success: true,
+        data,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to check auth status:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to check auth status',
+      };
+    }
+  } catch (error) {
+    console.error('Error checking auth status:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',

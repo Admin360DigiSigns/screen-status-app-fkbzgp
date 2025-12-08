@@ -36,4 +36,7 @@ export const API_ENDPOINTS = {
   screenShareSendAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-send-answer`,
   screenShareCreateOffer: `${EDGE_FUNCTIONS_URL}/screen-share-create-offer`,
   screenShareGetAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-get-answer`,
+  generateAuthCode: `${EDGE_FUNCTIONS_URL}/generate-auth-code`,
+  authenticateWithCode: `${EDGE_FUNCTIONS_URL}/authenticate-with-code`,
+  checkAuthStatus: `${EDGE_FUNCTIONS_URL}/check-auth-status`,
 };

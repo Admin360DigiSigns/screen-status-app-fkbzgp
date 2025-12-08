@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "screen-status-app-fkbzgp",
-    "slug": "screen-status-app-fkbzgp",
+    "name": "Screen Status",
+    "slug": "Screen Status",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",

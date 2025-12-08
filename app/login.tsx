@@ -3,15 +3,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
   Image,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,20 +18,23 @@ import { colors } from '@/styles/commonStyles';
 import { router } from 'expo-router';
 import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
+import QRCode from 'react-native-qrcode-svg';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { loginWithCode, checkAuthenticationStatus, deviceId } = useAuth();
   const networkState = useNetworkState();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [screenName, setScreenName] = useState('');
+  const [authCode, setAuthCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [focusedButton, setFocusedButton] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false);
+  const [expiryTime, setExpiryTime] = useState<Date | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
-  const buttonScaleAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const isTVDevice = isTV();
 
@@ -49,48 +51,112 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Generate code on mount
+    handleGenerateCode();
+
+    return () => {
+      if (authCheckIntervalRef.current) {
+        clearInterval(authCheckIntervalRef.current);
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
   }, []);
 
-  const handleLogin = async () => {
+  // Pulse animation for the code
+  useEffect(() => {
+    if (authCode) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }
+  }, [authCode]);
+
+  // Timer countdown
+  useEffect(() => {
+    if (expiryTime) {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+
+      timerIntervalRef.current = setInterval(() => {
+        const now = new Date();
+        const diff = expiryTime.getTime() - now.getTime();
+
+        if (diff <= 0) {
+          setTimeRemaining('Expired');
+          if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+          }
+          // Auto-regenerate code
+          handleGenerateCode();
+        } else {
+          const minutes = Math.floor(diff / 60000);
+          const seconds = Math.floor((diff % 60000) / 1000);
+          setTimeRemaining(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [expiryTime]);
+
+  const handleGenerateCode = async () => {
     if (!networkState.isConnected) {
       Alert.alert(
         'No Internet Connection',
-        'Please connect to the internet to login.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
-    if (!username.trim() || !password.trim() || !screenName.trim()) {
-      Alert.alert(
-        'Missing Information',
-        'Please fill in all fields to continue.',
+        'Please connect to the internet to generate a login code.',
         [{ text: 'OK' }]
       );
       return;
     }
 
     setIsLoading(true);
-    console.log('Attempting login...');
+    console.log('Generating authentication code...');
 
     try {
-      const result = await login(username, password, screenName);
+      const result = await loginWithCode();
       
-      if (result.success) {
-        console.log('Login successful, navigating to home');
-        router.replace('/(tabs)/(home)');
+      if (result.success && result.code) {
+        console.log('Code generated successfully:', result.code);
+        setAuthCode(result.code);
+        
+        // Set expiry time (10 minutes from now)
+        const expiry = new Date();
+        expiry.setMinutes(expiry.getMinutes() + 10);
+        setExpiryTime(expiry);
+
+        // Start checking for authentication
+        startAuthenticationCheck(result.code);
       } else {
         Alert.alert(
-          'Login Failed',
-          result.error || 'Please check your credentials and try again.',
+          'Error',
+          result.error || 'Failed to generate authentication code. Please try again.',
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Error generating code:', error);
       Alert.alert(
         'Error',
-        'An error occurred during login. Please try again.',
+        'An error occurred while generating the code. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -98,24 +164,58 @@ export default function LoginScreen() {
     }
   };
 
-  const animateButtonPress = () => {
-    Animated.sequence([
-      Animated.timing(buttonScaleAnim, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  const startAuthenticationCheck = (code: string) => {
+    console.log('Starting authentication check for code:', code);
+    setIsCheckingAuth(true);
+
+    // Clear any existing interval
+    if (authCheckIntervalRef.current) {
+      clearInterval(authCheckIntervalRef.current);
+    }
+
+    // Check every 3 seconds
+    authCheckIntervalRef.current = setInterval(async () => {
+      console.log('Checking authentication status...');
+      
+      try {
+        const result = await checkAuthenticationStatus();
+        
+        if (result.authenticated && result.credentials) {
+          console.log('Authentication successful!');
+          
+          // Clear interval
+          if (authCheckIntervalRef.current) {
+            clearInterval(authCheckIntervalRef.current);
+            authCheckIntervalRef.current = null;
+          }
+          
+          setIsCheckingAuth(false);
+          
+          // Navigate to home
+          router.replace('/(tabs)/(home)');
+        } else if (result.error === 'Code expired') {
+          console.log('Code expired, generating new one...');
+          
+          // Clear interval
+          if (authCheckIntervalRef.current) {
+            clearInterval(authCheckIntervalRef.current);
+            authCheckIntervalRef.current = null;
+          }
+          
+          setIsCheckingAuth(false);
+          
+          // Generate new code
+          handleGenerateCode();
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+      }
+    }, 3000);
   };
 
   const isOnline = networkState.isConnected === true;
 
-  // TV Layout - Professional design
+  // TV Layout
   if (isTVDevice) {
     return (
       <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
@@ -145,79 +245,74 @@ export default function LoginScreen() {
               </LinearGradient>
             </View>
 
-            <View style={styles.tvFormCard}>
-              <LinearGradient
-                colors={['#1E293B', '#334155']}
-                style={styles.tvFormGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-              >
-                <View style={styles.tvInputRow}>
-                  <Text style={styles.tvLabel}>Username</Text>
-                  <TextInput
-                    style={styles.tvInput}
-                    placeholder="Enter username"
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isLoading}
-                  />
-                </View>
-
-                <View style={styles.tvInputRow}>
-                  <Text style={styles.tvLabel}>Password</Text>
-                  <TextInput
-                    style={styles.tvInput}
-                    placeholder="Enter password"
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isLoading}
-                  />
-                </View>
-
-                <View style={styles.tvInputRow}>
-                  <Text style={styles.tvLabel}>Screen Name</Text>
-                  <TextInput
-                    style={styles.tvInput}
-                    placeholder="e.g., Main Lobby Display"
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    value={screenName}
-                    onChangeText={setScreenName}
-                    autoCapitalize="words"
-                    editable={!isLoading}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.tvLoginButton,
-                    focusedButton === 'login' && styles.tvLoginButtonFocused,
-                    (!isOnline || isLoading) && styles.tvLoginButtonDisabled,
-                  ]}
-                  onPress={handleLogin}
-                  onFocus={() => setFocusedButton('login')}
-                  onBlur={() => setFocusedButton(null)}
-                  disabled={!isOnline || isLoading}
-                  activeOpacity={0.9}
+            {isLoading ? (
+              <View style={styles.tvLoadingContainer}>
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text style={styles.tvLoadingText}>Generating code...</Text>
+              </View>
+            ) : authCode ? (
+              <View style={styles.tvCodeContainer}>
+                <LinearGradient
+                  colors={['#1E293B', '#334155']}
+                  style={styles.tvCodeCard}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                 >
-                  <LinearGradient
-                    colors={focusedButton === 'login' ? ['#3B82F6', '#2563EB', '#1D4ED8'] : ['#2563EB', '#1E40AF', '#1E3A8A']}
-                    style={styles.tvLoginButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.tvLoginButtonText}>
-                      {isLoading ? 'Logging in...' : 'Login'}
+                  <Text style={styles.tvInstructionText}>
+                    Scan QR Code or Enter Code on Web App
+                  </Text>
+                  
+                  <View style={styles.tvQRContainer}>
+                    <View style={styles.tvQRWrapper}>
+                      <QRCode
+                        value={authCode}
+                        size={300}
+                        backgroundColor="white"
+                        color="black"
+                      />
+                    </View>
+                  </View>
+
+                  <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
+                    <Text style={styles.tvCodeLabel}>Authentication Code</Text>
+                    <Text style={styles.tvCodeText}>{authCode}</Text>
+                  </Animated.View>
+
+                  <View style={styles.tvTimerContainer}>
+                    <Text style={styles.tvTimerText}>
+                      {timeRemaining === 'Expired' ? '⚠️ Code Expired' : `⏱️ Expires in: ${timeRemaining}`}
                     </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </LinearGradient>
+                  </View>
+
+                  {isCheckingAuth && (
+                    <View style={styles.tvCheckingContainer}>
+                      <ActivityIndicator size="small" color="#3B82F6" />
+                      <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.tvRefreshButton}
+                    onPress={handleGenerateCode}
+                    disabled={isLoading}
+                  >
+                    <LinearGradient
+                      colors={['#2563EB', '#1E40AF']}
+                      style={styles.tvRefreshButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={styles.tvRefreshButtonText}>Generate New Code</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </View>
+            ) : null}
+
+            <View style={styles.tvInfoBox}>
+              <Text style={styles.tvInfoText}>
+                Device ID: {deviceId || 'Loading...'}
+              </Text>
             </View>
           </Animated.View>
         </LinearGradient>
@@ -225,7 +320,7 @@ export default function LoginScreen() {
     );
   }
 
-  // Mobile Layout - Professional design with gradients and animations
+  // Mobile Layout
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
       <LinearGradient
@@ -234,142 +329,123 @@ export default function LoginScreen() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <KeyboardAvoidingView
-          style={styles.mobileKeyboardView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <ScrollView
+          contentContainerStyle={styles.mobileScrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.mobileScrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
-              <Image
-                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-                style={styles.mobileLogo}
-                resizeMode="contain"
-              />
-              
-              <View style={styles.mobileConnectionBadgeContainer}>
-                <LinearGradient
-                  colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
-                  style={styles.mobileConnectionBadge}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileConnectionText}>
-                    {isOnline ? '● Connected' : '● Offline'}
-                  </Text>
-                </LinearGradient>
+          <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
+            <Image
+              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+              style={styles.mobileLogo}
+              resizeMode="contain"
+            />
+            
+            <View style={styles.mobileConnectionBadgeContainer}>
+              <LinearGradient
+                colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                style={styles.mobileConnectionBadge}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.mobileConnectionText}>
+                  {isOnline ? '● Connected' : '● Offline'}
+                </Text>
+              </LinearGradient>
+            </View>
+
+            {!isOnline && (
+              <View style={styles.mobileWarningCard}>
+                <Text style={styles.mobileWarningText}>
+                  ⚠️ Internet connection required to login
+                </Text>
               </View>
+            )}
 
-              {!isOnline && (
-                <View style={styles.mobileWarningCard}>
-                  <Text style={styles.mobileWarningText}>
-                    ⚠️ Internet connection required to login
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.mobileFormCard}>
+            {isLoading ? (
+              <View style={styles.mobileLoadingContainer}>
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text style={styles.mobileLoadingText}>Generating code...</Text>
+              </View>
+            ) : authCode ? (
+              <View style={styles.mobileCodeContainer}>
                 <LinearGradient
                   colors={['#1E293B', '#334155']}
-                  style={styles.mobileFormGradient}
+                  style={styles.mobileCodeCard}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                 >
-                  <View style={styles.mobileInputContainer}>
-                    <Text style={styles.mobileLabel}>Username</Text>
-                    <TextInput
-                      style={styles.mobileInput}
-                      placeholder="Enter username"
-                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                      value={username}
-                      onChangeText={setUsername}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!isLoading}
-                    />
+                  <Text style={styles.mobileInstructionText}>
+                    Scan QR Code or Enter Code on Web App
+                  </Text>
+                  
+                  <View style={styles.mobileQRContainer}>
+                    <View style={styles.mobileQRWrapper}>
+                      <QRCode
+                        value={authCode}
+                        size={200}
+                        backgroundColor="white"
+                        color="black"
+                      />
+                    </View>
                   </View>
 
-                  <View style={styles.mobileInputContainer}>
-                    <Text style={styles.mobileLabel}>Password</Text>
-                    <TextInput
-                      style={styles.mobileInput}
-                      placeholder="Enter password"
-                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                      value={password}
-                      onChangeText={setPassword}
-                      secureTextEntry
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      editable={!isLoading}
-                    />
-                  </View>
-
-                  <View style={styles.mobileInputContainer}>
-                    <Text style={styles.mobileLabel}>Screen Name</Text>
-                    <TextInput
-                      style={styles.mobileInput}
-                      placeholder="e.g., Main Lobby Display"
-                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                      value={screenName}
-                      onChangeText={setScreenName}
-                      autoCapitalize="words"
-                      editable={!isLoading}
-                    />
-                  </View>
-
-                  <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
-                    <TouchableOpacity
-                      style={[
-                        styles.mobileLoginButton,
-                        (!isOnline || isLoading) && styles.mobileLoginButtonDisabled,
-                      ]}
-                      onPress={() => {
-                        animateButtonPress();
-                        handleLogin();
-                      }}
-                      disabled={!isOnline || isLoading}
-                      activeOpacity={0.9}
-                    >
-                      <LinearGradient
-                        colors={['#2563EB', '#1E40AF', '#1E3A8A']}
-                        style={styles.mobileLoginButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
-                        <Text style={styles.mobileLoginButtonText}>
-                          {isLoading ? 'Logging in...' : 'Login'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                  <Animated.View style={[styles.mobileCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
+                    <Text style={styles.mobileCodeLabel}>Authentication Code</Text>
+                    <Text style={styles.mobileCodeText}>{authCode}</Text>
                   </Animated.View>
+
+                  <View style={styles.mobileTimerContainer}>
+                    <Text style={styles.mobileTimerText}>
+                      {timeRemaining === 'Expired' ? '⚠️ Code Expired' : `⏱️ Expires in: ${timeRemaining}`}
+                    </Text>
+                  </View>
+
+                  {isCheckingAuth && (
+                    <View style={styles.mobileCheckingContainer}>
+                      <ActivityIndicator size="small" color="#3B82F6" />
+                      <Text style={styles.mobileCheckingText}>Waiting for authentication...</Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.mobileRefreshButton}
+                    onPress={handleGenerateCode}
+                    disabled={isLoading}
+                  >
+                    <LinearGradient
+                      colors={['#2563EB', '#1E40AF']}
+                      style={styles.mobileRefreshButtonGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={styles.mobileRefreshButtonText}>Generate New Code</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </LinearGradient>
               </View>
+            ) : null}
 
-              <View style={styles.mobileInfoBox}>
-                <Text style={styles.mobileInfoText}>
-                  This app monitors your display&apos;s online status and sends updates to the server.
-                </Text>
-              </View>
-            </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            <View style={styles.mobileInfoBox}>
+              <Text style={styles.mobileInfoText}>
+                Device ID: {deviceId || 'Loading...'}
+              </Text>
+              <Text style={styles.mobileInfoText}>
+                Enter the code on your web app to authenticate this device
+              </Text>
+            </View>
+          </Animated.View>
+        </ScrollView>
       </LinearGradient>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Mobile styles - Professional design
+  // Mobile styles
   mobileContainer: {
     flex: 1,
   },
   mobileGradientBackground: {
-    flex: 1,
-  },
-  mobileKeyboardView: {
     flex: 1,
   },
   mobileScrollContent: {
@@ -423,61 +499,109 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  mobileFormCard: {
+  mobileLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  mobileLoadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 16,
+    fontWeight: '600',
+  },
+  mobileCodeContainer: {
     width: '100%',
+  },
+  mobileCodeCard: {
     borderRadius: 20,
-    overflow: 'hidden',
+    padding: 24,
+    alignItems: 'center',
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
   },
-  mobileFormGradient: {
-    padding: 28,
+  mobileInstructionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  mobileInputContainer: {
+  mobileQRContainer: {
+    marginBottom: 24,
+  },
+  mobileQRWrapper: {
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  mobileCodeDisplay: {
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    borderWidth: 2,
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+  mobileCodeLabel: {
+    color: '#93C5FD',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  mobileCodeText: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: 'bold',
+    letterSpacing: 8,
+  },
+  mobileTimerContainer: {
     marginBottom: 20,
   },
-  mobileLabel: {
+  mobileTimerText: {
+    color: '#93C5FD',
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-    letterSpacing: 0.5,
+    fontWeight: '600',
   },
-  mobileInput: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  mobileCheckingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  mobileCheckingText: {
+    color: '#93C5FD',
+    fontSize: 14,
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  mobileRefreshButton: {
+    width: '100%',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  mobileLoginButton: {
-    marginTop: 12,
-    borderRadius: 14,
     overflow: 'hidden',
-    elevation: 6,
+    elevation: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  mobileLoginButtonDisabled: {
-    opacity: 0.5,
-  },
-  mobileLoginButtonGradient: {
-    paddingVertical: 16,
+  mobileRefreshButtonGradient: {
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  mobileLoginButtonText: {
+  mobileRefreshButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
   },
   mobileInfoBox: {
     marginTop: 32,
@@ -487,14 +611,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   mobileInfoText: {
-    fontSize: 13,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
     fontWeight: '500',
+    marginBottom: 4,
   },
 
-  // TV styles - Professional design
+  // TV styles
   tvContainer: {
     flex: 1,
   },
@@ -507,7 +632,7 @@ const styles = StyleSheet.create({
   },
   tvContent: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1400,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -536,70 +661,122 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 1,
   },
-  tvFormCard: {
+  tvLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 60,
+  },
+  tvLoadingText: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    marginTop: 20,
+    fontWeight: '600',
+  },
+  tvCodeContainer: {
     width: '100%',
+  },
+  tvCodeCard: {
     borderRadius: 24,
-    overflow: 'hidden',
+    padding: 48,
+    alignItems: 'center',
     elevation: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
   },
-  tvFormGradient: {
-    padding: 48,
-  },
-  tvInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  tvLabel: {
-    fontSize: 22,
+  tvInstructionText: {
+    color: '#FFFFFF',
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    width: 200,
-    marginRight: 24,
+    textAlign: 'center',
+    marginBottom: 40,
   },
-  tvInput: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 14,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    fontSize: 20,
-    color: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+  tvQRContainer: {
+    marginBottom: 40,
   },
-  tvLoginButton: {
-    marginTop: 24,
-    borderRadius: 16,
-    overflow: 'hidden',
+  tvQRWrapper: {
+    padding: 24,
+    backgroundColor: 'white',
+    borderRadius: 20,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
-  tvLoginButtonFocused: {
-    elevation: 16,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    transform: [{ scale: 1.05 }],
+  tvCodeDisplay: {
+    alignItems: 'center',
+    marginBottom: 30,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 20,
+    padding: 32,
+    width: '100%',
+    borderWidth: 3,
+    borderColor: 'rgba(59, 130, 246, 0.3)',
   },
-  tvLoginButtonDisabled: {
-    opacity: 0.5,
+  tvCodeLabel: {
+    color: '#93C5FD',
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
   },
-  tvLoginButtonGradient: {
-    paddingVertical: 24,
+  tvCodeText: {
+    color: '#FFFFFF',
+    fontSize: 56,
+    fontWeight: 'bold',
+    letterSpacing: 16,
+  },
+  tvTimerContainer: {
+    marginBottom: 30,
+  },
+  tvTimerText: {
+    color: '#93C5FD',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  tvCheckingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  tvCheckingText: {
+    color: '#93C5FD',
+    fontSize: 18,
+    marginLeft: 12,
+    fontWeight: '600',
+  },
+  tvRefreshButton: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  tvRefreshButtonGradient: {
+    paddingVertical: 20,
     alignItems: 'center',
   },
-  tvLoginButtonText: {
+  tvRefreshButtonText: {
     color: '#FFFFFF',
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
-    letterSpacing: 1,
+  },
+  tvInfoBox: {
+    marginTop: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+  },
+  tvInfoText: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '500',
   },
 });
