@@ -102,11 +102,9 @@ export default function LoginScreen() {
       mountedRef.current = false;
       if (authCheckIntervalRef.current) {
         clearInterval(authCheckIntervalRef.current);
-        authCheckIntervalRef.current = null;
       }
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
       }
     };
   }, []);
@@ -276,7 +274,6 @@ export default function LoginScreen() {
     // Clear any existing interval
     if (authCheckIntervalRef.current) {
       clearInterval(authCheckIntervalRef.current);
-      authCheckIntervalRef.current = null;
     }
 
     // Check every 3 seconds
