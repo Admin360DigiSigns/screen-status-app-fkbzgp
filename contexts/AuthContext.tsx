@@ -321,7 +321,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      console.log('Logout initiated');
+      console.log('=== LOGOUT INITIATED ===');
       
       // Clear the intervals before logging out
       if (statusIntervalRef.current) {
@@ -353,10 +353,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
+      // Clear stored credentials
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
+      // Clear state
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -365,7 +367,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setIsScreenActive(false);
       
-      console.log('Logout successful');
+      console.log('✓ Logout successful - credentials cleared');
+      
+      // Generate new authentication code after logout
+      console.log('Generating new authentication code after logout...');
+      if (deviceId) {
+        const result = await loginWithCode();
+        if (result.success) {
+          console.log('✓ New authentication code generated after logout:', result.code);
+        } else {
+          console.error('✗ Failed to generate code after logout:', result.error);
+        }
+      } else {
+        console.error('✗ Cannot generate code - device ID not available');
+      }
+      
+      console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('Error during logout:', error);
     }

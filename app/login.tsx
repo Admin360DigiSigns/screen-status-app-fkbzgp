@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function LoginScreen() {
-  const { loginWithCode, checkAuthenticationStatus, deviceId, isAuthenticated } = useAuth();
+  const { loginWithCode, checkAuthenticationStatus, deviceId, isAuthenticated, authCode: contextAuthCode, authCodeExpiry: contextAuthCodeExpiry } = useAuth();
   const networkState = useNetworkState();
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,11 +38,29 @@ export default function LoginScreen() {
 
   const isTVDevice = isTV();
 
+  // Sync with context auth code
+  useEffect(() => {
+    if (contextAuthCode) {
+      console.log('Syncing auth code from context:', contextAuthCode);
+      setAuthCode(contextAuthCode);
+      
+      if (contextAuthCodeExpiry) {
+        const expiry = new Date(contextAuthCodeExpiry);
+        setExpiryTime(expiry);
+        console.log('Code expires at:', expiry.toISOString());
+        
+        // Start checking for authentication
+        startAuthenticationCheck(contextAuthCode);
+      }
+    }
+  }, [contextAuthCode, contextAuthCodeExpiry]);
+
   useEffect(() => {
     console.log('=== LOGIN SCREEN MOUNTED ===');
     console.log('Device ID:', deviceId);
     console.log('Is Authenticated:', isAuthenticated);
     console.log('Network Connected:', networkState.isConnected);
+    console.log('Context Auth Code:', contextAuthCode);
     
     Animated.parallel([
       Animated.timing(fadeInAnim, {
@@ -57,12 +75,14 @@ export default function LoginScreen() {
       }),
     ]).start();
 
-    // Generate code on mount
-    if (deviceId && networkState.isConnected) {
+    // Generate code on mount if not already present
+    if (deviceId && networkState.isConnected && !contextAuthCode) {
       console.log('Calling handleGenerateCode on mount');
       handleGenerateCode();
+    } else if (contextAuthCode) {
+      console.log('Using existing auth code from context');
     } else {
-      console.log('Skipping code generation - deviceId:', deviceId, 'connected:', networkState.isConnected);
+      console.log('Skipping code generation - deviceId:', deviceId, 'connected:', networkState.isConnected, 'contextAuthCode:', contextAuthCode);
     }
 
     return () => {
@@ -78,7 +98,7 @@ export default function LoginScreen() {
 
   // Regenerate code when device ID becomes available
   useEffect(() => {
-    if (deviceId && !authCode && networkState.isConnected && !isLoading) {
+    if (deviceId && !authCode && !contextAuthCode && networkState.isConnected && !isLoading) {
       console.log('Device ID became available, generating code');
       handleGenerateCode();
     }
@@ -352,7 +372,7 @@ export default function LoginScreen() {
                 Device ID: {deviceId || 'Loading...'}
               </Text>
               <Text style={styles.tvInfoText}>
-                Code will automatically regenerate when expired
+                Code will automatically regenerate when expired or after logout
               </Text>
             </View>
           </Animated.View>
@@ -470,7 +490,7 @@ export default function LoginScreen() {
                 Enter the code on your web app to authenticate this device
               </Text>
               <Text style={styles.mobileInfoText}>
-                Code will automatically regenerate when expired
+                Code will automatically regenerate when expired or after logout
               </Text>
             </View>
           </Animated.View>

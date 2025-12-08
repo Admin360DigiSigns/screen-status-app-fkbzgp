@@ -56,5 +56,6 @@
     "extra": {
       "router": {}
     }
-  }
+  },
+  "scheme": "Screen Status"
 }
