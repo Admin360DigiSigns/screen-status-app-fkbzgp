@@ -21,13 +21,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function LoginScreen() {
-  const { loginWithCode, checkAuthenticationStatus, deviceId } = useAuth();
+  const { loginWithCode, checkAuthenticationStatus, deviceId, isAuthenticated } = useAuth();
   const networkState = useNetworkState();
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(false);
   const [expiryTime, setExpiryTime] = useState<Date | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -39,6 +40,11 @@ export default function LoginScreen() {
   const isTVDevice = isTV();
 
   useEffect(() => {
+    console.log('=== LOGIN SCREEN MOUNTED ===');
+    console.log('Device ID:', deviceId);
+    console.log('Is Authenticated:', isAuthenticated);
+    console.log('Network Connected:', networkState.isConnected);
+    
     Animated.parallel([
       Animated.timing(fadeInAnim, {
         toValue: 1,
@@ -53,9 +59,15 @@ export default function LoginScreen() {
     ]).start();
 
     // Generate code on mount
-    handleGenerateCode();
+    if (deviceId && networkState.isConnected) {
+      console.log('Calling handleGenerateCode on mount');
+      handleGenerateCode();
+    } else {
+      console.log('Skipping code generation - deviceId:', deviceId, 'connected:', networkState.isConnected);
+    }
 
     return () => {
+      console.log('=== LOGIN SCREEN UNMOUNTING ===');
       if (authCheckIntervalRef.current) {
         clearInterval(authCheckIntervalRef.current);
       }
@@ -64,6 +76,14 @@ export default function LoginScreen() {
       }
     };
   }, []);
+
+  // Regenerate code when device ID becomes available
+  useEffect(() => {
+    if (deviceId && !authCode && networkState.isConnected && !isLoading) {
+      console.log('Device ID became available, generating code');
+      handleGenerateCode();
+    }
+  }, [deviceId]);
 
   // Pulse animation for the code
   useEffect(() => {
@@ -102,6 +122,7 @@ export default function LoginScreen() {
             clearInterval(timerIntervalRef.current);
           }
           // Auto-regenerate code
+          console.log('Code expired, auto-regenerating');
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -119,7 +140,14 @@ export default function LoginScreen() {
   }, [expiryTime]);
 
   const handleGenerateCode = async () => {
+    console.log('=== HANDLE GENERATE CODE ===');
+    console.log('Network connected:', networkState.isConnected);
+    console.log('Device ID:', deviceId);
+    
     if (!networkState.isConnected) {
+      const errorMsg = 'No Internet Connection - Please connect to the internet to generate a login code.';
+      console.error(errorMsg);
+      setErrorMessage(errorMsg);
       Alert.alert(
         'No Internet Connection',
         'Please connect to the internet to generate a login code.',
@@ -128,35 +156,50 @@ export default function LoginScreen() {
       return;
     }
 
+    if (!deviceId) {
+      const errorMsg = 'Device ID not available yet. Please wait...';
+      console.error(errorMsg);
+      setErrorMessage(errorMsg);
+      return;
+    }
+
     setIsLoading(true);
+    setErrorMessage(null);
     console.log('Generating authentication code...');
 
     try {
       const result = await loginWithCode();
+      console.log('loginWithCode result:', result);
       
       if (result.success && result.code) {
-        console.log('Code generated successfully:', result.code);
+        console.log('✓ Code generated successfully:', result.code);
         setAuthCode(result.code);
         
         // Set expiry time (10 minutes from now)
         const expiry = new Date();
         expiry.setMinutes(expiry.getMinutes() + 10);
         setExpiryTime(expiry);
+        console.log('Code expires at:', expiry.toISOString());
 
         // Start checking for authentication
         startAuthenticationCheck(result.code);
       } else {
+        const errorMsg = result.error || 'Failed to generate authentication code. Please try again.';
+        console.error('✗ Failed to generate code:', errorMsg);
+        setErrorMessage(errorMsg);
         Alert.alert(
           'Error',
-          result.error || 'Failed to generate authentication code. Please try again.',
+          errorMsg,
           [{ text: 'OK' }]
         );
       }
     } catch (error) {
-      console.error('Error generating code:', error);
+      console.error('✗ Exception while generating code:', error);
+      const errorMsg = 'An error occurred while generating the code. Please try again.';
+      setErrorMessage(errorMsg);
       Alert.alert(
         'Error',
-        'An error occurred while generating the code. Please try again.',
+        errorMsg,
         [{ text: 'OK' }]
       );
     } finally {
@@ -181,7 +224,7 @@ export default function LoginScreen() {
         const result = await checkAuthenticationStatus();
         
         if (result.authenticated && result.credentials) {
-          console.log('Authentication successful!');
+          console.log('✓ Authentication successful!');
           
           // Clear interval
           if (authCheckIntervalRef.current) {
@@ -245,6 +288,12 @@ export default function LoginScreen() {
               </LinearGradient>
             </View>
 
+            {errorMessage && (
+              <View style={styles.tvErrorCard}>
+                <Text style={styles.tvErrorText}>⚠️ {errorMessage}</Text>
+              </View>
+            )}
+
             {isLoading ? (
               <View style={styles.tvLoadingContainer}>
                 <ActivityIndicator size="large" color="#3B82F6" />
@@ -307,7 +356,25 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </LinearGradient>
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.tvLoadingContainer}>
+                <Text style={styles.tvLoadingText}>Initializing...</Text>
+                <TouchableOpacity
+                  style={styles.tvRefreshButton}
+                  onPress={handleGenerateCode}
+                  disabled={isLoading || !deviceId}
+                >
+                  <LinearGradient
+                    colors={['#2563EB', '#1E40AF']}
+                    style={styles.tvRefreshButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.tvRefreshButtonText}>Generate Code</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.tvInfoBox}>
               <Text style={styles.tvInfoText}>
@@ -358,6 +425,12 @@ export default function LoginScreen() {
                 <Text style={styles.mobileWarningText}>
                   ⚠️ Internet connection required to login
                 </Text>
+              </View>
+            )}
+
+            {errorMessage && (
+              <View style={styles.mobileErrorCard}>
+                <Text style={styles.mobileErrorText}>⚠️ {errorMessage}</Text>
               </View>
             )}
 
@@ -423,7 +496,25 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </LinearGradient>
               </View>
-            ) : null}
+            ) : (
+              <View style={styles.mobileLoadingContainer}>
+                <Text style={styles.mobileLoadingText}>Initializing...</Text>
+                <TouchableOpacity
+                  style={styles.mobileRefreshButton}
+                  onPress={handleGenerateCode}
+                  disabled={isLoading || !deviceId}
+                >
+                  <LinearGradient
+                    colors={['#2563EB', '#1E40AF']}
+                    style={styles.mobileRefreshButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.mobileRefreshButtonText}>Generate Code</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.mobileInfoBox}>
               <Text style={styles.mobileInfoText}>
@@ -494,6 +585,21 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.4)',
   },
   mobileWarningText: {
+    color: '#FCA5A5',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  mobileErrorCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  mobileErrorText: {
     color: '#FCA5A5',
     fontSize: 14,
     fontWeight: '600',
@@ -660,6 +766,22 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  tvErrorCard: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 32,
+    width: '100%',
+    maxWidth: 800,
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  tvErrorText: {
+    color: '#FCA5A5',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   tvLoadingContainer: {
     alignItems: 'center',

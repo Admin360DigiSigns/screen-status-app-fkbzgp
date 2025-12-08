@@ -239,7 +239,9 @@ export const generateAuthCode = async (
   deviceId: string
 ): Promise<{ success: boolean; data?: GenerateAuthCodeResponse; error?: string }> => {
   try {
-    console.log('Generating auth code for device:', deviceId);
+    console.log('=== GENERATE AUTH CODE ===');
+    console.log('Device ID:', deviceId);
+    console.log('API Endpoint:', API_ENDPOINTS.generateAuthCode);
     
     const response = await fetch(API_ENDPOINTS.generateAuthCode, {
       method: 'POST',
@@ -249,25 +251,48 @@ export const generateAuthCode = async (
       body: JSON.stringify({ device_id: deviceId }),
     });
 
-    console.log('Generate auth code response status:', response.status);
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
+
+    const responseText = await response.text();
+    console.log('Response text:', responseText);
 
     if (response.ok) {
-      const data: GenerateAuthCodeResponse = await response.json();
-      console.log('Auth code generated successfully');
-      return {
-        success: true,
-        data,
-      };
+      try {
+        const data: GenerateAuthCodeResponse = JSON.parse(responseText);
+        console.log('Auth code generated successfully:', data.code);
+        console.log('Expires at:', data.expires_at);
+        return {
+          success: true,
+          data,
+        };
+      } catch (parseError) {
+        console.error('Failed to parse response JSON:', parseError);
+        return {
+          success: false,
+          error: 'Invalid response format from server',
+        };
+      }
     } else {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Failed to generate auth code:', response.status, errorData);
+      let errorMessage = 'Failed to generate auth code';
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.error || errorData.message || errorMessage;
+        console.error('Error details:', errorData);
+      } catch (parseError) {
+        console.error('Failed to parse error response:', responseText);
+      }
       return {
         success: false,
-        error: errorData.error || 'Failed to generate auth code',
+        error: errorMessage,
       };
     }
   } catch (error) {
     console.error('Error generating auth code:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error occurred',

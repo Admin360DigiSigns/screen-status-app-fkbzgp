@@ -169,6 +169,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setScreenName(storedScreenName);
         setIsAuthenticated(true);
         console.log('Loaded auth state:', { storedUsername, storedScreenName });
+      } else {
+        console.log('No stored credentials found - user needs to login');
       }
     } catch (error) {
       console.error('Error loading auth state:', error);
@@ -226,17 +228,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Device ID not available. Please try again.' };
       }
 
+      console.log('Calling generateAuthCode with deviceId:', deviceId);
+
       // Generate auth code
       const response = await apiService.generateAuthCode(deviceId);
+      
+      console.log('generateAuthCode response:', response);
       
       if (response.success && response.data) {
         setAuthCode(response.data.code);
         setAuthCodeExpiry(response.data.expires_at);
-        console.log('Auth code generated:', response.data.code);
+        console.log('Auth code generated successfully:', response.data.code);
         return { success: true, code: response.data.code };
       } else {
         console.log('Failed to generate auth code:', response.error);
-        return { success: false, error: response.error };
+        return { success: false, error: response.error || 'Failed to generate code' };
       }
     } catch (error) {
       console.error('Error during code-based login:', error);
