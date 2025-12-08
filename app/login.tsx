@@ -32,6 +32,7 @@ export default function LoginScreen() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasGeneratedCodeRef = useRef(false);
   const previousAuthStateRef = useRef<boolean | null>(null);
+  const isGeneratingRef = useRef(false);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -53,6 +54,7 @@ export default function LoginScreen() {
     if (previousAuthStateRef.current === true && isAuthenticated === false) {
       console.log('=== LOGOUT DETECTED - Resetting code generation flag ===');
       hasGeneratedCodeRef.current = false;
+      isGeneratingRef.current = false;
       setAuthCode(null);
       setExpiryTime(null);
       setTimeRemaining('');
@@ -67,13 +69,20 @@ export default function LoginScreen() {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
       }
+
+      // Trigger code generation after logout
+      console.log('Triggering code generation after logout');
+      if (deviceId && networkState.isConnected) {
+        console.log('Conditions met, generating code immediately after logout');
+        handleGenerateCode();
+      }
     }
     previousAuthStateRef.current = isAuthenticated;
-  }, [isAuthenticated]);
+  }, [isAuthenticated, deviceId, networkState.isConnected]);
 
   // Sync with context auth code
   useEffect(() => {
-    if (contextAuthCode) {
+    if (contextAuthCode && contextAuthCode !== authCode) {
       console.log('Syncing auth code from context:', contextAuthCode);
       setAuthCode(contextAuthCode);
       
@@ -109,9 +118,8 @@ export default function LoginScreen() {
     ]).start();
 
     // Generate code on mount if not already present and not already generated
-    if (deviceId && networkState.isConnected && !contextAuthCode && !hasGeneratedCodeRef.current) {
+    if (deviceId && networkState.isConnected && !contextAuthCode && !hasGeneratedCodeRef.current && !isGeneratingRef.current) {
       console.log('Calling handleGenerateCode on mount');
-      hasGeneratedCodeRef.current = true;
       handleGenerateCode();
     } else if (contextAuthCode) {
       console.log('Using existing auth code from context');
@@ -132,12 +140,11 @@ export default function LoginScreen() {
 
   // Regenerate code when device ID becomes available (only if not already generated)
   useEffect(() => {
-    if (deviceId && !authCode && !contextAuthCode && networkState.isConnected && !isLoading && !hasGeneratedCodeRef.current) {
+    if (deviceId && !authCode && !contextAuthCode && networkState.isConnected && !isLoading && !hasGeneratedCodeRef.current && !isGeneratingRef.current) {
       console.log('Device ID became available, generating code');
-      hasGeneratedCodeRef.current = true;
       handleGenerateCode();
     }
-  }, [deviceId]);
+  }, [deviceId, authCode, contextAuthCode, networkState.isConnected, isLoading]);
 
   // Pulse animation for the code
   useEffect(() => {
@@ -178,6 +185,7 @@ export default function LoginScreen() {
           // Auto-regenerate code
           console.log('Code expired, auto-regenerating');
           hasGeneratedCodeRef.current = false; // Reset flag to allow regeneration
+          isGeneratingRef.current = false;
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -195,6 +203,12 @@ export default function LoginScreen() {
   }, [expiryTime]);
 
   const handleGenerateCode = async () => {
+    // Prevent multiple simultaneous calls
+    if (isGeneratingRef.current) {
+      console.log('Code generation already in progress, skipping');
+      return;
+    }
+
     console.log('=== HANDLE GENERATE CODE ===');
     console.log('Network connected:', networkState.isConnected);
     console.log('Device ID:', deviceId);
@@ -218,6 +232,8 @@ export default function LoginScreen() {
       return;
     }
 
+    isGeneratingRef.current = true;
+    hasGeneratedCodeRef.current = true;
     setIsLoading(true);
     setErrorMessage(null);
     console.log('Generating authentication code...');
@@ -248,6 +264,7 @@ export default function LoginScreen() {
           [{ text: 'OK' }]
         );
         hasGeneratedCodeRef.current = false; // Reset flag on error
+        isGeneratingRef.current = false;
       }
     } catch (error) {
       console.error('✗ Exception while generating code:', error);
@@ -259,8 +276,10 @@ export default function LoginScreen() {
         [{ text: 'OK' }]
       );
       hasGeneratedCodeRef.current = false; // Reset flag on error
+      isGeneratingRef.current = false;
     } finally {
       setIsLoading(false);
+      isGeneratingRef.current = false;
     }
   };
 
@@ -306,6 +325,7 @@ export default function LoginScreen() {
           
           // Generate new code
           hasGeneratedCodeRef.current = false; // Reset flag to allow regeneration
+          isGeneratingRef.current = false;
           handleGenerateCode();
         }
       } catch (error) {
