@@ -1,6 +1,6 @@
 
 import { Platform } from 'react-native';
-import { API_ENDPOINTS } from './config';
+import { API_ENDPOINTS, SUPABASE_CONFIG } from './config';
 
 export interface DeviceStatusPayload {
   deviceId: string;
@@ -242,11 +242,14 @@ export const generateAuthCode = async (
     console.log('=== GENERATE AUTH CODE ===');
     console.log('Device ID:', deviceId);
     console.log('API Endpoint:', API_ENDPOINTS.generateAuthCode);
+    console.log('Anon Key:', SUPABASE_CONFIG.anonKey ? 'Present' : 'Missing');
     
     const response = await fetch(API_ENDPOINTS.generateAuthCode, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
       },
       body: JSON.stringify({ device_id: deviceId }),
     });
@@ -321,6 +324,8 @@ export const checkAuthStatus = async (
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
       },
       body: JSON.stringify({ code, device_id: deviceId }),
     });
