@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Screen Status",
@@ -38,9 +39,9 @@
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
       ],
-      "compileSdkVersion": 34,
-      "targetSdkVersion": 34,
-      "buildToolsVersion": "34.0.0"
+      "compileSdkVersion": 35,
+      "targetSdkVersion": 35,
+      "buildToolsVersion": "35.0.0"
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
