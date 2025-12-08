@@ -31,6 +31,7 @@ export default function LoginScreen() {
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasGeneratedCodeRef = useRef(false);
+  const previousAuthStateRef = useRef<boolean | null>(null);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -45,6 +46,29 @@ export default function LoginScreen() {
       console.log('User is authenticated, redirecting to home');
       router.replace('/(tabs)/(home)');
     }
+  }, [isAuthenticated]);
+
+  // Reset code generation flag when user logs out (auth state changes from true to false)
+  useEffect(() => {
+    if (previousAuthStateRef.current === true && isAuthenticated === false) {
+      console.log('=== LOGOUT DETECTED - Resetting code generation flag ===');
+      hasGeneratedCodeRef.current = false;
+      setAuthCode(null);
+      setExpiryTime(null);
+      setTimeRemaining('');
+      setErrorMessage(null);
+      
+      // Clear any existing intervals
+      if (authCheckIntervalRef.current) {
+        clearInterval(authCheckIntervalRef.current);
+        authCheckIntervalRef.current = null;
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+    previousAuthStateRef.current = isAuthenticated;
   }, [isAuthenticated]);
 
   // Sync with context auth code
