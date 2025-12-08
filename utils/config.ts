@@ -4,18 +4,12 @@
  * 
  * This file contains all configuration for the app.
  * 
- * IMPORTANT: This app uses ONE Supabase project for everything:
- * - Project ID: pgcdokfiaarnhzryfzwf
- * - URL: https://pgcdokfiaarnhzryfzwf.supabase.co
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
  * 
- * All Edge Functions are deployed on this project:
- * - display-register
- * - display-connect
- * - display-get-content
- * - screen-share-get-offer
- * - screen-share-send-answer
- * - screen-share-create-offer
- * - screen-share-get-answer
+ * Authentication Flow:
+ * 1. Mobile app generates code using /generate-display-code
+ * 2. Web portal authenticates using /authenticate-with-code
+ * 3. Mobile app polls for credentials using /get-display-credentials
  */
 
 export const SUPABASE_CONFIG = {
@@ -24,11 +18,18 @@ export const SUPABASE_CONFIG = {
   projectId: 'pgcdokfiaarnhzryfzwf',
 };
 
-// Base URL for Edge Functions
+// Content Project Configuration (for authentication and content)
+export const CONTENT_PROJECT_CONFIG = {
+  url: 'https://gzyywcqlrjimjegbtoyc.supabase.co',
+  functionsUrl: 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1',
+};
+
+// Base URL for Edge Functions (Master Project)
 export const EDGE_FUNCTIONS_URL = `${SUPABASE_CONFIG.url}/functions/v1`;
 
-// API Endpoints
+// API Endpoints - Using Content Project for all authentication
 export const API_ENDPOINTS = {
+  // Master Project Endpoints (legacy)
   displayRegister: `${EDGE_FUNCTIONS_URL}/display-register`,
   displayConnect: `${EDGE_FUNCTIONS_URL}/display-connect`,
   displayGetContent: `${EDGE_FUNCTIONS_URL}/display-get-content`,
@@ -36,7 +37,14 @@ export const API_ENDPOINTS = {
   screenShareSendAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-send-answer`,
   screenShareCreateOffer: `${EDGE_FUNCTIONS_URL}/screen-share-create-offer`,
   screenShareGetAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-get-answer`,
-  generateAuthCode: `${EDGE_FUNCTIONS_URL}/generate-auth-code`,
-  authenticateWithCode: `${EDGE_FUNCTIONS_URL}/authenticate-with-code`,
-  checkAuthStatus: `${EDGE_FUNCTIONS_URL}/check-auth-status`,
+  
+  // New Authentication Endpoints (Content Project)
+  // Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+  generateDisplayCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/generate-display-code`,
+  authenticateWithCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/authenticate-with-code`,
+  getDisplayCredentials: `${CONTENT_PROJECT_CONFIG.functionsUrl}/get-display-credentials`,
+  
+  // Content and Status Endpoints (Content Project)
+  displayStatus: `${CONTENT_PROJECT_CONFIG.functionsUrl}/display-status`,
+  displayContentConnect: `${CONTENT_PROJECT_CONFIG.functionsUrl}/display-connect`,
 };

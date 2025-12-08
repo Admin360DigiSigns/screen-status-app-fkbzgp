@@ -221,31 +221,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithCode = async (): Promise<{ success: boolean; code?: string; error?: string }> => {
     try {
-      console.log('Initiating code-based login');
+      console.log('=== INITIATING CODE-BASED LOGIN ===');
+      console.log('Device ID:', deviceId);
       
       if (!deviceId) {
         console.error('Device ID not available');
         return { success: false, error: 'Device ID not available. Please try again.' };
       }
 
-      console.log('Calling generateAuthCode with deviceId:', deviceId);
+      console.log('Calling generateDisplayCode with deviceId:', deviceId);
 
-      // Generate auth code
-      const response = await apiService.generateAuthCode(deviceId);
+      // Generate display code using new endpoint
+      const response = await apiService.generateDisplayCode(deviceId);
       
-      console.log('generateAuthCode response:', response);
+      console.log('generateDisplayCode response:', response);
       
       if (response.success && response.data) {
         setAuthCode(response.data.code);
         setAuthCodeExpiry(response.data.expires_at);
-        console.log('Auth code generated successfully:', response.data.code);
+        console.log('✓ Display code generated successfully:', response.data.code);
+        console.log('Expires at:', response.data.expires_at);
         return { success: true, code: response.data.code };
       } else {
-        console.log('Failed to generate auth code:', response.error);
+        console.log('✗ Failed to generate display code:', response.error);
         return { success: false, error: response.error || 'Failed to generate code' };
       }
     } catch (error) {
-      console.error('Error during code-based login:', error);
+      console.error('✗ Exception during code-based login:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'An unexpected error occurred' 
@@ -260,43 +262,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error?: string 
   }> => {
     try {
-      if (!authCode || !deviceId) {
-        return { success: false, authenticated: false, error: 'No auth code available' };
+      if (!deviceId) {
+        return { success: false, authenticated: false, error: 'No device ID available' };
       }
 
-      const response = await apiService.checkAuthStatus(authCode, deviceId);
+      console.log('Polling for credentials...');
+      const response = await apiService.getDisplayCredentials(deviceId);
       
       if (response.success && response.data) {
-        if (response.data.authenticated && response.data.screen_username && response.data.screen_password && response.data.screen_name) {
-          // Store credentials
-          await AsyncStorage.setItem('username', response.data.screen_username);
-          await AsyncStorage.setItem('password', response.data.screen_password);
-          await AsyncStorage.setItem('screenName', response.data.screen_name);
+        if (response.data.status === 'authenticated' && response.data.credentials) {
+          const creds = response.data.credentials;
           
-          setUsername(response.data.screen_username);
-          setPassword(response.data.screen_password);
-          setScreenName(response.data.screen_name);
+          // Store credentials
+          await AsyncStorage.setItem('username', creds.screen_username);
+          await AsyncStorage.setItem('password', creds.screen_password);
+          await AsyncStorage.setItem('screenName', creds.screen_name);
+          
+          setUsername(creds.screen_username);
+          setPassword(creds.screen_password);
+          setScreenName(creds.screen_name);
           setIsAuthenticated(true);
           
           // Clear auth code
           setAuthCode(null);
           setAuthCodeExpiry(null);
           
-          console.log('Authentication successful via code');
+          console.log('✓ Authentication successful via display code');
           return { 
             success: true, 
             authenticated: true,
             credentials: {
-              username: response.data.screen_username,
-              password: response.data.screen_password,
-              screenName: response.data.screen_name,
+              username: creds.screen_username,
+              password: creds.screen_password,
+              screenName: creds.screen_name,
             }
           };
-        } else if (response.data.expired) {
+        } else if (response.data.status === 'expired') {
           setAuthCode(null);
           setAuthCodeExpiry(null);
+          console.log('Code expired');
           return { success: true, authenticated: false, error: 'Code expired' };
         } else {
+          // Still pending
           return { success: true, authenticated: false };
         }
       } else {

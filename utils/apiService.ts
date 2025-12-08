@@ -1,6 +1,7 @@
 
 import { Platform } from 'react-native';
-import { API_ENDPOINTS, SUPABASE_CONFIG } from './config';
+import { API_ENDPOINTS, SUPABASE_CONFIG, CONTENT_PROJECT_CONFIG } from './config';
+import * as Device from 'expo-device';
 
 export interface DeviceStatusPayload {
   deviceId: string;
@@ -74,7 +75,7 @@ export const login = async (
   try {
     console.log('Attempting login with API:', { username, screenName, deviceId });
     
-    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    const API_ENDPOINT = API_ENDPOINTS.displayContentConnect;
     
     const payload: LoginPayload = {
       screen_username: username,
@@ -136,8 +137,8 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
     console.log('Payload keys:', Object.keys(payload));
     console.log('============================');
     
-    // Using the same Supabase endpoint for status updates
-    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-status';
+    // Using the Content Project endpoint for status updates
+    const API_ENDPOINT = API_ENDPOINTS.displayStatus;
     
     console.log('Sending POST request to:', API_ENDPOINT);
     console.log('Request body (stringified):', JSON.stringify({
@@ -185,7 +186,7 @@ export const fetchDisplayContent = async (
   try {
     console.log('Fetching display content for:', { username, screenName });
     
-    const API_ENDPOINT = 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1/display-connect';
+    const API_ENDPOINT = API_ENDPOINTS.displayContentConnect;
     
     const payload = {
       screen_username: username,
@@ -229,29 +230,64 @@ export const fetchDisplayContent = async (
   }
 };
 
-// New authentication code-based methods
-export interface GenerateAuthCodeResponse {
+// New authentication code-based methods using Content Project endpoints
+
+export interface GenerateDisplayCodeResponse {
+  success: boolean;
   code: string;
   expires_at: string;
 }
 
-export const generateAuthCode = async (
+export interface DeviceInfo {
+  model: string;
+  os: string;
+}
+
+/**
+ * Generate a 6-digit display code for authentication
+ * Mobile App calls this first
+ * 
+ * Endpoint: POST /generate-display-code
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+ * 
+ * Request Body:
+ * {
+ *   "device_id": "unique-device-identifier",
+ *   "device_info": { "model": "Pixel 7", "os": "Android 14" }  // optional
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "code": "197695",
+ *   "expires_at": "2024-12-08T19:36:26.000Z"
+ * }
+ */
+export const generateDisplayCode = async (
   deviceId: string
-): Promise<{ success: boolean; data?: GenerateAuthCodeResponse; error?: string }> => {
+): Promise<{ success: boolean; data?: GenerateDisplayCodeResponse; error?: string }> => {
   try {
-    console.log('=== GENERATE AUTH CODE ===');
+    console.log('=== GENERATE DISPLAY CODE ===');
     console.log('Device ID:', deviceId);
-    console.log('API Endpoint:', API_ENDPOINTS.generateAuthCode);
-    console.log('Anon Key:', SUPABASE_CONFIG.anonKey ? 'Present' : 'Missing');
+    console.log('API Endpoint:', API_ENDPOINTS.generateDisplayCode);
     
-    const response = await fetch(API_ENDPOINTS.generateAuthCode, {
+    // Get device info
+    const deviceInfo: DeviceInfo = {
+      model: Device.modelName || Device.deviceName || 'Unknown',
+      os: `${Platform.OS} ${Platform.Version || ''}`.trim(),
+    };
+    
+    console.log('Device Info:', deviceInfo);
+    
+    const response = await fetch(API_ENDPOINTS.generateDisplayCode, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_CONFIG.anonKey,
-        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
       },
-      body: JSON.stringify({ device_id: deviceId }),
+      body: JSON.stringify({ 
+        device_id: deviceId,
+        device_info: deviceInfo,
+      }),
     });
 
     console.log('Response status:', response.status);
@@ -262,8 +298,8 @@ export const generateAuthCode = async (
 
     if (response.ok) {
       try {
-        const data: GenerateAuthCodeResponse = JSON.parse(responseText);
-        console.log('Auth code generated successfully:', data.code);
+        const data: GenerateDisplayCodeResponse = JSON.parse(responseText);
+        console.log('Display code generated successfully:', data.code);
         console.log('Expires at:', data.expires_at);
         return {
           success: true,
@@ -277,7 +313,7 @@ export const generateAuthCode = async (
         };
       }
     } else {
-      let errorMessage = 'Failed to generate auth code';
+      let errorMessage = 'Failed to generate display code';
       try {
         const errorData = JSON.parse(responseText);
         errorMessage = errorData.error || errorData.message || errorMessage;
@@ -291,7 +327,7 @@ export const generateAuthCode = async (
       };
     }
   } catch (error) {
-    console.error('Error generating auth code:', error);
+    console.error('Error generating display code:', error);
     if (error instanceof Error) {
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
@@ -301,6 +337,95 @@ export const generateAuthCode = async (
       error: error instanceof Error ? error.message : 'Network error occurred',
     };
   }
+};
+
+export interface GetDisplayCredentialsResponse {
+  success: boolean;
+  status: 'pending' | 'authenticated' | 'expired';
+  credentials?: {
+    screen_name: string;
+    screen_username: string;
+    screen_password: string;
+  };
+}
+
+/**
+ * Get display credentials after authentication
+ * Mobile App polls this endpoint
+ * 
+ * Endpoint: POST /get-display-credentials
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+ * 
+ * Request Body:
+ * {
+ *   "device_id": "unique-device-identifier"
+ * }
+ * 
+ * Response (when authenticated):
+ * {
+ *   "success": true,
+ *   "status": "authenticated",
+ *   "credentials": {
+ *     "screen_name": "Lobby Display",
+ *     "screen_username": "lobby_user",
+ *     "screen_password": "secure_password"
+ *   }
+ * }
+ */
+export const getDisplayCredentials = async (
+  deviceId: string
+): Promise<{ success: boolean; data?: GetDisplayCredentialsResponse; error?: string }> => {
+  try {
+    console.log('Getting display credentials for device:', deviceId);
+    
+    const response = await fetch(API_ENDPOINTS.getDisplayCredentials, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ device_id: deviceId }),
+    });
+
+    console.log('Get credentials response status:', response.status);
+
+    if (response.ok) {
+      const data: GetDisplayCredentialsResponse = await response.json();
+      console.log('Credentials status:', data.status);
+      if (data.status === 'authenticated') {
+        console.log('✓ Credentials retrieved successfully');
+      }
+      return {
+        success: true,
+        data,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to get credentials:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to get credentials',
+      };
+    }
+  } catch (error) {
+    console.error('Error getting display credentials:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+};
+
+// Legacy auth code methods (kept for backward compatibility)
+export interface GenerateAuthCodeResponse {
+  code: string;
+  expires_at: string;
+}
+
+export const generateAuthCode = async (
+  deviceId: string
+): Promise<{ success: boolean; data?: GenerateAuthCodeResponse; error?: string }> => {
+  // Redirect to new generateDisplayCode method
+  return generateDisplayCode(deviceId);
 };
 
 export interface CheckAuthStatusResponse {
@@ -318,33 +443,42 @@ export const checkAuthStatus = async (
   deviceId: string
 ): Promise<{ success: boolean; data?: CheckAuthStatusResponse; error?: string }> => {
   try {
-    console.log('Checking auth status for code:', code);
+    console.log('Checking auth status for device:', deviceId);
     
-    const response = await fetch(API_ENDPOINTS.checkAuthStatus, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_CONFIG.anonKey,
-        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
-      },
-      body: JSON.stringify({ code, device_id: deviceId }),
-    });
-
-    console.log('Check auth status response status:', response.status);
-
-    if (response.ok) {
-      const data: CheckAuthStatusResponse = await response.json();
-      console.log('Auth status checked successfully:', data.authenticated ? 'authenticated' : 'pending');
-      return {
-        success: true,
-        data,
-      };
+    const response = await getDisplayCredentials(deviceId);
+    
+    if (response.success && response.data) {
+      if (response.data.status === 'authenticated' && response.data.credentials) {
+        return {
+          success: true,
+          data: {
+            authenticated: true,
+            screen_username: response.data.credentials.screen_username,
+            screen_password: response.data.credentials.screen_password,
+            screen_name: response.data.credentials.screen_name,
+          },
+        };
+      } else if (response.data.status === 'expired') {
+        return {
+          success: true,
+          data: {
+            authenticated: false,
+            expired: true,
+          },
+        };
+      } else {
+        return {
+          success: true,
+          data: {
+            authenticated: false,
+            pending: true,
+          },
+        };
+      }
     } else {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Failed to check auth status:', response.status, errorData);
       return {
         success: false,
-        error: errorData.error || 'Failed to check auth status',
+        error: response.error,
       };
     }
   } catch (error) {
