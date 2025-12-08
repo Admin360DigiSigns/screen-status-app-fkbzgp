@@ -43,7 +43,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('=== INITIALIZING AUTH ===');
       setIsInitializing(true);
       
-      // Get device ID first
+      // Check if user just logged out FIRST before doing anything
+      const logoutFlag = await AsyncStorage.getItem('just_logged_out');
+      console.log('Logout flag at initialization:', logoutFlag);
+      
+      if (logoutFlag === 'true') {
+        console.log('User just logged out - clearing flag and skipping auto-login');
+        await AsyncStorage.removeItem('just_logged_out');
+        hasLoggedOutRef.current = true;
+        
+        // Get device ID for new code generation
+        const id = await getDeviceId();
+        setDeviceId(id);
+        console.log('Device ID initialized:', id);
+        
+        // Initialize command listener with device ID
+        commandListener.initialize(id);
+        
+        setIsInitializing(false);
+        console.log('=== AUTH INITIALIZATION COMPLETE (AFTER LOGOUT) ===');
+        return;
+      }
+
+      // Get device ID
       const id = await getDeviceId();
       setDeviceId(id);
       console.log('Device ID initialized:', id);
@@ -51,19 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Initialize command listener with device ID
       commandListener.initialize(id);
 
-      // Check if user just logged out
-      const logoutFlag = await AsyncStorage.getItem('just_logged_out');
-      console.log('Logout flag:', logoutFlag);
-      
-      if (logoutFlag === 'true') {
-        console.log('User just logged out - skipping auto-login');
-        await AsyncStorage.removeItem('just_logged_out');
-        hasLoggedOutRef.current = true;
-        setIsInitializing(false);
-        return;
-      }
-
-      // Then load auth state
+      // Load auth state only if not logged out
       await loadAuthState();
       setIsInitializing(false);
       console.log('=== AUTH INITIALIZATION COMPLETE ===');
@@ -185,8 +195,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Double-check logout flag before loading
       const logoutFlag = await AsyncStorage.getItem('just_logged_out');
       if (logoutFlag === 'true') {
-        console.log('Logout flag detected - not loading credentials');
+        console.log('Logout flag detected in loadAuthState - not loading credentials');
         await AsyncStorage.removeItem('just_logged_out');
+        hasLoggedOutRef.current = true;
         return;
       }
       
@@ -269,6 +280,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== INITIATING CODE-BASED LOGIN ===');
       console.log('Device ID:', deviceId);
+      console.log('Has logged out:', hasLoggedOutRef.current);
       
       if (!deviceId) {
         console.error('Device ID not available');
@@ -308,6 +320,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error?: string 
   }> => {
     try {
+      // Don't check authentication if user just logged out
+      if (hasLoggedOutRef.current) {
+        console.log('User has logged out - skipping authentication check');
+        return { success: true, authenticated: false };
+      }
+
       if (!deviceId) {
         return { success: false, authenticated: false, error: 'No device ID available' };
       }
@@ -317,6 +335,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (response.success && response.data) {
         if (response.data.status === 'authenticated' && response.data.credentials) {
+          // Double-check logout flag before authenticating
+          const logoutFlag = await AsyncStorage.getItem('just_logged_out');
+          if (logoutFlag === 'true') {
+            console.log('Logout flag detected - ignoring authentication response');
+            await AsyncStorage.removeItem('just_logged_out');
+            return { success: true, authenticated: false };
+          }
+
           const creds = response.data.credentials;
           
           // Clear logout flag
@@ -373,11 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== LOGOUT INITIATED ===');
       
-      // Set logout flag FIRST before clearing anything
-      await AsyncStorage.setItem('just_logged_out', 'true');
-      hasLoggedOutRef.current = true;
-      
-      // Clear the intervals before logging out
+      // Clear the intervals FIRST
       if (statusIntervalRef.current) {
         console.log('Clearing status interval during logout');
         clearInterval(statusIntervalRef.current);
@@ -407,11 +429,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Clear stored credentials
+      // Clear stored credentials FIRST
       console.log('Clearing stored credentials from AsyncStorage');
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
+      
+      // Set logout flag AFTER clearing credentials
+      console.log('Setting logout flag');
+      await AsyncStorage.setItem('just_logged_out', 'true');
+      hasLoggedOutRef.current = true;
       
       // Clear state - this will trigger navigation to login screen
       console.log('Clearing authentication state');
@@ -429,10 +456,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error during logout:', error);
       // Still clear state even if there's an error
-      await AsyncStorage.setItem('just_logged_out', 'true');
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
+      await AsyncStorage.setItem('just_logged_out', 'true');
       hasLoggedOutRef.current = true;
       setUsername(null);
       setPassword(null);
