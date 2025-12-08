@@ -20,7 +20,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import QRCode from 'react-native-qrcode-svg';
 
 export default function LoginScreen() {
-  const { loginWithCode, checkAuthenticationStatus, deviceId, isAuthenticated, authCode: contextAuthCode, authCodeExpiry: contextAuthCodeExpiry } = useAuth();
+  const { 
+    loginWithCode, 
+    checkAuthenticationStatus, 
+    deviceId, 
+    isAuthenticated, 
+    authCode: contextAuthCode, 
+    authCodeExpiry: contextAuthCodeExpiry,
+    isInitializing 
+  } = useAuth();
   const networkState = useNetworkState();
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +39,8 @@ export default function LoginScreen() {
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasGeneratedCodeRef = useRef(false);
-  const previousAuthStateRef = useRef<boolean | null>(null);
   const isGeneratingRef = useRef(false);
+  const mountedRef = useRef(false);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -48,37 +56,6 @@ export default function LoginScreen() {
       router.replace('/(tabs)/(home)');
     }
   }, [isAuthenticated]);
-
-  // Reset code generation flag when user logs out (auth state changes from true to false)
-  useEffect(() => {
-    if (previousAuthStateRef.current === true && isAuthenticated === false) {
-      console.log('=== LOGOUT DETECTED - Resetting code generation flag ===');
-      hasGeneratedCodeRef.current = false;
-      isGeneratingRef.current = false;
-      setAuthCode(null);
-      setExpiryTime(null);
-      setTimeRemaining('');
-      setErrorMessage(null);
-      
-      // Clear any existing intervals
-      if (authCheckIntervalRef.current) {
-        clearInterval(authCheckIntervalRef.current);
-        authCheckIntervalRef.current = null;
-      }
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-
-      // Trigger code generation after logout
-      console.log('Triggering code generation after logout');
-      if (deviceId && networkState.isConnected) {
-        console.log('Conditions met, generating code immediately after logout');
-        handleGenerateCode();
-      }
-    }
-    previousAuthStateRef.current = isAuthenticated;
-  }, [isAuthenticated, deviceId, networkState.isConnected]);
 
   // Sync with context auth code
   useEffect(() => {
@@ -101,8 +78,11 @@ export default function LoginScreen() {
     console.log('=== LOGIN SCREEN MOUNTED ===');
     console.log('Device ID:', deviceId);
     console.log('Is Authenticated:', isAuthenticated);
+    console.log('Is Initializing:', isInitializing);
     console.log('Network Connected:', networkState.isConnected);
     console.log('Context Auth Code:', contextAuthCode);
+    
+    mountedRef.current = true;
     
     Animated.parallel([
       Animated.timing(fadeInAnim, {
@@ -117,18 +97,9 @@ export default function LoginScreen() {
       }),
     ]).start();
 
-    // Generate code on mount if not already present and not already generated
-    if (deviceId && networkState.isConnected && !contextAuthCode && !hasGeneratedCodeRef.current && !isGeneratingRef.current) {
-      console.log('Calling handleGenerateCode on mount');
-      handleGenerateCode();
-    } else if (contextAuthCode) {
-      console.log('Using existing auth code from context');
-    } else {
-      console.log('Skipping code generation - deviceId:', deviceId, 'connected:', networkState.isConnected, 'contextAuthCode:', contextAuthCode);
-    }
-
     return () => {
       console.log('=== LOGIN SCREEN UNMOUNTING ===');
+      mountedRef.current = false;
       if (authCheckIntervalRef.current) {
         clearInterval(authCheckIntervalRef.current);
       }
@@ -138,13 +109,20 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // Regenerate code when device ID becomes available (only if not already generated)
+  // Generate code after initialization completes
   useEffect(() => {
-    if (deviceId && !authCode && !contextAuthCode && networkState.isConnected && !isLoading && !hasGeneratedCodeRef.current && !isGeneratingRef.current) {
-      console.log('Device ID became available, generating code');
+    if (!isInitializing && 
+        !isAuthenticated && 
+        deviceId && 
+        networkState.isConnected && 
+        !contextAuthCode && 
+        !hasGeneratedCodeRef.current && 
+        !isGeneratingRef.current &&
+        mountedRef.current) {
+      console.log('Initialization complete - generating code');
       handleGenerateCode();
     }
-  }, [deviceId, authCode, contextAuthCode, networkState.isConnected, isLoading]);
+  }, [isInitializing, isAuthenticated, deviceId, networkState.isConnected, contextAuthCode]);
 
   // Pulse animation for the code
   useEffect(() => {
@@ -184,7 +162,7 @@ export default function LoginScreen() {
           }
           // Auto-regenerate code
           console.log('Code expired, auto-regenerating');
-          hasGeneratedCodeRef.current = false; // Reset flag to allow regeneration
+          hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
           handleGenerateCode();
         } else {
@@ -206,6 +184,12 @@ export default function LoginScreen() {
     // Prevent multiple simultaneous calls
     if (isGeneratingRef.current) {
       console.log('Code generation already in progress, skipping');
+      return;
+    }
+
+    // Don't generate if authenticated
+    if (isAuthenticated) {
+      console.log('User is authenticated, skipping code generation');
       return;
     }
 
@@ -263,7 +247,7 @@ export default function LoginScreen() {
           errorMsg,
           [{ text: 'OK' }]
         );
-        hasGeneratedCodeRef.current = false; // Reset flag on error
+        hasGeneratedCodeRef.current = false;
         isGeneratingRef.current = false;
       }
     } catch (error) {
@@ -275,7 +259,7 @@ export default function LoginScreen() {
         errorMsg,
         [{ text: 'OK' }]
       );
-      hasGeneratedCodeRef.current = false; // Reset flag on error
+      hasGeneratedCodeRef.current = false;
       isGeneratingRef.current = false;
     } finally {
       setIsLoading(false);
@@ -324,7 +308,7 @@ export default function LoginScreen() {
           setIsCheckingAuth(false);
           
           // Generate new code
-          hasGeneratedCodeRef.current = false; // Reset flag to allow regeneration
+          hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
           handleGenerateCode();
         }
@@ -335,6 +319,25 @@ export default function LoginScreen() {
   };
 
   const isOnline = networkState.isConnected === true;
+
+  // Show initializing state
+  if (isInitializing) {
+    return (
+      <View style={[styles.mobileContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+        <LinearGradient
+          colors={['#0F172A', '#1E293B', '#334155']}
+          style={styles.mobileGradientBackground}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.mobileLoadingContainer}>
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text style={styles.mobileLoadingText}>Initializing...</Text>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  }
 
   // TV Layout
   if (isTVDevice) {
@@ -422,7 +425,7 @@ export default function LoginScreen() {
             ) : (
               <View style={styles.tvLoadingContainer}>
                 <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.tvLoadingText}>Initializing...</Text>
+                <Text style={styles.tvLoadingText}>Preparing login...</Text>
               </View>
             )}
 
@@ -537,7 +540,7 @@ export default function LoginScreen() {
             ) : (
               <View style={styles.mobileLoadingContainer}>
                 <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.mobileLoadingText}>Initializing...</Text>
+                <Text style={styles.mobileLoadingText}>Preparing login...</Text>
               </View>
             )}
 

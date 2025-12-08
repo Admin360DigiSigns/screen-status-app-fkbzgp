@@ -14,6 +14,7 @@ interface AuthContextType {
   deviceId: string | null;
   authCode: string | null;
   authCodeExpiry: string | null;
+  isInitializing: boolean;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   loginWithCode: () => Promise<{ success: boolean; code?: string; error?: string }>;
   checkAuthenticationStatus: () => Promise<{ success: boolean; authenticated: boolean; credentials?: { username: string; password: string; screenName: string }; error?: string }>;
@@ -32,11 +33,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [authCodeExpiry, setAuthCodeExpiry] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoggedOutRef = useRef(false);
 
   const initializeAuth = useCallback(async () => {
     try {
+      console.log('=== INITIALIZING AUTH ===');
+      setIsInitializing(true);
+      
       // Get device ID first
       const id = await getDeviceId();
       setDeviceId(id);
@@ -45,10 +51,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Initialize command listener with device ID
       commandListener.initialize(id);
 
+      // Check if user just logged out
+      const logoutFlag = await AsyncStorage.getItem('just_logged_out');
+      console.log('Logout flag:', logoutFlag);
+      
+      if (logoutFlag === 'true') {
+        console.log('User just logged out - skipping auto-login');
+        await AsyncStorage.removeItem('just_logged_out');
+        hasLoggedOutRef.current = true;
+        setIsInitializing(false);
+        return;
+      }
+
       // Then load auth state
       await loadAuthState();
+      setIsInitializing(false);
+      console.log('=== AUTH INITIALIZATION COMPLETE ===');
     } catch (error) {
       console.error('Error initializing auth:', error);
+      setIsInitializing(false);
     }
   }, []);
 
@@ -159,18 +180,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadAuthState = async () => {
     try {
+      console.log('Loading auth state from AsyncStorage...');
+      
+      // Double-check logout flag before loading
+      const logoutFlag = await AsyncStorage.getItem('just_logged_out');
+      if (logoutFlag === 'true') {
+        console.log('Logout flag detected - not loading credentials');
+        await AsyncStorage.removeItem('just_logged_out');
+        return;
+      }
+      
       const storedUsername = await AsyncStorage.getItem('username');
       const storedPassword = await AsyncStorage.getItem('password');
       const storedScreenName = await AsyncStorage.getItem('screenName');
+      
+      console.log('Stored credentials check:', {
+        hasUsername: !!storedUsername,
+        hasPassword: !!storedPassword,
+        hasScreenName: !!storedScreenName,
+      });
       
       if (storedUsername && storedPassword && storedScreenName) {
         setUsername(storedUsername);
         setPassword(storedPassword);
         setScreenName(storedScreenName);
         setIsAuthenticated(true);
-        console.log('Loaded auth state:', { storedUsername, storedScreenName });
+        hasLoggedOutRef.current = false;
+        console.log('✓ Loaded auth state:', { storedUsername, storedScreenName });
       } else {
-        console.log('No stored credentials found - user needs to login');
+        console.log('✗ No stored credentials found - user needs to login');
       }
     } catch (error) {
       console.error('Error loading auth state:', error);
@@ -194,6 +232,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await apiService.login(inputUsername, inputPassword, inputScreenName, deviceId);
       
       if (response.success) {
+        // Clear logout flag
+        await AsyncStorage.removeItem('just_logged_out');
+        hasLoggedOutRef.current = false;
+        
         // Store credentials on successful login
         await AsyncStorage.setItem('username', inputUsername);
         await AsyncStorage.setItem('password', inputPassword);
@@ -277,6 +319,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.data.status === 'authenticated' && response.data.credentials) {
           const creds = response.data.credentials;
           
+          // Clear logout flag
+          await AsyncStorage.removeItem('just_logged_out');
+          hasLoggedOutRef.current = false;
+          
           // Store credentials
           await AsyncStorage.setItem('username', creds.screen_username);
           await AsyncStorage.setItem('password', creds.screen_password);
@@ -327,6 +373,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('=== LOGOUT INITIATED ===');
       
+      // Set logout flag FIRST before clearing anything
+      await AsyncStorage.setItem('just_logged_out', 'true');
+      hasLoggedOutRef.current = true;
+      
       // Clear the intervals before logging out
       if (statusIntervalRef.current) {
         console.log('Clearing status interval during logout');
@@ -357,7 +407,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Clear stored credentials FIRST - this is critical
+      // Clear stored credentials
       console.log('Clearing stored credentials from AsyncStorage');
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
@@ -379,9 +429,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error during logout:', error);
       // Still clear state even if there's an error
+      await AsyncStorage.setItem('just_logged_out', 'true');
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
+      hasLoggedOutRef.current = true;
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -406,6 +458,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deviceId,
       authCode,
       authCodeExpiry,
+      isInitializing,
       login, 
       loginWithCode,
       checkAuthenticationStatus,
