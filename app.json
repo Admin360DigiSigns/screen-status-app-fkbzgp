@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Screen Status",
@@ -38,6 +39,7 @@
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
       ],
+      "minSdkVersion": 24,
       "compileSdkVersion": 35,
       "targetSdkVersion": 35
     },
@@ -57,6 +59,5 @@
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "Screen Status"
+  }
 }
