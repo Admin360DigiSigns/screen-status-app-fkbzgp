@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Platform,
   ScrollView,
@@ -329,7 +328,7 @@ export default function LoginScreen() {
 
                   <View style={styles.tvTimerContainer}>
                     <Text style={styles.tvTimerText}>
-                      {timeRemaining === 'Expired' ? '⚠️ Code Expired' : `⏱️ Expires in: ${timeRemaining}`}
+                      {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
                     </Text>
                   </View>
 
@@ -339,46 +338,21 @@ export default function LoginScreen() {
                       <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
                     </View>
                   )}
-
-                  <TouchableOpacity
-                    style={styles.tvRefreshButton}
-                    onPress={handleGenerateCode}
-                    disabled={isLoading}
-                  >
-                    <LinearGradient
-                      colors={['#2563EB', '#1E40AF']}
-                      style={styles.tvRefreshButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={styles.tvRefreshButtonText}>Generate New Code</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
                 </LinearGradient>
               </View>
             ) : (
               <View style={styles.tvLoadingContainer}>
+                <ActivityIndicator size="large" color="#3B82F6" />
                 <Text style={styles.tvLoadingText}>Initializing...</Text>
-                <TouchableOpacity
-                  style={styles.tvRefreshButton}
-                  onPress={handleGenerateCode}
-                  disabled={isLoading || !deviceId}
-                >
-                  <LinearGradient
-                    colors={['#2563EB', '#1E40AF']}
-                    style={styles.tvRefreshButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.tvRefreshButtonText}>Generate Code</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
               </View>
             )}
 
             <View style={styles.tvInfoBox}>
               <Text style={styles.tvInfoText}>
                 Device ID: {deviceId || 'Loading...'}
+              </Text>
+              <Text style={styles.tvInfoText}>
+                Code will automatically regenerate when expired
               </Text>
             </View>
           </Animated.View>
@@ -469,7 +443,7 @@ export default function LoginScreen() {
 
                   <View style={styles.mobileTimerContainer}>
                     <Text style={styles.mobileTimerText}>
-                      {timeRemaining === 'Expired' ? '⚠️ Code Expired' : `⏱️ Expires in: ${timeRemaining}`}
+                      {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
                     </Text>
                   </View>
 
@@ -479,40 +453,12 @@ export default function LoginScreen() {
                       <Text style={styles.mobileCheckingText}>Waiting for authentication...</Text>
                     </View>
                   )}
-
-                  <TouchableOpacity
-                    style={styles.mobileRefreshButton}
-                    onPress={handleGenerateCode}
-                    disabled={isLoading}
-                  >
-                    <LinearGradient
-                      colors={['#2563EB', '#1E40AF']}
-                      style={styles.mobileRefreshButtonGradient}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={styles.mobileRefreshButtonText}>Generate New Code</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
                 </LinearGradient>
               </View>
             ) : (
               <View style={styles.mobileLoadingContainer}>
+                <ActivityIndicator size="large" color="#3B82F6" />
                 <Text style={styles.mobileLoadingText}>Initializing...</Text>
-                <TouchableOpacity
-                  style={styles.mobileRefreshButton}
-                  onPress={handleGenerateCode}
-                  disabled={isLoading || !deviceId}
-                >
-                  <LinearGradient
-                    colors={['#2563EB', '#1E40AF']}
-                    style={styles.mobileRefreshButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.mobileRefreshButtonText}>Generate Code</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
               </View>
             )}
 
@@ -522,6 +468,9 @@ export default function LoginScreen() {
               </Text>
               <Text style={styles.mobileInfoText}>
                 Enter the code on your web app to authenticate this device
+              </Text>
+              <Text style={styles.mobileInfoText}>
+                Code will automatically regenerate when expired
               </Text>
             </View>
           </Animated.View>
@@ -678,6 +627,7 @@ const styles = StyleSheet.create({
     color: '#93C5FD',
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
   },
   mobileCheckingContainer: {
     flexDirection: 'row',
@@ -689,25 +639,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
     fontWeight: '600',
-  },
-  mobileRefreshButton: {
-    width: '100%',
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  mobileRefreshButtonGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  mobileRefreshButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
   mobileInfoBox: {
     marginTop: 32,
@@ -856,6 +787,7 @@ const styles = StyleSheet.create({
     color: '#93C5FD',
     fontSize: 20,
     fontWeight: '600',
+    textAlign: 'center',
   },
   tvCheckingContainer: {
     flexDirection: 'row',
@@ -867,25 +799,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 12,
     fontWeight: '600',
-  },
-  tvRefreshButton: {
-    width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  tvRefreshButtonGradient: {
-    paddingVertical: 20,
-    alignItems: 'center',
-  },
-  tvRefreshButtonText: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: 'bold',
   },
   tvInfoBox: {
     marginTop: 40,
@@ -900,5 +813,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     fontWeight: '500',
+    marginBottom: 4,
   },
 });
