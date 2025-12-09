@@ -405,6 +405,9 @@ export default function LoginScreen() {
               <Animated.View style={[styles.logoutDot, { opacity: pulseAnim }]} />
               <Animated.View style={[styles.logoutDot, { opacity: pulseAnim }]} />
             </View>
+            <Text style={styles.logoutModalInfo}>
+              Clearing all authentication data...
+            </Text>
           </LinearGradient>
         </Animated.View>
       </Animated.View>
@@ -426,6 +429,9 @@ export default function LoginScreen() {
             <Text style={styles.mobileLoadingText}>Initializing...</Text>
             <Text style={styles.mobileInfoText}>
               Preparing fresh authentication session
+            </Text>
+            <Text style={styles.mobileInfoText}>
+              Checking for recent logout...
             </Text>
           </View>
         </LinearGradient>
@@ -571,10 +577,13 @@ export default function LoginScreen() {
                   Device ID: {deviceId || 'Loading...'}
                 </Text>
                 <Text style={styles.tvInfoText}>
-                  Fresh authentication session - No auto-login
+                  🔒 Fresh authentication session - No auto-login
                 </Text>
                 <Text style={styles.tvInfoText}>
-                  Code will automatically regenerate when expired
+                  🛡️ 30-second logout protection active
+                </Text>
+                <Text style={styles.tvInfoText}>
+                  🔄 Code will automatically regenerate when expired
                 </Text>
               </View>
             </Animated.View>
@@ -692,7 +701,10 @@ export default function LoginScreen() {
                   Device ID: {deviceId || 'Loading...'}
                 </Text>
                 <Text style={styles.mobileInfoText}>
-                  Fresh authentication session - No auto-login
+                  🔒 Fresh authentication session - No auto-login
+                </Text>
+                <Text style={styles.mobileInfoText}>
+                  🛡️ 30-second logout protection active
                 </Text>
                 <Text style={styles.mobileInfoText}>
                   Enter the code on your web app to authenticate this device
@@ -750,12 +762,18 @@ const styles = StyleSheet.create({
   logoutModalDots: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 16,
   },
   logoutDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#3B82F6',
+  },
+  logoutModalInfo: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
   },
 
   // Mobile styles

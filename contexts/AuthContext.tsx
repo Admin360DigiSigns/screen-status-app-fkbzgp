@@ -33,6 +33,7 @@ const STORAGE_KEYS = {
   PASSWORD: 'password',
   SCREEN_NAME: 'screenName',
   LOGOUT_FLAG: 'logout_flag',
+  LOGOUT_TIMESTAMP: 'logout_timestamp',
   DEVICE_ID: 'device_id',
 };
 
@@ -50,36 +51,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [logoutProgress, setLogoutProgress] = useState('');
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isLoggingOutRef = useRef(false);
 
   const initializeAuth = useCallback(async () => {
     try {
-      console.log('=== INITIALIZING AUTH ===');
+      console.log('');
+      console.log('╔════════════════════════════════════════════════════════════════╗');
+      console.log('║                    INITIALIZING AUTH                           ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
+      console.log('');
+      
       setIsInitializing(true);
       
       // Get device ID first
       const id = await getDeviceId();
       setDeviceId(id);
-      console.log('Device ID initialized:', id);
+      console.log('✓ Device ID initialized:', id);
 
       // Initialize command listener with device ID
       commandListener.initialize(id);
+      console.log('✓ Command listener initialized');
 
-      // Check if user just logged out
+      // CRITICAL: Check if user just logged out
       const logoutFlag = await AsyncStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG);
+      const logoutTimestamp = await AsyncStorage.getItem(STORAGE_KEYS.LOGOUT_TIMESTAMP);
+      
       if (logoutFlag === 'true') {
-        console.log('⚠️ LOGOUT FLAG DETECTED - User just logged out');
-        console.log('Skipping auto-login to prevent re-authentication');
-        // Clear the logout flag
-        await AsyncStorage.removeItem(STORAGE_KEYS.LOGOUT_FLAG);
+        console.log('');
+        console.log('⚠️ ═══════════════════════════════════════════════════════════');
+        console.log('⚠️  LOGOUT FLAG DETECTED - User just logged out');
+        console.log('⚠️ ═══════════════════════════════════════════════════════════');
+        
+        if (logoutTimestamp) {
+          const logoutTime = new Date(logoutTimestamp);
+          const now = new Date();
+          const timeSinceLogout = (now.getTime() - logoutTime.getTime()) / 1000;
+          console.log('⚠️  Logout occurred:', timeSinceLogout.toFixed(1), 'seconds ago');
+          
+          // Keep the logout flag for 30 seconds to prevent any auto-login attempts
+          if (timeSinceLogout < 30) {
+            console.log('⚠️  Logout is recent - BLOCKING auto-login');
+            console.log('⚠️  Clearing any stored credentials');
+            
+            // Force clear all credentials
+            await AsyncStorage.multiRemove([
+              STORAGE_KEYS.USERNAME,
+              STORAGE_KEYS.PASSWORD,
+              STORAGE_KEYS.SCREEN_NAME,
+            ]);
+            
+            // Clear backend authentication again to be sure
+            console.log('⚠️  Re-clearing backend authentication');
+            try {
+              await apiService.clearDeviceAuthentication(id);
+              console.log('✓  Backend authentication re-cleared');
+            } catch (error) {
+              console.error('✗  Failed to re-clear backend:', error);
+            }
+            
+            setIsInitializing(false);
+            console.log('⚠️  Staying on login screen - NO AUTO-LOGIN');
+            console.log('⚠️ ═══════════════════════════════════════════════════════════');
+            console.log('');
+            return;
+          } else {
+            console.log('⚠️  Logout was more than 30 seconds ago - clearing flag');
+            await AsyncStorage.multiRemove([STORAGE_KEYS.LOGOUT_FLAG, STORAGE_KEYS.LOGOUT_TIMESTAMP]);
+          }
+        } else {
+          console.log('⚠️  No logout timestamp - clearing flag and blocking auto-login');
+          await AsyncStorage.removeItem(STORAGE_KEYS.LOGOUT_FLAG);
+          setIsInitializing(false);
+          console.log('⚠️ ═══════════════════════════════════════════════════════════');
+          console.log('');
+          return;
+        }
+      }
+
+      // Check if we're currently in a logout process
+      if (isLoggingOutRef.current) {
+        console.log('⚠️  Logout in progress - skipping auto-login');
         setIsInitializing(false);
-        console.log('=== AUTH INITIALIZATION COMPLETE (LOGGED OUT STATE) ===');
         return;
       }
 
       // Load auth state from storage
+      console.log('Checking for stored credentials...');
       await loadAuthState();
+      
       setIsInitializing(false);
-      console.log('=== AUTH INITIALIZATION COMPLETE ===');
+      console.log('');
+      console.log('╔════════════════════════════════════════════════════════════════╗');
+      console.log('║              AUTH INITIALIZATION COMPLETE                      ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
+      console.log('');
     } catch (error) {
       console.error('Error initializing auth:', error);
       setIsInitializing(false);
@@ -111,11 +176,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. User is authenticated
     // 2. Screen is active (user is on the home screen)
     // 3. All required data is available
-    if (isAuthenticated && isScreenActive && deviceId && screenName && username && password) {
+    // 4. NOT currently logging out
+    if (isAuthenticated && isScreenActive && deviceId && screenName && username && password && !isLoggingOutRef.current) {
       console.log('✓ Setting up 20-second status update interval (user logged in and on screen)');
       
       // Define the status update function inside useEffect to avoid stale closures
       const sendStatusUpdate = async () => {
+        // Double-check we're not logging out
+        if (isLoggingOutRef.current) {
+          console.log('Skipping status update - logout in progress');
+          return;
+        }
+        
         try {
           console.log('===========================================');
           console.log('Executing scheduled status update at:', new Date().toISOString());
@@ -187,6 +259,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasScreenName: !!screenName,
         hasUsername: !!username,
         hasPassword: !!password,
+        isLoggingOut: isLoggingOutRef.current,
       });
     }
   }, [isAuthenticated, isScreenActive, deviceId, screenName, username, password]);
@@ -366,6 +439,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    // Set the logout ref immediately to prevent any status updates
+    isLoggingOutRef.current = true;
+    
     try {
       console.log('');
       console.log('╔════════════════════════════════════════════════════════════════╗');
@@ -376,12 +452,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoggingOut(true);
       setLogoutProgress('Give us a moment while we log you out...');
       
-      // STEP 1: Set logout flag FIRST to prevent auto-login
-      console.log('┌─ STEP 1: Setting logout flag to prevent auto-login');
+      // STEP 1: Set logout flag FIRST with timestamp to prevent auto-login
+      console.log('┌─ STEP 1: Setting logout flag with timestamp');
       setLogoutProgress('Setting logout flag...');
       try {
+        const now = new Date().toISOString();
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
-        console.log('└─ ✓ Logout flag set successfully');
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
+        console.log('└─ ✓ Logout flag set with timestamp:', now);
       } catch (error) {
         console.error('└─ ✗ Failed to set logout flag:', error);
       }
@@ -427,22 +505,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       console.log('');
 
-      // STEP 4: CRITICAL - Clear backend authentication state
+      // STEP 4: CRITICAL - Clear backend authentication state with extended retry
       if (deviceId) {
         console.log('┌─ STEP 4: Clearing backend authentication state');
         setLogoutProgress('Clearing backend authentication...');
         console.log('│  This is CRITICAL to prevent auto-login after app restart');
-        try {
-          const clearResult = await apiService.clearDeviceAuthentication(deviceId);
-          if (clearResult.success) {
-            console.log('└─ ✓ Backend authentication cleared successfully');
-            console.log('   Device will NOT auto-login on next app start');
-          } else {
-            console.error('└─ ✗ Failed to clear backend authentication:', clearResult.error);
-            console.error('   ⚠️ WARNING: Device may auto-login on next app start!');
+        
+        let backendCleared = false;
+        const maxAttempts = 5;
+        
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            console.log(`│  Attempt ${attempt}/${maxAttempts}...`);
+            const clearResult = await apiService.clearDeviceAuthentication(deviceId, 1);
+            if (clearResult.success) {
+              console.log('└─ ✓ Backend authentication cleared successfully');
+              console.log('   Device will NOT auto-login on next app start');
+              backendCleared = true;
+              break;
+            } else {
+              console.error(`│  ✗ Attempt ${attempt} failed:`, clearResult.error);
+              if (attempt < maxAttempts) {
+                const waitTime = attempt * 500;
+                console.log(`│  Waiting ${waitTime}ms before retry...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+              }
+            }
+          } catch (error) {
+            console.error(`│  ✗ Attempt ${attempt} exception:`, error);
+            if (attempt < maxAttempts) {
+              const waitTime = attempt * 500;
+              console.log(`│  Waiting ${waitTime}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
           }
-        } catch (error) {
-          console.error('└─ ✗ Exception while clearing backend authentication:', error);
+        }
+        
+        if (!backendCleared) {
+          console.error('└─ ✗ FAILED to clear backend after all attempts');
           console.error('   ⚠️ WARNING: Device may auto-login on next app start!');
         }
       } else {
@@ -510,7 +610,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // STEP 7: Wait for async operations
       console.log('┌─ STEP 7: Waiting for async operations to complete');
       setLogoutProgress('Finalizing logout...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Increased to 2 seconds
       console.log('└─ ✓ Wait complete');
       console.log('');
       
@@ -536,6 +636,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('║  ✓ Local storage cleared                                      ║');
       console.log('║  ✓ State cleared                                              ║');
       console.log('║  ✓ New authentication code generated                          ║');
+      console.log('║  ✓ Logout flag set with 30-second protection                  ║');
       console.log('║                                                                ║');
       console.log('║  User is now on login screen with fresh code                  ║');
       console.log('╚════════════════════════════════════════════════════════════════╝');
@@ -556,8 +657,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('┌─ EMERGENCY CLEANUP: Attempting to clear everything');
       setLogoutProgress('Emergency cleanup...');
       try {
-        // Set logout flag
+        // Set logout flag with timestamp
+        const now = new Date().toISOString();
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
         console.log('│  ✓ Logout flag set');
         
         // Clear storage
@@ -568,10 +671,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ]);
         console.log('│  ✓ Storage cleared');
         
-        // Clear backend if possible
+        // Clear backend if possible - multiple attempts
         if (deviceId) {
-          await apiService.clearDeviceAuthentication(deviceId);
-          console.log('│  ✓ Backend cleared');
+          for (let i = 0; i < 3; i++) {
+            try {
+              await apiService.clearDeviceAuthentication(deviceId, 1);
+              console.log('│  ✓ Backend cleared');
+              break;
+            } catch (clearError) {
+              console.error(`│  ✗ Backend clear attempt ${i + 1} failed`);
+              if (i < 2) await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
         }
       } catch (cleanupError) {
         console.error('│  ✗ Emergency cleanup failed:', cleanupError);
@@ -599,6 +710,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setIsLoggingOut(false);
       setLogoutProgress('');
+    } finally {
+      // Reset the logout ref
+      isLoggingOutRef.current = false;
     }
   };
 
