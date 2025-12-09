@@ -1,4 +1,3 @@
-
 {
   "build": {
     "development": {
@@ -6,35 +5,21 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug --no-daemon --no-build-cache --no-parallel --max-workers=1 --refresh-dependencies"
+        "gradleCommand": ":app:assembleDebug"
       },
       "ios": {
         "simulator": true
-      },
-      "env": {
-        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=1 -Dorg.gradle.vfs.watch=false -Dorg.gradle.caching=false -Dorg.gradle.configureondemand=false",
-        "GRADLE_USER_HOME": "/tmp/gradle-cache"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease --no-daemon --no-build-cache --no-parallel --max-workers=1 --refresh-dependencies"
-      },
-      "env": {
-        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=1 -Dorg.gradle.vfs.watch=false -Dorg.gradle.caching=false -Dorg.gradle.configureondemand=false",
-        "GRADLE_USER_HOME": "/tmp/gradle-cache"
+        "buildType": "apk"
       }
     },
     "production": {
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease --no-daemon --no-build-cache --no-parallel --max-workers=2 --refresh-dependencies"
-      },
-      "env": {
-        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=2 -Dorg.gradle.vfs.watch=false -Dorg.gradle.caching=false -Dorg.gradle.configureondemand=false",
-        "GRADLE_USER_HOME": "/tmp/gradle-cache"
+        "buildType": "apk"
       }
     }
   },
