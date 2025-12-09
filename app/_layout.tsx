@@ -96,6 +96,14 @@ export default function RootLayout() {
                     presentation: 'card',
                   }} 
                 />
+                <Stack.Screen 
+                  name="logout-loading" 
+                  options={{ 
+                    headerShown: false,
+                    presentation: 'fullScreenModal',
+                    gestureEnabled: false,
+                  }} 
+                />
                 <Stack.Screen
                   name="modal"
                   options={{

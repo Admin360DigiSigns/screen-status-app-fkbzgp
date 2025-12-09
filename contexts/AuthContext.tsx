@@ -16,6 +16,8 @@ interface AuthContextType {
   authCode: string | null;
   authCodeExpiry: string | null;
   isInitializing: boolean;
+  isLoggingOut: boolean;
+  logoutProgress: number;
   logoutCounter: number;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   loginWithCode: () => Promise<{ success: boolean; code?: string; error?: string }>;
@@ -37,6 +39,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authCodeExpiry, setAuthCodeExpiry] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutProgress, setLogoutProgress] = useState(0);
   const [logoutCounter, setLogoutCounter] = useState(0);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -143,11 +147,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. User is authenticated
     // 2. Screen is active (user is on the home screen)
     // 3. All required data is available
-    if (isAuthenticated && isScreenActive && deviceId && screenName && username && password) {
+    // 4. NOT logging out
+    if (isAuthenticated && isScreenActive && deviceId && screenName && username && password && !isLoggingOutRef.current) {
       console.log('✓ Setting up 20-second status update interval (user logged in and on screen)');
       
       // Define the status update function inside useEffect to avoid stale closures
       const sendStatusUpdate = async () => {
+        // Skip if logging out
+        if (isLoggingOutRef.current) {
+          console.log('⏸️ Skipping status update - logout in progress');
+          return;
+        }
+
         try {
           console.log('===========================================');
           console.log('Executing scheduled status update at:', new Date().toISOString());
@@ -219,6 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasScreenName: !!screenName,
         hasUsername: !!username,
         hasPassword: !!password,
+        isLoggingOut: isLoggingOutRef.current,
       });
     }
   }, [isAuthenticated, isScreenActive, deviceId, screenName, username, password]);
@@ -446,11 +458,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     isLoggingOutRef.current = true;
+    setIsLoggingOut(true);
+    setLogoutProgress(0);
 
     try {
       console.log('');
       console.log('═══════════════════════════════════════════════════════');
-      console.log('🚪 LOGOUT INITIATED - COMPLETE CLEANUP STARTING');
+      console.log('🚪 LOGOUT INITIATED - 60 SECOND CLEANUP STARTING');
       console.log('═══════════════════════════════════════════════════════');
       console.log('');
 
@@ -460,6 +474,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🚩 STEP 1: Setting logout flag IMMEDIATELY...');
       await AsyncStorage.setItem('just_logged_out', 'true');
       console.log('  ✓ Logout flag set to "true" (this prevents auto-login)');
+      setLogoutProgress(5);
 
       // ============================================================
       // STEP 2: STOP ALL INTERVALS IMMEDIATELY
@@ -477,6 +492,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authCheckIntervalRef.current = null;
         console.log('  ✓ Auth check interval cleared');
       }
+      setLogoutProgress(10);
 
       // ============================================================
       // STEP 3: STOP COMMAND LISTENER
@@ -488,6 +504,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('  ⚠️  Error stopping command listener:', error);
       }
+      setLogoutProgress(15);
 
       // ============================================================
       // STEP 4: SEND OFFLINE STATUS (if possible)
@@ -511,6 +528,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         console.log('  ⚠️  Skipping offline status (missing credentials)');
       }
+      setLogoutProgress(20);
 
       // ============================================================
       // STEP 5: CLEAR ALL STATE VARIABLES (INCLUDING AUTH CODE)
@@ -520,25 +538,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUsername(null);
       setPassword(null);
       setScreenName(null);
-      setAuthCode(null);  // CRITICAL: Clear the auth code
-      setAuthCodeExpiry(null);  // CRITICAL: Clear the expiry
+      setAuthCode(null);
+      setAuthCodeExpiry(null);
       setIsScreenActive(false);
       console.log('  ✓ All state variables cleared (including auth code)');
+      setLogoutProgress(30);
 
       // ============================================================
-      // STEP 6: INCREMENT LOGOUT COUNTER
+      // STEP 6: CLEAR ALL ASYNCSTORAGE ITEMS
       // ============================================================
-      console.log('🔢 STEP 6: Incrementing logout counter...');
-      setLogoutCounter(prev => {
-        const newCounter = prev + 1;
-        console.log(`  ✓ Logout counter: ${prev} → ${newCounter}`);
-        return newCounter;
-      });
-
-      // ============================================================
-      // STEP 7: CLEAR ALL ASYNCSTORAGE ITEMS
-      // ============================================================
-      console.log('💾 STEP 7: Clearing AsyncStorage...');
+      console.log('💾 STEP 6: Clearing AsyncStorage...');
       const keysToRemove = [
         'username',
         'password',
@@ -550,11 +559,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('  Keys to remove:', keysToRemove);
       await AsyncStorage.multiRemove(keysToRemove);
       console.log('  ✓ All auth keys removed from AsyncStorage');
+      setLogoutProgress(40);
 
       // ============================================================
-      // STEP 8: VERIFY CLEANUP
+      // STEP 7: VERIFY CLEANUP
       // ============================================================
-      console.log('🔍 STEP 8: Verifying cleanup...');
+      console.log('🔍 STEP 7: Verifying cleanup...');
       const verifyUsername = await AsyncStorage.getItem('username');
       const verifyPassword = await AsyncStorage.getItem('password');
       const verifyScreenName = await AsyncStorage.getItem('screenName');
@@ -567,18 +577,72 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('    - screenName:', verifyScreenName === null ? '✓ CLEARED' : '✗ STILL EXISTS');
       console.log('    - authCode:', verifyAuthCode === null ? '✓ CLEARED' : '✗ STILL EXISTS');
       console.log('    - logout flag:', verifyLogoutFlag === 'true' ? '✓ SET' : '✗ NOT SET');
+      setLogoutProgress(50);
 
       // ============================================================
-      // STEP 9: WAIT A MOMENT FOR STATE TO SETTLE
+      // STEP 8: 60-SECOND LOADING STAGE - CLEAR EVERYTHING
       // ============================================================
-      console.log('⏳ STEP 9: Waiting for state to settle...');
-      await new Promise(resolve => setTimeout(resolve, 200));
-      console.log('  ✓ State settled');
+      console.log('⏳ STEP 8: Starting 60-second loading stage...');
+      console.log('  During this time, we will:');
+      console.log('  - Keep the logout flag active');
+      console.log('  - Prevent any authentication attempts');
+      console.log('  - Show a nice loading animation');
+      console.log('  - Ensure complete state reset');
+      
+      // Simulate progress over 60 seconds (from 50% to 95%)
+      const progressInterval = setInterval(() => {
+        setLogoutProgress(prev => {
+          if (prev >= 95) {
+            clearInterval(progressInterval);
+            return 95;
+          }
+          return prev + 0.75; // Increment by 0.75% every 1 second (60 seconds total)
+        });
+      }, 1000);
+
+      // Wait for 60 seconds
+      await new Promise(resolve => setTimeout(resolve, 60000));
+      
+      clearInterval(progressInterval);
+      setLogoutProgress(95);
+      console.log('  ✓ 60-second loading stage complete');
 
       // ============================================================
-      // STEP 10: FORCE NAVIGATION TO LOGIN
+      // STEP 9: FINAL CLEANUP AND VERIFICATION
       // ============================================================
-      console.log('🔄 STEP 10: Forcing navigation to login screen...');
+      console.log('🧹 STEP 9: Final cleanup and verification...');
+      
+      // Clear everything one more time to be absolutely sure
+      await AsyncStorage.multiRemove(keysToRemove);
+      
+      // Verify one more time
+      const finalVerify = await AsyncStorage.multiGet(keysToRemove);
+      console.log('  Final verification:', finalVerify);
+      
+      // Ensure logout flag is still set
+      await AsyncStorage.setItem('just_logged_out', 'true');
+      console.log('  ✓ Logout flag confirmed');
+      
+      setLogoutProgress(98);
+
+      // ============================================================
+      // STEP 10: INCREMENT LOGOUT COUNTER
+      // ============================================================
+      console.log('🔢 STEP 10: Incrementing logout counter...');
+      setLogoutCounter(prev => {
+        const newCounter = prev + 1;
+        console.log(`  ✓ Logout counter: ${prev} → ${newCounter}`);
+        return newCounter;
+      });
+      setLogoutProgress(100);
+
+      // ============================================================
+      // STEP 11: NAVIGATE TO LOGIN SCREEN
+      // ============================================================
+      console.log('🔄 STEP 11: Navigating to login screen...');
+      
+      // Wait a moment for state to settle
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Use replace to prevent going back
       try {
@@ -597,6 +661,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🚫 Auto-login prevented by logout flag');
       console.log('🔐 Login screen will generate fresh authentication code');
       console.log('🔢 Logout counter incremented to trigger fresh state');
+      console.log('⏱️  60-second loading stage completed');
       console.log('═══════════════════════════════════════════════════════');
       console.log('');
 
@@ -656,11 +721,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('');
       }
     } finally {
-      // Reset the logout flag after a delay to ensure everything is processed
+      // Reset the logout flags after everything is complete
       setTimeout(() => {
         isLoggingOutRef.current = false;
+        setIsLoggingOut(false);
+        setLogoutProgress(0);
         console.log('🔓 Logout lock released');
-      }, 500);
+      }, 1000);
     }
   };
 
@@ -679,6 +746,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authCode,
       authCodeExpiry,
       isInitializing,
+      isLoggingOut,
+      logoutProgress,
       logoutCounter,
       login, 
       loginWithCode,
