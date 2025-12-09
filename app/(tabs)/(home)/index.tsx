@@ -207,9 +207,11 @@ export default function HomeScreen() {
   }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
 
   const handleLogout = async () => {
+    console.log('🚪 Logout button pressed');
     try {
       // Send offline status before logging out
       if (deviceId && screenName && username && password) {
+        console.log('📡 Sending offline status before logout...');
         await sendDeviceStatus({
           deviceId,
           screenName,
@@ -219,11 +221,16 @@ export default function HomeScreen() {
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
+        console.log('✓ Offline status sent');
       }
+      
+      console.log('🔄 Calling logout function...');
       await logout();
+      console.log('✓ Logout function completed');
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('❌ Error during logout:', error);
       // Still logout even if status update fails
+      console.log('⚠️ Attempting logout despite error...');
       await logout();
     }
   };
@@ -451,7 +458,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons Grid - 2x2 Layout (removed diagnostics) */}
+            {/* Action Buttons Grid - 2x2 Layout */}
             <View style={styles.tvButtonsGrid}>
               <TouchableOpacity 
                 style={[
@@ -696,7 +703,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons (removed diagnostics) */}
+            {/* Action Buttons */}
             <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
               <TouchableOpacity 
                 style={styles.mobileButton}
