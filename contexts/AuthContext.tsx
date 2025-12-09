@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Updates from 'expo-updates';
+import { Platform, BackHandler } from 'react-native';
 import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
 import * as Network from 'expo-network';
@@ -51,26 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Initialize command listener with device ID
       commandListener.initialize(id);
 
-      // Check if user just logged out - CRITICAL: Check this BEFORE loading auth state
-      const logoutFlag = await AsyncStorage.getItem('just_logged_out');
-      console.log('Logout flag:', logoutFlag);
-      
-      if (logoutFlag === 'true') {
-        console.log('User just logged out - clearing flag and skipping auto-login');
-        await AsyncStorage.removeItem('just_logged_out');
-        // Make sure we're in logged out state
-        setIsAuthenticated(false);
-        setUsername(null);
-        setPassword(null);
-        setScreenName(null);
-        setAuthCode(null);
-        setAuthCodeExpiry(null);
-        setIsInitializing(false);
-        console.log('=== AUTH INITIALIZATION COMPLETE (LOGGED OUT) ===');
-        return;
-      }
-
-      // Only load auth state if user didn't just log out
+      // Load auth state from storage
       await loadAuthState();
       setIsInitializing(false);
       console.log('=== AUTH INITIALIZATION COMPLETE ===');
@@ -230,9 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await apiService.login(inputUsername, inputPassword, inputScreenName, deviceId);
       
       if (response.success) {
-        // Clear logout flag
-        await AsyncStorage.removeItem('just_logged_out');
-        
         // Store credentials on successful login
         await AsyncStorage.setItem('username', inputUsername);
         await AsyncStorage.setItem('password', inputPassword);
@@ -316,9 +294,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.data.status === 'authenticated' && response.data.credentials) {
           const creds = response.data.credentials;
           
-          // Clear logout flag
-          await AsyncStorage.removeItem('just_logged_out');
-          
           // Store credentials
           await AsyncStorage.setItem('username', creds.screen_username);
           await AsyncStorage.setItem('password', creds.screen_password);
@@ -399,17 +374,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
-      // Clear stored credentials from AsyncStorage
-      console.log('Clearing stored credentials from AsyncStorage');
+      // CRITICAL: Clear ALL stored credentials from AsyncStorage FIRST
+      console.log('Clearing ALL stored credentials from AsyncStorage');
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
-      // Set logout flag to prevent auto-login - THIS IS CRITICAL
-      await AsyncStorage.setItem('just_logged_out', 'true');
-      console.log('✓ Logout flag set in AsyncStorage');
-      
-      // Clear state
+      // Clear state immediately
       console.log('Clearing authentication state');
       setUsername(null);
       setPassword(null);
@@ -420,14 +391,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsScreenActive(false);
       
       console.log('✓ Logout successful - credentials cleared');
-      console.log('=== FORCING COMPLETE APP RESTART ===');
       
-      // Force a complete app restart to clear all cache and state
-      // Use a small delay to ensure AsyncStorage writes complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait a moment to ensure all async operations complete
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      console.log('Calling Updates.reloadAsync() to restart app...');
-      await Updates.reloadAsync();
+      console.log('=== CLOSING APP COMPLETELY ===');
+      
+      // Platform-specific app closing
+      if (Platform.OS === 'android') {
+        console.log('Android: Closing app with BackHandler.exitApp()');
+        BackHandler.exitApp();
+      } else if (Platform.OS === 'ios') {
+        console.log('iOS: Apps cannot be programmatically closed per Apple guidelines');
+        console.log('User must manually close and reopen the app');
+        // On iOS, we can't close the app programmatically
+        // The user will need to manually close and reopen
+        // The credentials are already cleared, so on next open they'll see login screen
+      } else {
+        console.log('Web/Other platform: Reloading page');
+        // For web or other platforms, just reload
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      }
       
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
@@ -436,7 +422,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem('username');
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
-      await AsyncStorage.setItem('just_logged_out', 'true');
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -445,13 +430,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setIsScreenActive(false);
       
-      // Try to reload even if there was an error
+      // Try to exit/reload even if there was an error
       try {
-        console.log('Attempting app reload after error...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await Updates.reloadAsync();
-      } catch (reloadError) {
-        console.error('Failed to reload app:', reloadError);
+        console.log('Attempting app exit/reload after error...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (Platform.OS === 'android') {
+          BackHandler.exitApp();
+        } else if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      } catch (exitError) {
+        console.error('Failed to exit/reload app:', exitError);
       }
     }
   };

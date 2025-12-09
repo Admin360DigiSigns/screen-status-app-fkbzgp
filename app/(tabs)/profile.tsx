@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
 
@@ -8,9 +8,13 @@ export default function ProfileScreen() {
   const { username, screenName, logout } = useAuth();
 
   const handleLogout = async () => {
+    const message = Platform.OS === 'ios' 
+      ? 'Are you sure you want to logout? You will need to manually close and reopen the app after logout.'
+      : 'Are you sure you want to logout? The app will close completely.';
+    
     Alert.alert(
       'Logout',
-      'Are you sure you want to logout? The app will restart.',
+      message,
       [
         {
           text: 'Cancel',
@@ -21,8 +25,6 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             console.log('User confirmed logout - initiating logout process');
-            // Just call logout - it will handle the app restart
-            // Do NOT navigate after logout as the app will restart
             await logout();
           },
         },
@@ -56,7 +58,9 @@ export default function ProfileScreen() {
       
       <View style={styles.infoBox}>
         <Text style={styles.infoText}>
-          ℹ️ Logging out will restart the app completely to clear all cached data.
+          {Platform.OS === 'ios' 
+            ? 'ℹ️ On iOS, you will need to manually close and reopen the app after logout to complete the process.'
+            : 'ℹ️ Logging out will close the app completely. Reopen it to login again.'}
         </Text>
       </View>
     </ScrollView>
