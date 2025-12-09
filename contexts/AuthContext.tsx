@@ -21,6 +21,7 @@ interface AuthContextType {
   checkAuthenticationStatus: () => Promise<{ success: boolean; authenticated: boolean; credentials?: { username: string; password: string; screenName: string }; error?: string }>;
   logout: () => Promise<void>;
   setScreenActive: (active: boolean) => void;
+  forceGenerateNewCode: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLoggingOutRef = useRef(false);
+  const logoutVersionRef = useRef(0); // Track logout version to prevent stale state
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -396,6 +398,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const forceGenerateNewCode = async () => {
+    console.log('');
+    console.log('🔄 FORCE GENERATING NEW CODE');
+    console.log('This is called after logout to get a fresh authentication code');
+    
+    if (!deviceId) {
+      console.error('❌ Cannot generate code - no device ID');
+      return;
+    }
+
+    try {
+      const result = await loginWithCode();
+      if (result.success) {
+        console.log('✅ New code generated successfully:', result.code);
+      } else {
+        console.error('❌ Failed to generate new code:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Exception generating new code:', error);
+    }
+    console.log('');
+  };
+
   const logout = async () => {
     // Prevent multiple simultaneous logout calls
     if (isLoggingOutRef.current) {
@@ -404,11 +429,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     isLoggingOutRef.current = true;
+    const currentLogoutVersion = ++logoutVersionRef.current;
 
     try {
       console.log('');
       console.log('═══════════════════════════════════════════════════════');
       console.log('🚪 LOGOUT INITIATED - COMPLETE CLEANUP STARTING');
+      console.log('Logout Version:', currentLogoutVersion);
       console.log('═══════════════════════════════════════════════════════');
       console.log('');
 
@@ -515,9 +542,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('    - logout flag:', verifyLogoutFlag === 'true' ? '✓ SET' : '✗ NOT SET');
 
       // ============================================================
-      // STEP 8: FORCE NAVIGATION TO LOGIN
+      // STEP 8: WAIT A MOMENT FOR STATE TO SETTLE
       // ============================================================
-      console.log('🔄 STEP 8: Forcing navigation to login screen...');
+      console.log('⏳ STEP 8: Waiting for state to settle...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('  ✓ State settled');
+
+      // ============================================================
+      // STEP 9: FORCE NAVIGATION TO LOGIN
+      // ============================================================
+      console.log('🔄 STEP 9: Forcing navigation to login screen...');
       
       // Use replace to prevent going back
       try {
@@ -527,6 +561,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('  ⚠️  Error navigating to login:', error);
       }
 
+      // ============================================================
+      // STEP 10: GENERATE NEW CODE AFTER NAVIGATION
+      // ============================================================
+      console.log('🔐 STEP 10: Scheduling new code generation...');
+      // Wait a bit for navigation to complete, then generate new code
+      setTimeout(async () => {
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('🔐 POST-LOGOUT CODE GENERATION');
+        console.log('═══════════════════════════════════════════════════════');
+        
+        if (deviceId) {
+          try {
+            console.log('Generating new authentication code...');
+            const result = await apiService.generateDisplayCode(deviceId);
+            
+            if (result.success && result.data) {
+              console.log('✅ New code generated:', result.data.code);
+              console.log('Expires at:', result.data.expires_at);
+              
+              // Update state with new code
+              setAuthCode(result.data.code);
+              setAuthCodeExpiry(result.data.expires_at);
+            } else {
+              console.error('❌ Failed to generate new code:', result.error);
+            }
+          } catch (error) {
+            console.error('❌ Exception generating new code:', error);
+          }
+        } else {
+          console.error('❌ Cannot generate code - no device ID');
+        }
+        
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('');
+      }, 500);
+
       console.log('');
       console.log('═══════════════════════════════════════════════════════');
       console.log('✅ LOGOUT COMPLETE - ALL CLEANUP SUCCESSFUL');
@@ -534,6 +605,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('📱 User will see login screen with fresh code generation');
       console.log('🔒 All credentials and sessions cleared');
       console.log('🚫 Auto-login prevented by logout flag');
+      console.log('🔐 New authentication code will be generated');
       console.log('═══════════════════════════════════════════════════════');
       console.log('');
 
@@ -616,7 +688,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginWithCode,
       checkAuthenticationStatus,
       logout,
-      setScreenActive 
+      setScreenActive,
+      forceGenerateNewCode
     }}>
       {children}
     </AuthContext.Provider>

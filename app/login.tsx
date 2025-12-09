@@ -41,6 +41,7 @@ export default function LoginScreen() {
   const hasGeneratedCodeRef = useRef(false);
   const isGeneratingRef = useRef(false);
   const mountedRef = useRef(false);
+  const lastContextCodeRef = useRef<string | null>(null);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -62,6 +63,7 @@ export default function LoginScreen() {
     if (contextAuthCode && contextAuthCode !== authCode) {
       console.log('🔄 Syncing auth code from context:', contextAuthCode);
       setAuthCode(contextAuthCode);
+      lastContextCodeRef.current = contextAuthCode;
       
       if (contextAuthCodeExpiry) {
         const expiry = new Date(contextAuthCodeExpiry);
@@ -118,20 +120,42 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // CRITICAL: Reset generation flags when context code is cleared (after logout)
+  // CRITICAL: Detect when context code is cleared (after logout) and reset flags
   useEffect(() => {
-    if (!contextAuthCode && hasGeneratedCodeRef.current) {
+    // If context code was cleared (went from having a code to null)
+    if (lastContextCodeRef.current && !contextAuthCode) {
       console.log('');
-      console.log('🔄 Context code cleared - RESETTING generation flags');
-      console.log('This allows fresh code generation after logout');
+      console.log('🔄 CONTEXT CODE CLEARED - Resetting for fresh generation');
+      console.log('Previous code:', lastContextCodeRef.current);
+      console.log('Current code:', contextAuthCode);
+      
+      // Reset all generation flags
       hasGeneratedCodeRef.current = false;
       isGeneratingRef.current = false;
+      
+      // Clear local state
       setAuthCode(null);
       setExpiryTime(null);
       setTimeRemaining('');
-      console.log('✓ Generation flags reset - ready for new code');
+      setErrorMessage(null);
+      
+      // Clear intervals
+      if (authCheckIntervalRef.current) {
+        clearInterval(authCheckIntervalRef.current);
+        authCheckIntervalRef.current = null;
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      
+      console.log('✓ All flags and state reset');
+      console.log('✓ Ready for fresh code generation');
       console.log('');
     }
+    
+    // Update the last known context code
+    lastContextCodeRef.current = contextAuthCode;
   }, [contextAuthCode]);
 
   // Generate code after initialization completes
