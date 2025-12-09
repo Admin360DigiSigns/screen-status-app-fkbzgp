@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Screen Status",
@@ -6,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/natively-dark.png",
       "resizeMode": "contain",
@@ -16,11 +16,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.digisigns.digisignsapp",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "This app needs camera access for WebRTC screen sharing",
-        "NSMicrophoneUsageDescription": "This app needs microphone access for WebRTC screen sharing"
+        "ITSAppUsesNonExemptEncryption": false
       },
-      "bitcode": false
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,19 +26,12 @@
         "backgroundColor": "#000000"
       },
       "package": "com.digisigns.digisignsapp",
+      "versionCode": 1,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
-        "WAKE_LOCK",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "BLUETOOTH",
-        "BLUETOOTH_CONNECT"
-      ],
-      "minSdkVersion": 24,
-      "compileSdkVersion": 35,
-      "targetSdkVersion": 35
+        "WAKE_LOCK"
+      ]
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -48,8 +39,7 @@
     },
     "plugins": [
       "expo-font",
-      "expo-router",
-      "expo-web-browser"
+      "expo-router"
     ],
     "scheme": "digisigns",
     "experiments": {
