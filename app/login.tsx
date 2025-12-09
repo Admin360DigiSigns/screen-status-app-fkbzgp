@@ -10,6 +10,7 @@ import {
   Image,
   Animated,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -48,6 +49,8 @@ export default function LoginScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const isTVDevice = isTV();
+  const screenDimensions = Dimensions.get('window');
+  const isLargeScreen = screenDimensions.width >= 1024;
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -111,15 +114,6 @@ export default function LoginScreen() {
 
   // Generate code after initialization completes - SIMPLIFIED LOGIC
   useEffect(() => {
-    // Only generate if:
-    // 1. Initialization is complete
-    // 2. User is NOT authenticated
-    // 3. Device ID is available
-    // 4. Network is connected
-    // 5. No code exists yet (neither in context nor local state)
-    // 6. Haven't generated yet
-    // 7. Not currently generating
-    // 8. Component is mounted
     const shouldGenerate = 
       !isInitializing && 
       !isAuthenticated && 
@@ -200,7 +194,7 @@ export default function LoginScreen() {
           console.log('Code expired, auto-regenerating');
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
-          setAuthCode(null); // Clear local code to trigger regeneration
+          setAuthCode(null);
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -218,13 +212,11 @@ export default function LoginScreen() {
   }, [expiryTime]);
 
   const handleGenerateCode = async () => {
-    // Prevent multiple simultaneous calls
     if (isGeneratingRef.current) {
       console.log('Code generation already in progress, skipping');
       return;
     }
 
-    // Don't generate if authenticated
     if (isAuthenticated) {
       console.log('User is authenticated, skipping code generation');
       return;
@@ -267,13 +259,11 @@ export default function LoginScreen() {
         console.log('✓ Code generated successfully:', result.code);
         setAuthCode(result.code);
         
-        // Set expiry time (10 minutes from now)
         const expiry = new Date();
         expiry.setMinutes(expiry.getMinutes() + 10);
         setExpiryTime(expiry);
         console.log('Code expires at:', expiry.toISOString());
 
-        // Start checking for authentication
         startAuthenticationCheck(result.code);
       } else {
         const errorMsg = result.error || 'Failed to generate authentication code. Please try again.';
@@ -308,12 +298,10 @@ export default function LoginScreen() {
     console.log('Starting authentication check for code:', code);
     setIsCheckingAuth(true);
 
-    // Clear any existing interval
     if (authCheckIntervalRef.current) {
       clearInterval(authCheckIntervalRef.current);
     }
 
-    // Check every 3 seconds
     authCheckIntervalRef.current = setInterval(async () => {
       console.log('Checking authentication status...');
       
@@ -323,31 +311,25 @@ export default function LoginScreen() {
         if (result.authenticated && result.credentials) {
           console.log('✓ Authentication successful!');
           
-          // Clear interval
           if (authCheckIntervalRef.current) {
             clearInterval(authCheckIntervalRef.current);
             authCheckIntervalRef.current = null;
           }
           
           setIsCheckingAuth(false);
-          
-          // Navigate to home
           router.replace('/(tabs)/(home)');
         } else if (result.error === 'Code expired') {
           console.log('Code expired, generating new one...');
           
-          // Clear interval
           if (authCheckIntervalRef.current) {
             clearInterval(authCheckIntervalRef.current);
             authCheckIntervalRef.current = null;
           }
           
           setIsCheckingAuth(false);
-          
-          // Generate new code
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
-          setAuthCode(null); // Clear local code to trigger regeneration
+          setAuthCode(null);
           handleGenerateCode();
         }
       } catch (error) {
@@ -377,8 +359,38 @@ export default function LoginScreen() {
     );
   }
 
-  // TV Layout
-  if (isTVDevice) {
+  // Calculate responsive sizes for TV
+  const getResponsiveSizes = () => {
+    const width = screenDimensions.width;
+    const height = screenDimensions.height;
+    
+    if (isTVDevice || isLargeScreen) {
+      // TV or large screen sizes
+      return {
+        qrSize: Math.min(width * 0.25, height * 0.45, 400),
+        codeSize: Math.min(width * 0.08, 80),
+        logoWidth: Math.min(width * 0.25, 400),
+        logoHeight: Math.min(height * 0.12, 140),
+        containerMaxWidth: Math.min(width * 0.85, 1400),
+        spacing: 40,
+      };
+    } else {
+      // Mobile sizes
+      return {
+        qrSize: Math.min(width * 0.5, 200),
+        codeSize: 36,
+        logoWidth: Math.min(width * 0.6, 240),
+        logoHeight: 100,
+        containerMaxWidth: width * 0.9,
+        spacing: 24,
+      };
+    }
+  };
+
+  const sizes = getResponsiveSizes();
+
+  // TV Layout - QR on left, Code on right
+  if (isTVDevice || isLargeScreen) {
     return (
       <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
         <LinearGradient
@@ -387,10 +399,10 @@ export default function LoginScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }] }]}>
+          <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
             <Image
               source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.tvLogo}
+              style={[styles.tvLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
               resizeMode="contain"
             />
             
@@ -430,34 +442,45 @@ export default function LoginScreen() {
                     Scan QR Code or Enter Code on Web App
                   </Text>
                   
-                  <View style={styles.tvQRContainer}>
-                    <View style={styles.tvQRWrapper}>
-                      <QRCode
-                        value={authCode}
-                        size={300}
-                        backgroundColor="white"
-                        color="black"
-                      />
+                  {/* QR Code on Left, Code on Right - Horizontal Layout */}
+                  <View style={styles.tvHorizontalLayout}>
+                    {/* QR Code Section - Left */}
+                    <View style={styles.tvQRSection}>
+                      <View style={styles.tvQRWrapper}>
+                        <QRCode
+                          value={authCode}
+                          size={sizes.qrSize}
+                          backgroundColor="white"
+                          color="black"
+                        />
+                      </View>
+                      <Text style={styles.tvQRLabel}>Scan with your device</Text>
+                    </View>
+
+                    {/* Divider */}
+                    <View style={styles.tvDivider} />
+
+                    {/* Code Section - Right */}
+                    <View style={styles.tvCodeSection}>
+                      <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
+                        <Text style={styles.tvCodeLabel}>Authentication Code</Text>
+                        <Text style={[styles.tvCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
+                      </Animated.View>
+
+                      <View style={styles.tvTimerContainer}>
+                        <Text style={styles.tvTimerText}>
+                          {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
+                        </Text>
+                      </View>
+
+                      {isCheckingAuth && (
+                        <View style={styles.tvCheckingContainer}>
+                          <ActivityIndicator size="small" color="#3B82F6" />
+                          <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
-
-                  <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
-                    <Text style={styles.tvCodeLabel}>Authentication Code</Text>
-                    <Text style={styles.tvCodeText}>{authCode}</Text>
-                  </Animated.View>
-
-                  <View style={styles.tvTimerContainer}>
-                    <Text style={styles.tvTimerText}>
-                      {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
-                    </Text>
-                  </View>
-
-                  {isCheckingAuth && (
-                    <View style={styles.tvCheckingContainer}>
-                      <ActivityIndicator size="small" color="#3B82F6" />
-                      <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
-                    </View>
-                  )}
                 </LinearGradient>
               </View>
             ) : (
@@ -481,7 +504,7 @@ export default function LoginScreen() {
     );
   }
 
-  // Mobile Layout
+  // Mobile Layout - Vertical stacking
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
       <LinearGradient
@@ -497,7 +520,7 @@ export default function LoginScreen() {
           <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
             <Image
               source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.mobileLogo}
+              style={[styles.mobileLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
               resizeMode="contain"
             />
             
@@ -549,7 +572,7 @@ export default function LoginScreen() {
                     <View style={styles.mobileQRWrapper}>
                       <QRCode
                         value={authCode}
-                        size={200}
+                        size={sizes.qrSize}
                         backgroundColor="white"
                         color="black"
                       />
@@ -558,7 +581,7 @@ export default function LoginScreen() {
 
                   <Animated.View style={[styles.mobileCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
                     <Text style={styles.mobileCodeLabel}>Authentication Code</Text>
-                    <Text style={styles.mobileCodeText}>{authCode}</Text>
+                    <Text style={[styles.mobileCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
                   </Animated.View>
 
                   <View style={styles.mobileTimerContainer}>
@@ -620,8 +643,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   mobileLogo: {
-    width: 240,
-    height: 100,
     marginBottom: 32,
   },
   mobileConnectionBadgeContainer: {
@@ -736,7 +757,6 @@ const styles = StyleSheet.create({
   },
   mobileCodeText: {
     color: '#FFFFFF',
-    fontSize: 36,
     fontWeight: 'bold',
     letterSpacing: 8,
   },
@@ -776,7 +796,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // TV styles
+  // TV styles - Professional horizontal layout
   tvContainer: {
     flex: 1,
   },
@@ -789,13 +809,10 @@ const styles = StyleSheet.create({
   },
   tvContent: {
     width: '100%',
-    maxWidth: 1400,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tvLogo: {
-    width: 400,
-    height: 140,
     marginBottom: 40,
   },
   tvConnectionBadgeContainer: {
@@ -860,13 +877,23 @@ const styles = StyleSheet.create({
   },
   tvInstructionText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
+    letterSpacing: 0.5,
   },
-  tvQRContainer: {
-    marginBottom: 40,
+  // NEW: Horizontal layout for QR and Code
+  tvHorizontalLayout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    gap: 60,
+  },
+  tvQRSection: {
+    alignItems: 'center',
+    flex: 1,
   },
   tvQRWrapper: {
     padding: 24,
@@ -877,6 +904,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+  tvQRLabel: {
+    color: '#93C5FD',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  tvDivider: {
+    width: 2,
+    height: '80%',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  tvCodeSection: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   tvCodeDisplay: {
     alignItems: 'center',
@@ -890,18 +934,18 @@ const styles = StyleSheet.create({
   },
   tvCodeLabel: {
     color: '#93C5FD',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 16,
+    letterSpacing: 0.5,
   },
   tvCodeText: {
     color: '#FFFFFF',
-    fontSize: 56,
     fontWeight: 'bold',
     letterSpacing: 16,
   },
   tvTimerContainer: {
-    marginBottom: 30,
+    marginBottom: 20,
   },
   tvTimerText: {
     color: '#93C5FD',
@@ -912,7 +956,6 @@ const styles = StyleSheet.create({
   tvCheckingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
   },
   tvCheckingText: {
     color: '#93C5FD',
