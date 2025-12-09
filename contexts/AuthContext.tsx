@@ -5,6 +5,7 @@ import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
 import * as Network from 'expo-network';
 import { commandListener } from '@/utils/commandListener';
+import { router } from 'expo-router';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -36,59 +37,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitializing, setIsInitializing] = useState(true);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isLoggingOutRef = useRef(false);
 
   const initializeAuth = useCallback(async () => {
     try {
       console.log('=== INITIALIZING AUTH ===');
       setIsInitializing(true);
       
-      // Get device ID first
-      const id = await getDeviceId();
-      setDeviceId(id);
-      console.log('Device ID initialized:', id);
-
-      // Initialize command listener with device ID
-      commandListener.initialize(id);
-
-      // CRITICAL: Check logout flag FIRST before doing ANYTHING else
+      // CRITICAL STEP 1: Check logout flag IMMEDIATELY before anything else
       const logoutFlag = await AsyncStorage.getItem('just_logged_out');
-      console.log('Logout flag check:', logoutFlag);
+      console.log('🔍 Checking logout flag:', logoutFlag);
       
       if (logoutFlag === 'true') {
         console.log('🚨 LOGOUT FLAG DETECTED - User just logged out');
-        console.log('Clearing logout flag and ensuring clean state');
+        console.log('⛔ BLOCKING all credential loading');
         
         // Remove the logout flag
         await AsyncStorage.removeItem('just_logged_out');
+        console.log('✓ Logout flag removed');
         
-        // Double-check: Clear ALL auth-related items from AsyncStorage
-        await AsyncStorage.removeItem('username');
-        await AsyncStorage.removeItem('password');
-        await AsyncStorage.removeItem('screenName');
-        await AsyncStorage.removeItem('deviceId');
+        // FORCE clear ALL auth-related items (double-check)
+        const keysToRemove = [
+          'username',
+          'password',
+          'screenName',
+          'authCode',
+          'authCodeExpiry',
+        ];
         
-        // Set state to logged out
+        console.log('🧹 Force clearing all auth keys:', keysToRemove);
+        await AsyncStorage.multiRemove(keysToRemove);
+        
+        // Get device ID (this is the only thing we need)
+        const id = await getDeviceId();
+        setDeviceId(id);
+        console.log('✓ Device ID set:', id);
+        
+        // Initialize command listener with device ID
+        commandListener.initialize(id);
+        
+        // FORCE logged out state
         setIsAuthenticated(false);
         setUsername(null);
         setPassword(null);
         setScreenName(null);
         setAuthCode(null);
         setAuthCodeExpiry(null);
+        setIsScreenActive(false);
         
-        console.log('✓ Logout state confirmed - all credentials cleared');
-        console.log('User will see login screen with new code generation');
+        console.log('✅ LOGOUT STATE CONFIRMED - All credentials cleared');
+        console.log('📱 User will see login screen with fresh code generation');
         setIsInitializing(false);
-        console.log('=== AUTH INITIALIZATION COMPLETE (LOGGED OUT STATE) ===');
+        console.log('=== AUTH INITIALIZATION COMPLETE (LOGGED OUT) ===');
         return;
       }
 
-      // Only load auth state if user didn't just log out
-      console.log('No logout flag - checking for stored credentials');
+      // STEP 2: Get device ID
+      const id = await getDeviceId();
+      setDeviceId(id);
+      console.log('✓ Device ID initialized:', id);
+
+      // Initialize command listener with device ID
+      commandListener.initialize(id);
+
+      // STEP 3: Only load auth state if user didn't just log out
+      console.log('📂 No logout flag - checking for stored credentials');
       await loadAuthState();
       setIsInitializing(false);
       console.log('=== AUTH INITIALIZATION COMPLETE ===');
     } catch (error) {
-      console.error('Error initializing auth:', error);
+      console.error('❌ Error initializing auth:', error);
       setIsInitializing(false);
     }
   }, []);
@@ -200,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadAuthState = async () => {
     try {
-      console.log('Loading auth state from AsyncStorage...');
+      console.log('📂 Loading auth state from AsyncStorage...');
       
       const storedUsername = await AsyncStorage.getItem('username');
       const storedPassword = await AsyncStorage.getItem('password');
@@ -222,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✗ No stored credentials found - user needs to login');
       }
     } catch (error) {
-      console.error('Error loading auth state:', error);
+      console.error('❌ Error loading auth state:', error);
     }
   };
 
@@ -379,28 +397,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    // Prevent multiple simultaneous logout calls
+    if (isLoggingOutRef.current) {
+      console.log('⏸️ Logout already in progress, skipping duplicate call');
+      return;
+    }
+
+    isLoggingOutRef.current = true;
+
     try {
-      console.log('=== LOGOUT INITIATED ===');
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('🚪 LOGOUT INITIATED - COMPLETE CLEANUP STARTING');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('');
+
+      // ============================================================
+      // STEP 1: STOP ALL INTERVALS IMMEDIATELY
+      // ============================================================
+      console.log('⏹️  STEP 1: Stopping all intervals...');
       
-      // STEP 1: Clear all intervals immediately
       if (statusIntervalRef.current) {
-        console.log('Clearing status interval during logout');
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
+        console.log('  ✓ Status interval cleared');
       }
 
       if (authCheckIntervalRef.current) {
-        console.log('Clearing auth check interval during logout');
         clearInterval(authCheckIntervalRef.current);
         authCheckIntervalRef.current = null;
+        console.log('  ✓ Auth check interval cleared');
       }
 
-      // STEP 2: Stop listening for commands
-      await commandListener.stopListening();
+      // ============================================================
+      // STEP 2: STOP COMMAND LISTENER
+      // ============================================================
+      console.log('⏹️  STEP 2: Stopping command listener...');
+      try {
+        await commandListener.stopListening();
+        console.log('  ✓ Command listener stopped');
+      } catch (error) {
+        console.error('  ⚠️  Error stopping command listener:', error);
+      }
 
-      // STEP 3: Send offline status before logging out
+      // ============================================================
+      // STEP 3: SEND OFFLINE STATUS (if possible)
+      // ============================================================
+      console.log('📡 STEP 3: Sending offline status...');
       if (deviceId && screenName && username && password) {
-        console.log('Sending offline status before logout');
         try {
           await apiService.sendDeviceStatus({
             deviceId,
@@ -411,15 +455,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: 'offline',
             timestamp: new Date().toISOString(),
           });
-          console.log('✓ Offline status sent');
+          console.log('  ✓ Offline status sent successfully');
         } catch (error) {
-          console.error('Error sending offline status:', error);
-          // Continue with logout even if status update fails
+          console.error('  ⚠️  Error sending offline status (continuing anyway):', error);
         }
+      } else {
+        console.log('  ⚠️  Skipping offline status (missing credentials)');
       }
 
-      // STEP 4: Clear ALL state variables FIRST
-      console.log('Clearing all authentication state variables');
+      // ============================================================
+      // STEP 4: CLEAR ALL STATE VARIABLES
+      // ============================================================
+      console.log('🧹 STEP 4: Clearing all state variables...');
       setIsAuthenticated(false);
       setUsername(null);
       setPassword(null);
@@ -427,42 +474,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCode(null);
       setAuthCodeExpiry(null);
       setIsScreenActive(false);
-      
-      // STEP 5: Clear ALL AsyncStorage items related to authentication
-      console.log('Clearing ALL stored credentials from AsyncStorage');
-      await AsyncStorage.multiRemove([
+      console.log('  ✓ All state variables cleared');
+
+      // ============================================================
+      // STEP 5: CLEAR ALL ASYNCSTORAGE ITEMS
+      // ============================================================
+      console.log('💾 STEP 5: Clearing AsyncStorage...');
+      const keysToRemove = [
         'username',
         'password',
         'screenName',
-        'deviceId',
         'authCode',
         'authCodeExpiry',
-      ]);
+      ];
       
-      // STEP 6: Set logout flag LAST (after everything is cleared)
+      console.log('  Keys to remove:', keysToRemove);
+      await AsyncStorage.multiRemove(keysToRemove);
+      console.log('  ✓ All auth keys removed from AsyncStorage');
+
+      // ============================================================
+      // STEP 6: SET LOGOUT FLAG (CRITICAL)
+      // ============================================================
+      console.log('🚩 STEP 6: Setting logout flag...');
       await AsyncStorage.setItem('just_logged_out', 'true');
-      console.log('✓ Logout flag set in AsyncStorage');
+      console.log('  ✓ Logout flag set to "true"');
+
+      // ============================================================
+      // STEP 7: VERIFY CLEANUP
+      // ============================================================
+      console.log('🔍 STEP 7: Verifying cleanup...');
+      const verifyUsername = await AsyncStorage.getItem('username');
+      const verifyPassword = await AsyncStorage.getItem('password');
+      const verifyScreenName = await AsyncStorage.getItem('screenName');
+      const verifyLogoutFlag = await AsyncStorage.getItem('just_logged_out');
       
-      console.log('✓ LOGOUT COMPLETE - All credentials and sessions cleared');
-      console.log('User will be redirected to login screen');
-      console.log('New authentication code will be generated automatically');
-      console.log('=== LOGOUT COMPLETE ===');
-    } catch (error) {
-      console.error('Error during logout:', error);
+      console.log('  Verification results:');
+      console.log('    - username:', verifyUsername === null ? '✓ CLEARED' : '✗ STILL EXISTS');
+      console.log('    - password:', verifyPassword === null ? '✓ CLEARED' : '✗ STILL EXISTS');
+      console.log('    - screenName:', verifyScreenName === null ? '✓ CLEARED' : '✗ STILL EXISTS');
+      console.log('    - logout flag:', verifyLogoutFlag === 'true' ? '✓ SET' : '✗ NOT SET');
+
+      // ============================================================
+      // STEP 8: FORCE NAVIGATION TO LOGIN
+      // ============================================================
+      console.log('🔄 STEP 8: Forcing navigation to login screen...');
       
-      // CRITICAL: Even if there's an error, ensure we clear everything
+      // Use replace to prevent going back
       try {
-        console.log('Error occurred - forcing cleanup');
-        await AsyncStorage.multiRemove([
-          'username',
-          'password',
-          'screenName',
-          'deviceId',
-          'authCode',
-          'authCodeExpiry',
-        ]);
-        await AsyncStorage.setItem('just_logged_out', 'true');
-        
+        router.replace('/login');
+        console.log('  ✓ Navigation to login screen initiated');
+      } catch (error) {
+        console.error('  ⚠️  Error navigating to login:', error);
+      }
+
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('✅ LOGOUT COMPLETE - ALL CLEANUP SUCCESSFUL');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📱 User will see login screen with fresh code generation');
+      console.log('🔒 All credentials and sessions cleared');
+      console.log('🚫 Auto-login prevented by logout flag');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('');
+
+    } catch (error) {
+      console.error('');
+      console.error('═══════════════════════════════════════════════════════');
+      console.error('❌ ERROR DURING LOGOUT');
+      console.error('═══════════════════════════════════════════════════════');
+      console.error('Error details:', error);
+      console.error('');
+      
+      // ============================================================
+      // EMERGENCY CLEANUP - FORCE EVERYTHING
+      // ============================================================
+      console.log('🚨 EMERGENCY CLEANUP - Forcing all operations...');
+      
+      try {
+        // Force clear state
         setIsAuthenticated(false);
         setUsername(null);
         setPassword(null);
@@ -470,11 +559,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAuthCode(null);
         setAuthCodeExpiry(null);
         setIsScreenActive(false);
-        
-        console.log('✓ Forced cleanup complete');
+        console.log('  ✓ State force-cleared');
+
+        // Force clear AsyncStorage
+        await AsyncStorage.multiRemove([
+          'username',
+          'password',
+          'screenName',
+          'authCode',
+          'authCodeExpiry',
+        ]);
+        console.log('  ✓ AsyncStorage force-cleared');
+
+        // Force set logout flag
+        await AsyncStorage.setItem('just_logged_out', 'true');
+        console.log('  ✓ Logout flag force-set');
+
+        // Force navigation
+        router.replace('/login');
+        console.log('  ✓ Navigation force-initiated');
+
+        console.log('');
+        console.log('✅ EMERGENCY CLEANUP COMPLETE');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('');
       } catch (cleanupError) {
-        console.error('Critical error during forced cleanup:', cleanupError);
+        console.error('');
+        console.error('💥 CRITICAL ERROR DURING EMERGENCY CLEANUP');
+        console.error('This should never happen. Please restart the app.');
+        console.error('Error:', cleanupError);
+        console.error('═══════════════════════════════════════════════════════');
+        console.error('');
       }
+    } finally {
+      // Reset the logout flag
+      isLoggingOutRef.current = false;
     }
   };
 

@@ -52,7 +52,7 @@ export default function LoginScreen() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('User is authenticated, redirecting to home');
+      console.log('✅ User is authenticated, redirecting to home');
       router.replace('/(tabs)/(home)');
     }
   }, [isAuthenticated]);
@@ -60,13 +60,13 @@ export default function LoginScreen() {
   // Sync with context auth code
   useEffect(() => {
     if (contextAuthCode && contextAuthCode !== authCode) {
-      console.log('Syncing auth code from context:', contextAuthCode);
+      console.log('🔄 Syncing auth code from context:', contextAuthCode);
       setAuthCode(contextAuthCode);
       
       if (contextAuthCodeExpiry) {
         const expiry = new Date(contextAuthCodeExpiry);
         setExpiryTime(expiry);
-        console.log('Code expires at:', expiry.toISOString());
+        console.log('⏰ Code expires at:', expiry.toISOString());
         
         // Start checking for authentication
         startAuthenticationCheck(contextAuthCode);
@@ -75,12 +75,17 @@ export default function LoginScreen() {
   }, [contextAuthCode, contextAuthCodeExpiry]);
 
   useEffect(() => {
-    console.log('=== LOGIN SCREEN MOUNTED ===');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('📱 LOGIN SCREEN MOUNTED');
+    console.log('═══════════════════════════════════════════════════════');
     console.log('Device ID:', deviceId);
     console.log('Is Authenticated:', isAuthenticated);
     console.log('Is Initializing:', isInitializing);
     console.log('Network Connected:', networkState.isConnected);
     console.log('Context Auth Code:', contextAuthCode);
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('');
     
     mountedRef.current = true;
     
@@ -98,7 +103,11 @@ export default function LoginScreen() {
     ]).start();
 
     return () => {
-      console.log('=== LOGIN SCREEN UNMOUNTING ===');
+      console.log('');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📱 LOGIN SCREEN UNMOUNTING');
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('');
       mountedRef.current = false;
       if (authCheckIntervalRef.current) {
         clearInterval(authCheckIntervalRef.current);
@@ -109,59 +118,58 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // Generate code after initialization completes - CRITICAL: Reset flags when context code is cleared
+  // CRITICAL: Reset generation flags when context code is cleared (after logout)
   useEffect(() => {
-    // If context code is null (cleared after logout), reset our generation flags
     if (!contextAuthCode && hasGeneratedCodeRef.current) {
-      console.log('Context code cleared - resetting generation flags for new code generation');
+      console.log('');
+      console.log('🔄 Context code cleared - RESETTING generation flags');
+      console.log('This allows fresh code generation after logout');
       hasGeneratedCodeRef.current = false;
       isGeneratingRef.current = false;
       setAuthCode(null);
+      setExpiryTime(null);
+      setTimeRemaining('');
+      console.log('✓ Generation flags reset - ready for new code');
+      console.log('');
     }
   }, [contextAuthCode]);
 
   // Generate code after initialization completes
   useEffect(() => {
-    // Only generate if:
-    // 1. Initialization is complete
-    // 2. User is NOT authenticated
-    // 3. Device ID is available
-    // 4. Network is connected
-    // 5. No code exists yet (neither in context nor local state)
-    // 6. Haven't generated yet
-    // 7. Not currently generating
-    // 8. Component is mounted
+    // Only generate if ALL conditions are met:
     const shouldGenerate = 
-      !isInitializing && 
-      !isAuthenticated && 
-      deviceId && 
-      networkState.isConnected && 
-      !contextAuthCode && 
-      !authCode &&
-      !hasGeneratedCodeRef.current && 
-      !isGeneratingRef.current &&
-      mountedRef.current;
+      !isInitializing &&                    // 1. Initialization complete
+      !isAuthenticated &&                   // 2. User NOT authenticated
+      deviceId &&                           // 3. Device ID available
+      networkState.isConnected &&           // 4. Network connected
+      !contextAuthCode &&                   // 5. No context code
+      !authCode &&                          // 6. No local code
+      !hasGeneratedCodeRef.current &&       // 7. Haven't generated yet
+      !isGeneratingRef.current &&           // 8. Not currently generating
+      mountedRef.current;                   // 9. Component mounted
 
     if (shouldGenerate) {
-      console.log('✓ All conditions met - generating code');
+      console.log('');
+      console.log('✅ ALL CONDITIONS MET - Generating code');
       console.log('Conditions:', {
-        isInitializing,
-        isAuthenticated,
+        isInitializing: !isInitializing,
+        isAuthenticated: !isAuthenticated,
         hasDeviceId: !!deviceId,
-        isConnected: networkState.isConnected,
-        hasContextCode: !!contextAuthCode,
-        hasLocalCode: !!authCode,
-        hasGenerated: hasGeneratedCodeRef.current,
-        isGenerating: isGeneratingRef.current,
+        isConnected: !!networkState.isConnected,
+        hasContextCode: !contextAuthCode,
+        hasLocalCode: !authCode,
+        hasGenerated: !hasGeneratedCodeRef.current,
+        isGenerating: !isGeneratingRef.current,
         isMounted: mountedRef.current,
       });
+      console.log('');
       handleGenerateCode();
     } else {
-      console.log('✗ Not generating code - conditions not met:', {
+      console.log('⏸️  Not generating code - conditions not met:', {
         isInitializing,
         isAuthenticated,
         hasDeviceId: !!deviceId,
-        isConnected: networkState.isConnected,
+        isConnected: !!networkState.isConnected,
         hasContextCode: !!contextAuthCode,
         hasLocalCode: !!authCode,
         hasGenerated: hasGeneratedCodeRef.current,
@@ -208,10 +216,10 @@ export default function LoginScreen() {
             clearInterval(timerIntervalRef.current);
           }
           // Auto-regenerate code
-          console.log('Code expired, auto-regenerating');
+          console.log('⏰ Code expired, auto-regenerating');
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
-          setAuthCode(null); // Clear local code to trigger regeneration
+          setAuthCode(null);
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -231,23 +239,26 @@ export default function LoginScreen() {
   const handleGenerateCode = async () => {
     // Prevent multiple simultaneous calls
     if (isGeneratingRef.current) {
-      console.log('Code generation already in progress, skipping');
+      console.log('⏸️  Code generation already in progress, skipping');
       return;
     }
 
     // Don't generate if authenticated
     if (isAuthenticated) {
-      console.log('User is authenticated, skipping code generation');
+      console.log('⏸️  User is authenticated, skipping code generation');
       return;
     }
 
-    console.log('=== HANDLE GENERATE CODE ===');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════');
+    console.log('🔐 GENERATING AUTHENTICATION CODE');
+    console.log('═══════════════════════════════════════════════════════');
     console.log('Network connected:', networkState.isConnected);
     console.log('Device ID:', deviceId);
     
     if (!networkState.isConnected) {
       const errorMsg = 'No Internet Connection - Please connect to the internet to generate a login code.';
-      console.error(errorMsg);
+      console.error('❌', errorMsg);
       setErrorMessage(errorMsg);
       Alert.alert(
         'No Internet Connection',
@@ -259,7 +270,7 @@ export default function LoginScreen() {
 
     if (!deviceId) {
       const errorMsg = 'Device ID not available yet. Please wait...';
-      console.error(errorMsg);
+      console.error('❌', errorMsg);
       setErrorMessage(errorMsg);
       return;
     }
@@ -268,27 +279,32 @@ export default function LoginScreen() {
     hasGeneratedCodeRef.current = true;
     setIsLoading(true);
     setErrorMessage(null);
-    console.log('Generating authentication code...');
+    console.log('🔄 Calling loginWithCode...');
 
     try {
       const result = await loginWithCode();
-      console.log('loginWithCode result:', result);
+      console.log('📥 loginWithCode result:', result);
       
       if (result.success && result.code) {
-        console.log('✓ Code generated successfully:', result.code);
+        console.log('✅ Code generated successfully:', result.code);
         setAuthCode(result.code);
         
         // Set expiry time (10 minutes from now)
         const expiry = new Date();
         expiry.setMinutes(expiry.getMinutes() + 10);
         setExpiryTime(expiry);
-        console.log('Code expires at:', expiry.toISOString());
+        console.log('⏰ Code expires at:', expiry.toISOString());
 
         // Start checking for authentication
         startAuthenticationCheck(result.code);
+        
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('✅ CODE GENERATION COMPLETE');
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('');
       } else {
         const errorMsg = result.error || 'Failed to generate authentication code. Please try again.';
-        console.error('✗ Failed to generate code:', errorMsg);
+        console.error('❌ Failed to generate code:', errorMsg);
         setErrorMessage(errorMsg);
         Alert.alert(
           'Error',
@@ -297,9 +313,11 @@ export default function LoginScreen() {
         );
         hasGeneratedCodeRef.current = false;
         isGeneratingRef.current = false;
+        console.log('═══════════════════════════════════════════════════════');
+        console.log('');
       }
     } catch (error) {
-      console.error('✗ Exception while generating code:', error);
+      console.error('❌ Exception while generating code:', error);
       const errorMsg = 'An error occurred while generating the code. Please try again.';
       setErrorMessage(errorMsg);
       Alert.alert(
@@ -309,6 +327,8 @@ export default function LoginScreen() {
       );
       hasGeneratedCodeRef.current = false;
       isGeneratingRef.current = false;
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('');
     } finally {
       setIsLoading(false);
       isGeneratingRef.current = false;
@@ -316,7 +336,7 @@ export default function LoginScreen() {
   };
 
   const startAuthenticationCheck = (code: string) => {
-    console.log('Starting authentication check for code:', code);
+    console.log('🔍 Starting authentication check for code:', code);
     setIsCheckingAuth(true);
 
     // Clear any existing interval
@@ -326,13 +346,13 @@ export default function LoginScreen() {
 
     // Check every 3 seconds
     authCheckIntervalRef.current = setInterval(async () => {
-      console.log('Checking authentication status...');
+      console.log('🔍 Checking authentication status...');
       
       try {
         const result = await checkAuthenticationStatus();
         
         if (result.authenticated && result.credentials) {
-          console.log('✓ Authentication successful!');
+          console.log('✅ Authentication successful!');
           
           // Clear interval
           if (authCheckIntervalRef.current) {
@@ -345,7 +365,7 @@ export default function LoginScreen() {
           // Navigate to home
           router.replace('/(tabs)/(home)');
         } else if (result.error === 'Code expired') {
-          console.log('Code expired, generating new one...');
+          console.log('⏰ Code expired, generating new one...');
           
           // Clear interval
           if (authCheckIntervalRef.current) {
@@ -358,11 +378,11 @@ export default function LoginScreen() {
           // Generate new code
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
-          setAuthCode(null); // Clear local code to trigger regeneration
+          setAuthCode(null);
           handleGenerateCode();
         }
       } catch (error) {
-        console.error('Error checking authentication:', error);
+        console.error('❌ Error checking authentication:', error);
       }
     }, 3000);
   };
