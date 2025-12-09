@@ -343,8 +343,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       console.log('=== LOGOUT INITIATED ===');
+      console.log('Step 1: Clearing intervals and listeners');
       
-      // Clear the intervals before logging out
+      // Step 1: Clear the intervals before logging out
       if (statusIntervalRef.current) {
         console.log('Clearing status interval during logout');
         clearInterval(statusIntervalRef.current);
@@ -360,28 +361,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Stop listening for commands
       await commandListener.stopListening();
 
-      // Send offline status before logging out
+      // Step 2: Send offline status before logging out
       if (deviceId && screenName && username && password) {
-        console.log('Sending offline status before logout');
-        await apiService.sendDeviceStatus({
-          deviceId,
-          screenName,
-          screen_username: username,
-          screen_password: password,
-          screen_name: screenName,
-          status: 'offline',
-          timestamp: new Date().toISOString(),
-        });
+        console.log('Step 2: Sending offline status before logout');
+        try {
+          await apiService.sendDeviceStatus({
+            deviceId,
+            screenName,
+            screen_username: username,
+            screen_password: password,
+            screen_name: screenName,
+            status: 'offline',
+            timestamp: new Date().toISOString(),
+          });
+          console.log('✓ Offline status sent successfully');
+        } catch (error) {
+          console.error('✗ Failed to send offline status:', error);
+          // Continue with logout even if this fails
+        }
       }
 
-      // CRITICAL: Clear ALL stored credentials from AsyncStorage FIRST
-      console.log('Clearing ALL stored credentials from AsyncStorage');
-      await AsyncStorage.removeItem('username');
-      await AsyncStorage.removeItem('password');
-      await AsyncStorage.removeItem('screenName');
+      // Step 3: CRITICAL - Clear backend authentication state
+      if (deviceId) {
+        console.log('Step 3: Clearing backend authentication state');
+        try {
+          const clearResult = await apiService.clearDeviceAuthentication(deviceId);
+          if (clearResult.success) {
+            console.log('✓ Backend authentication cleared successfully');
+          } else {
+            console.error('✗ Failed to clear backend authentication:', clearResult.error);
+            // Continue with logout even if this fails
+          }
+        } catch (error) {
+          console.error('✗ Exception while clearing backend authentication:', error);
+          // Continue with logout even if this fails
+        }
+      }
+
+      // Step 4: Clear ALL stored credentials from AsyncStorage
+      console.log('Step 4: Clearing ALL stored credentials from AsyncStorage');
+      try {
+        await AsyncStorage.multiRemove(['username', 'password', 'screenName']);
+        console.log('✓ AsyncStorage credentials cleared');
+      } catch (error) {
+        console.error('✗ Failed to clear AsyncStorage:', error);
+        // Try individual removal as fallback
+        try {
+          await AsyncStorage.removeItem('username');
+          await AsyncStorage.removeItem('password');
+          await AsyncStorage.removeItem('screenName');
+          console.log('✓ AsyncStorage credentials cleared (fallback method)');
+        } catch (fallbackError) {
+          console.error('✗ Fallback AsyncStorage clear also failed:', fallbackError);
+        }
+      }
       
-      // Clear state immediately
-      console.log('Clearing authentication state');
+      // Step 5: Clear state immediately
+      console.log('Step 5: Clearing authentication state');
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -390,14 +426,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(false);
       setIsScreenActive(false);
       
-      console.log('✓ Logout successful - credentials cleared');
+      console.log('✓ Logout successful - all credentials cleared');
       
-      // Wait a moment to ensure all async operations complete
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Step 6: Wait for all async operations to complete
+      console.log('Step 6: Waiting for async operations to complete');
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       console.log('=== CLOSING APP COMPLETELY ===');
       
-      // Platform-specific app closing
+      // Step 7: Platform-specific app closing
       if (Platform.OS === 'android') {
         console.log('Android: Closing app with BackHandler.exitApp()');
         BackHandler.exitApp();
@@ -417,11 +454,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
-      console.error('Error during logout:', error);
-      // Still clear state even if there's an error
-      await AsyncStorage.removeItem('username');
-      await AsyncStorage.removeItem('password');
-      await AsyncStorage.removeItem('screenName');
+      console.error('✗ CRITICAL ERROR during logout:', error);
+      
+      // Emergency cleanup - try to clear everything even if there was an error
+      console.log('Attempting emergency cleanup...');
+      try {
+        await AsyncStorage.multiRemove(['username', 'password', 'screenName']);
+      } catch (cleanupError) {
+        console.error('Emergency cleanup failed:', cleanupError);
+      }
+      
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -433,7 +475,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try to exit/reload even if there was an error
       try {
         console.log('Attempting app exit/reload after error...');
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 500));
         if (Platform.OS === 'android') {
           BackHandler.exitApp();
         } else if (typeof window !== 'undefined') {

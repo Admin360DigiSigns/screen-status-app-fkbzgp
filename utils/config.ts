@@ -10,6 +10,7 @@
  * 1. Mobile app generates code using /generate-display-code
  * 2. Web portal authenticates using /authenticate-with-code
  * 3. Mobile app polls for credentials using /get-display-credentials
+ * 4. On logout, mobile app clears backend auth using /clear-device-authentication
  */
 
 export const SUPABASE_CONFIG = {
@@ -43,6 +44,7 @@ export const API_ENDPOINTS = {
   generateDisplayCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/generate-display-code`,
   authenticateWithCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/authenticate-with-code`,
   getDisplayCredentials: `${CONTENT_PROJECT_CONFIG.functionsUrl}/get-display-credentials`,
+  clearDeviceAuthentication: `${CONTENT_PROJECT_CONFIG.functionsUrl}/clear-device-authentication`,
   
   // Content and Status Endpoints (Content Project)
   displayStatus: `${CONTENT_PROJECT_CONFIG.functionsUrl}/display-status`,

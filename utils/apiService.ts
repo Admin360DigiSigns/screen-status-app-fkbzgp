@@ -415,6 +415,69 @@ export const getDisplayCredentials = async (
   }
 };
 
+/**
+ * Clear device authentication from backend
+ * This should be called during logout to ensure the device starts fresh
+ * 
+ * Endpoint: POST /clear-device-authentication
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+ * 
+ * Request Body:
+ * {
+ *   "device_id": "unique-device-identifier"
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Device authentication cleared successfully"
+ * }
+ */
+export const clearDeviceAuthentication = async (
+  deviceId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('=== CLEARING DEVICE AUTHENTICATION ===');
+    console.log('Device ID:', deviceId);
+    console.log('API Endpoint:', API_ENDPOINTS.clearDeviceAuthentication);
+    
+    const response = await fetch(API_ENDPOINTS.clearDeviceAuthentication, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ device_id: deviceId }),
+    });
+
+    console.log('Clear auth response status:', response.status);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✓ Device authentication cleared successfully:', data);
+      return {
+        success: true,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('✗ Failed to clear device authentication:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to clear device authentication',
+      };
+    }
+  } catch (error) {
+    console.error('✗ Error clearing device authentication:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+};
+
 // Legacy auth code methods (kept for backward compatibility)
 export interface GenerateAuthCodeResponse {
   code: string;
