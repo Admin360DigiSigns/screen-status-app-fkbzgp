@@ -109,7 +109,18 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // Generate code after initialization completes - SIMPLIFIED LOGIC
+  // Generate code after initialization completes - CRITICAL: Reset flags when context code is cleared
+  useEffect(() => {
+    // If context code is null (cleared after logout), reset our generation flags
+    if (!contextAuthCode && hasGeneratedCodeRef.current) {
+      console.log('Context code cleared - resetting generation flags for new code generation');
+      hasGeneratedCodeRef.current = false;
+      isGeneratingRef.current = false;
+      setAuthCode(null);
+    }
+  }, [contextAuthCode]);
+
+  // Generate code after initialization completes
   useEffect(() => {
     // Only generate if:
     // 1. Initialization is complete
