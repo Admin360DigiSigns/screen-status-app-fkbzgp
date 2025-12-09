@@ -16,6 +16,8 @@ interface AuthContextType {
   authCode: string | null;
   authCodeExpiry: string | null;
   isInitializing: boolean;
+  isLoggingOut: boolean;
+  logoutProgress: string;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   loginWithCode: () => Promise<{ success: boolean; code?: string; error?: string }>;
   checkAuthenticationStatus: () => Promise<{ success: boolean; authenticated: boolean; credentials?: { username: string; password: string; screenName: string }; error?: string }>;
@@ -44,6 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authCodeExpiry, setAuthCodeExpiry] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutProgress, setLogoutProgress] = useState('');
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -365,12 +369,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('');
       console.log('╔════════════════════════════════════════════════════════════════╗');
-      console.log('║                    ROBUST LOGOUT INITIATED                     ║');
+      console.log('║                    LOGOUT INITIATED                            ║');
       console.log('╚════════════════════════════════════════════════════════════════╝');
       console.log('');
       
+      setIsLoggingOut(true);
+      setLogoutProgress('Give us a moment while we log you out...');
+      
       // STEP 1: Set logout flag FIRST to prevent auto-login
       console.log('┌─ STEP 1: Setting logout flag to prevent auto-login');
+      setLogoutProgress('Setting logout flag...');
       try {
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
         console.log('└─ ✓ Logout flag set successfully');
@@ -381,6 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // STEP 2: Clear intervals and listeners
       console.log('┌─ STEP 2: Clearing intervals and listeners');
+      setLogoutProgress('Stopping background services...');
       if (statusIntervalRef.current) {
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
@@ -398,6 +407,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // STEP 3: Send offline status
       if (deviceId && screenName && username && password) {
         console.log('┌─ STEP 3: Sending offline status to backend');
+        setLogoutProgress('Sending offline status...');
         try {
           await apiService.sendDeviceStatus({
             deviceId,
@@ -420,6 +430,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // STEP 4: CRITICAL - Clear backend authentication state
       if (deviceId) {
         console.log('┌─ STEP 4: Clearing backend authentication state');
+        setLogoutProgress('Clearing backend authentication...');
         console.log('│  This is CRITICAL to prevent auto-login after app restart');
         try {
           const clearResult = await apiService.clearDeviceAuthentication(deviceId);
@@ -441,6 +452,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // STEP 5: Clear ALL local storage
       console.log('┌─ STEP 5: Clearing ALL local storage');
+      setLogoutProgress('Clearing local data...');
       const keysToRemove = [
         STORAGE_KEYS.USERNAME,
         STORAGE_KEYS.PASSWORD,
@@ -484,6 +496,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // STEP 6: Clear state
       console.log('┌─ STEP 6: Clearing authentication state');
+      setLogoutProgress('Clearing session...');
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -496,8 +509,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // STEP 7: Wait for async operations
       console.log('┌─ STEP 7: Waiting for async operations to complete');
+      setLogoutProgress('Finalizing logout...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       console.log('└─ ✓ Wait complete');
+      console.log('');
+      
+      // STEP 8: Generate new authentication code
+      console.log('┌─ STEP 8: Generating new authentication code');
+      setLogoutProgress('Generating new authentication code...');
+      try {
+        const codeResult = await loginWithCode();
+        if (codeResult.success && codeResult.code) {
+          console.log('└─ ✓ New authentication code generated:', codeResult.code);
+        } else {
+          console.error('└─ ✗ Failed to generate new code:', codeResult.error);
+        }
+      } catch (error) {
+        console.error('└─ ✗ Exception while generating new code:', error);
+      }
       console.log('');
       
       console.log('╔════════════════════════════════════════════════════════════════╗');
@@ -506,35 +535,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('║  ✓ Backend authentication cleared                             ║');
       console.log('║  ✓ Local storage cleared                                      ║');
       console.log('║  ✓ State cleared                                              ║');
-      console.log('║  ✓ Logout flag set                                            ║');
+      console.log('║  ✓ New authentication code generated                          ║');
       console.log('║                                                                ║');
-      console.log('║  The app will now close. On next launch:                      ║');
-      console.log('║  • Device will NOT auto-login                                 ║');
-      console.log('║  • Fresh authentication code will be generated                ║');
-      console.log('║  • User must authenticate via web portal                      ║');
+      console.log('║  User is now on login screen with fresh code                  ║');
       console.log('╚════════════════════════════════════════════════════════════════╝');
       console.log('');
       
-      // STEP 8: Close the app
-      console.log('┌─ STEP 8: Closing application');
-      if (Platform.OS === 'android') {
-        console.log('│  Platform: Android');
-        console.log('│  Method: BackHandler.exitApp()');
-        console.log('└─ Closing app now...');
-        BackHandler.exitApp();
-      } else if (Platform.OS === 'ios') {
-        console.log('│  Platform: iOS');
-        console.log('│  Note: iOS apps cannot be programmatically closed');
-        console.log('│  Action: User must manually close the app');
-        console.log('└─ ⚠️ Please close the app manually and reopen it');
-      } else {
-        console.log('│  Platform: Web/Other');
-        console.log('│  Method: window.location.reload()');
-        console.log('└─ Reloading page now...');
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      }
+      setIsLoggingOut(false);
+      setLogoutProgress('');
       
     } catch (error) {
       console.error('');
@@ -546,6 +554,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // EMERGENCY CLEANUP
       console.log('┌─ EMERGENCY CLEANUP: Attempting to clear everything');
+      setLogoutProgress('Emergency cleanup...');
       try {
         // Set logout flag
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
@@ -579,18 +588,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('└─ ✓ State cleared');
       console.log('');
       
-      // Try to exit/reload
+      // Try to generate new code
       try {
-        console.log('Attempting to close/reload app after error...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        if (Platform.OS === 'android') {
-          BackHandler.exitApp();
-        } else if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      } catch (exitError) {
-        console.error('Failed to exit/reload app:', exitError);
+        console.log('Attempting to generate new code after error...');
+        setLogoutProgress('Generating new code...');
+        await loginWithCode();
+      } catch (codeError) {
+        console.error('Failed to generate new code:', codeError);
       }
+      
+      setIsLoggingOut(false);
+      setLogoutProgress('');
     }
   };
 
@@ -609,6 +617,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authCode,
       authCodeExpiry,
       isInitializing,
+      isLoggingOut,
+      logoutProgress,
       login, 
       loginWithCode,
       checkAuthenticationStatus,

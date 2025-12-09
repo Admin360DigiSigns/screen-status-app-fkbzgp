@@ -11,6 +11,7 @@ import {
   Animated,
   ActivityIndicator,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +29,9 @@ export default function LoginScreen() {
     isAuthenticated, 
     authCode: contextAuthCode, 
     authCodeExpiry: contextAuthCodeExpiry,
-    isInitializing 
+    isInitializing,
+    isLoggingOut,
+    logoutProgress
   } = useAuth();
   const networkState = useNetworkState();
   const [authCode, setAuthCode] = useState<string | null>(null);
@@ -47,10 +50,28 @@ export default function LoginScreen() {
   const fadeInAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const logoutModalAnim = useRef(new Animated.Value(0)).current;
 
   const isTVDevice = isTV();
   const screenDimensions = Dimensions.get('window');
   const isLargeScreen = screenDimensions.width >= 1024;
+
+  // Animate logout modal
+  useEffect(() => {
+    if (isLoggingOut) {
+      Animated.timing(logoutModalAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(logoutModalAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isLoggingOut]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -340,6 +361,56 @@ export default function LoginScreen() {
 
   const isOnline = networkState.isConnected === true;
 
+  // Logout Progress Modal
+  const LogoutModal = () => (
+    <Modal
+      visible={isLoggingOut}
+      transparent={true}
+      animationType="none"
+    >
+      <Animated.View 
+        style={[
+          styles.logoutModalOverlay,
+          {
+            opacity: logoutModalAnim,
+          }
+        ]}
+      >
+        <Animated.View 
+          style={[
+            styles.logoutModalContent,
+            {
+              transform: [
+                {
+                  scale: logoutModalAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+              ],
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={['#1E293B', '#334155']}
+            style={styles.logoutModalGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text style={styles.logoutModalTitle}>Logging Out</Text>
+            <Text style={styles.logoutModalMessage}>{logoutProgress}</Text>
+            <View style={styles.logoutModalDots}>
+              <Animated.View style={[styles.logoutDot, { opacity: pulseAnim }]} />
+              <Animated.View style={[styles.logoutDot, { opacity: pulseAnim }]} />
+              <Animated.View style={[styles.logoutDot, { opacity: pulseAnim }]} />
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+
   // Show initializing state
   if (isInitializing) {
     return (
@@ -395,61 +466,192 @@ export default function LoginScreen() {
   // TV Layout - QR on left, Code on right
   if (isTVDevice || isLargeScreen) {
     return (
-      <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
+      <>
+        <LogoutModal />
+        <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
+          <LinearGradient
+            colors={['#0F172A', '#1E293B', '#334155']}
+            style={styles.tvGradientBackground}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
+              <Image
+                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+                style={[styles.tvLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
+                resizeMode="contain"
+              />
+              
+              <View style={styles.tvConnectionBadgeContainer}>
+                <LinearGradient
+                  colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                  style={styles.tvConnectionBadge}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.tvConnectionText}>
+                    {isOnline ? '● Connected' : '● Offline'}
+                  </Text>
+                </LinearGradient>
+              </View>
+
+              {errorMessage && (
+                <View style={styles.tvErrorCard}>
+                  <Text style={styles.tvErrorText}>⚠️ {errorMessage}</Text>
+                </View>
+              )}
+
+              {isLoading ? (
+                <View style={styles.tvLoadingContainer}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={styles.tvLoadingText}>Generating code...</Text>
+                </View>
+              ) : authCode ? (
+                <View style={styles.tvCodeContainer}>
+                  <LinearGradient
+                    colors={['#1E293B', '#334155']}
+                    style={styles.tvCodeCard}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                  >
+                    <Text style={styles.tvInstructionText}>
+                      Scan QR Code or Enter Code on Web App
+                    </Text>
+                    
+                    {/* QR Code on Left, Code on Right - Horizontal Layout */}
+                    <View style={styles.tvHorizontalLayout}>
+                      {/* QR Code Section - Left */}
+                      <View style={styles.tvQRSection}>
+                        <View style={styles.tvQRWrapper}>
+                          <QRCode
+                            value={authCode}
+                            size={sizes.qrSize}
+                            backgroundColor="white"
+                            color="black"
+                          />
+                        </View>
+                        <Text style={styles.tvQRLabel}>Scan with your device</Text>
+                      </View>
+
+                      {/* Divider */}
+                      <View style={styles.tvDivider} />
+
+                      {/* Code Section - Right */}
+                      <View style={styles.tvCodeSection}>
+                        <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
+                          <Text style={styles.tvCodeLabel}>Authentication Code</Text>
+                          <Text style={[styles.tvCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
+                        </Animated.View>
+
+                        <View style={styles.tvTimerContainer}>
+                          <Text style={styles.tvTimerText}>
+                            {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
+                          </Text>
+                        </View>
+
+                        {isCheckingAuth && (
+                          <View style={styles.tvCheckingContainer}>
+                            <ActivityIndicator size="small" color="#3B82F6" />
+                            <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </LinearGradient>
+                </View>
+              ) : (
+                <View style={styles.tvLoadingContainer}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={styles.tvLoadingText}>Preparing login...</Text>
+                </View>
+              )}
+
+              <View style={styles.tvInfoBox}>
+                <Text style={styles.tvInfoText}>
+                  Device ID: {deviceId || 'Loading...'}
+                </Text>
+                <Text style={styles.tvInfoText}>
+                  Fresh authentication session - No auto-login
+                </Text>
+                <Text style={styles.tvInfoText}>
+                  Code will automatically regenerate when expired
+                </Text>
+              </View>
+            </Animated.View>
+          </LinearGradient>
+        </Animated.View>
+      </>
+    );
+  }
+
+  // Mobile Layout - Vertical stacking
+  return (
+    <>
+      <LogoutModal />
+      <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
         <LinearGradient
           colors={['#0F172A', '#1E293B', '#334155']}
-          style={styles.tvGradientBackground}
+          style={styles.mobileGradientBackground}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={[styles.tvLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
-              resizeMode="contain"
-            />
-            
-            <View style={styles.tvConnectionBadgeContainer}>
-              <LinearGradient
-                colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
-                style={styles.tvConnectionBadge}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.tvConnectionText}>
-                  {isOnline ? '● Connected' : '● Offline'}
-                </Text>
-              </LinearGradient>
-            </View>
-
-            {errorMessage && (
-              <View style={styles.tvErrorCard}>
-                <Text style={styles.tvErrorText}>⚠️ {errorMessage}</Text>
-              </View>
-            )}
-
-            {isLoading ? (
-              <View style={styles.tvLoadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.tvLoadingText}>Generating code...</Text>
-              </View>
-            ) : authCode ? (
-              <View style={styles.tvCodeContainer}>
+          <ScrollView
+            contentContainerStyle={styles.mobileScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
+              <Image
+                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+                style={[styles.mobileLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
+                resizeMode="contain"
+              />
+              
+              <View style={styles.mobileConnectionBadgeContainer}>
                 <LinearGradient
-                  colors={['#1E293B', '#334155']}
-                  style={styles.tvCodeCard}
+                  colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
+                  style={styles.mobileConnectionBadge}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
+                  end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.tvInstructionText}>
-                    Scan QR Code or Enter Code on Web App
+                  <Text style={styles.mobileConnectionText}>
+                    {isOnline ? '● Connected' : '● Offline'}
                   </Text>
-                  
-                  {/* QR Code on Left, Code on Right - Horizontal Layout */}
-                  <View style={styles.tvHorizontalLayout}>
-                    {/* QR Code Section - Left */}
-                    <View style={styles.tvQRSection}>
-                      <View style={styles.tvQRWrapper}>
+                </LinearGradient>
+              </View>
+
+              {!isOnline && (
+                <View style={styles.mobileWarningCard}>
+                  <Text style={styles.mobileWarningText}>
+                    ⚠️ Internet connection required to login
+                  </Text>
+                </View>
+              )}
+
+              {errorMessage && (
+                <View style={styles.mobileErrorCard}>
+                  <Text style={styles.mobileErrorText}>⚠️ {errorMessage}</Text>
+                </View>
+              )}
+
+              {isLoading ? (
+                <View style={styles.mobileLoadingContainer}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={styles.mobileLoadingText}>Generating code...</Text>
+                </View>
+              ) : authCode ? (
+                <View style={styles.mobileCodeContainer}>
+                  <LinearGradient
+                    colors={['#1E293B', '#334155']}
+                    style={styles.mobileCodeCard}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                  >
+                    <Text style={styles.mobileInstructionText}>
+                      Scan QR Code or Enter Code on Web App
+                    </Text>
+                    
+                    <View style={styles.mobileQRContainer}>
+                      <View style={styles.mobileQRWrapper}>
                         <QRCode
                           value={authCode}
                           size={sizes.qrSize}
@@ -457,184 +659,105 @@ export default function LoginScreen() {
                           color="black"
                         />
                       </View>
-                      <Text style={styles.tvQRLabel}>Scan with your device</Text>
                     </View>
 
-                    {/* Divider */}
-                    <View style={styles.tvDivider} />
+                    <Animated.View style={[styles.mobileCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
+                      <Text style={styles.mobileCodeLabel}>Authentication Code</Text>
+                      <Text style={[styles.mobileCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
+                    </Animated.View>
 
-                    {/* Code Section - Right */}
-                    <View style={styles.tvCodeSection}>
-                      <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
-                        <Text style={styles.tvCodeLabel}>Authentication Code</Text>
-                        <Text style={[styles.tvCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
-                      </Animated.View>
+                    <View style={styles.mobileTimerContainer}>
+                      <Text style={styles.mobileTimerText}>
+                        {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
+                      </Text>
+                    </View>
 
-                      <View style={styles.tvTimerContainer}>
-                        <Text style={styles.tvTimerText}>
-                          {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
-                        </Text>
+                    {isCheckingAuth && (
+                      <View style={styles.mobileCheckingContainer}>
+                        <ActivityIndicator size="small" color="#3B82F6" />
+                        <Text style={styles.mobileCheckingText}>Waiting for authentication...</Text>
                       </View>
+                    )}
+                  </LinearGradient>
+                </View>
+              ) : (
+                <View style={styles.mobileLoadingContainer}>
+                  <ActivityIndicator size="large" color="#3B82F6" />
+                  <Text style={styles.mobileLoadingText}>Preparing login...</Text>
+                </View>
+              )}
 
-                      {isCheckingAuth && (
-                        <View style={styles.tvCheckingContainer}>
-                          <ActivityIndicator size="small" color="#3B82F6" />
-                          <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </LinearGradient>
+              <View style={styles.mobileInfoBox}>
+                <Text style={styles.mobileInfoText}>
+                  Device ID: {deviceId || 'Loading...'}
+                </Text>
+                <Text style={styles.mobileInfoText}>
+                  Fresh authentication session - No auto-login
+                </Text>
+                <Text style={styles.mobileInfoText}>
+                  Enter the code on your web app to authenticate this device
+                </Text>
+                {Platform.OS === 'ios' && (
+                  <Text style={[styles.mobileInfoText, { color: '#FCA5A5', fontWeight: 'bold' }]}>
+                    iOS Note: After logout, manually close and reopen the app
+                  </Text>
+                )}
               </View>
-            ) : (
-              <View style={styles.tvLoadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.tvLoadingText}>Preparing login...</Text>
-              </View>
-            )}
-
-            <View style={styles.tvInfoBox}>
-              <Text style={styles.tvInfoText}>
-                Device ID: {deviceId || 'Loading...'}
-              </Text>
-              <Text style={styles.tvInfoText}>
-                Fresh authentication session - No auto-login
-              </Text>
-              <Text style={styles.tvInfoText}>
-                Code will automatically regenerate when expired
-              </Text>
-            </View>
-          </Animated.View>
+            </Animated.View>
+          </ScrollView>
         </LinearGradient>
       </Animated.View>
-    );
-  }
-
-  // Mobile Layout - Vertical stacking
-  return (
-    <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
-      <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
-        style={styles.mobileGradientBackground}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={styles.mobileScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={[styles.mobileLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
-              resizeMode="contain"
-            />
-            
-            <View style={styles.mobileConnectionBadgeContainer}>
-              <LinearGradient
-                colors={isOnline ? ['#10B981', '#059669'] : ['#EF4444', '#DC2626']}
-                style={styles.mobileConnectionBadge}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Text style={styles.mobileConnectionText}>
-                  {isOnline ? '● Connected' : '● Offline'}
-                </Text>
-              </LinearGradient>
-            </View>
-
-            {!isOnline && (
-              <View style={styles.mobileWarningCard}>
-                <Text style={styles.mobileWarningText}>
-                  ⚠️ Internet connection required to login
-                </Text>
-              </View>
-            )}
-
-            {errorMessage && (
-              <View style={styles.mobileErrorCard}>
-                <Text style={styles.mobileErrorText}>⚠️ {errorMessage}</Text>
-              </View>
-            )}
-
-            {isLoading ? (
-              <View style={styles.mobileLoadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.mobileLoadingText}>Generating code...</Text>
-              </View>
-            ) : authCode ? (
-              <View style={styles.mobileCodeContainer}>
-                <LinearGradient
-                  colors={['#1E293B', '#334155']}
-                  style={styles.mobileCodeCard}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                >
-                  <Text style={styles.mobileInstructionText}>
-                    Scan QR Code or Enter Code on Web App
-                  </Text>
-                  
-                  <View style={styles.mobileQRContainer}>
-                    <View style={styles.mobileQRWrapper}>
-                      <QRCode
-                        value={authCode}
-                        size={sizes.qrSize}
-                        backgroundColor="white"
-                        color="black"
-                      />
-                    </View>
-                  </View>
-
-                  <Animated.View style={[styles.mobileCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
-                    <Text style={styles.mobileCodeLabel}>Authentication Code</Text>
-                    <Text style={[styles.mobileCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
-                  </Animated.View>
-
-                  <View style={styles.mobileTimerContainer}>
-                    <Text style={styles.mobileTimerText}>
-                      {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
-                    </Text>
-                  </View>
-
-                  {isCheckingAuth && (
-                    <View style={styles.mobileCheckingContainer}>
-                      <ActivityIndicator size="small" color="#3B82F6" />
-                      <Text style={styles.mobileCheckingText}>Waiting for authentication...</Text>
-                    </View>
-                  )}
-                </LinearGradient>
-              </View>
-            ) : (
-              <View style={styles.mobileLoadingContainer}>
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text style={styles.mobileLoadingText}>Preparing login...</Text>
-              </View>
-            )}
-
-            <View style={styles.mobileInfoBox}>
-              <Text style={styles.mobileInfoText}>
-                Device ID: {deviceId || 'Loading...'}
-              </Text>
-              <Text style={styles.mobileInfoText}>
-                Fresh authentication session - No auto-login
-              </Text>
-              <Text style={styles.mobileInfoText}>
-                Enter the code on your web app to authenticate this device
-              </Text>
-              {Platform.OS === 'ios' && (
-                <Text style={[styles.mobileInfoText, { color: '#FCA5A5', fontWeight: 'bold' }]}>
-                  iOS Note: After logout, manually close and reopen the app
-                </Text>
-              )}
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </LinearGradient>
-    </Animated.View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  // Logout Modal Styles
+  logoutModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoutModalContent: {
+    width: '80%',
+    maxWidth: 400,
+    borderRadius: 20,
+    overflow: 'hidden',
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  logoutModalGradient: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  logoutModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  logoutModalMessage: {
+    fontSize: 16,
+    color: '#93C5FD',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  logoutModalDots: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  logoutDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3B82F6',
+  },
+
   // Mobile styles
   mobileContainer: {
     flex: 1,
