@@ -405,9 +405,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
-      // Set logout flag to prevent auto-login
+      // Set logout flag to prevent auto-login - THIS IS CRITICAL
       await AsyncStorage.setItem('just_logged_out', 'true');
-      console.log('Logout flag set in AsyncStorage');
+      console.log('✓ Logout flag set in AsyncStorage');
       
       // Clear state
       console.log('Clearing authentication state');
@@ -420,19 +420,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsScreenActive(false);
       
       console.log('✓ Logout successful - credentials cleared');
-      console.log('=== RESTARTING APP TO CLEAR CACHE ===');
+      console.log('=== FORCING COMPLETE APP RESTART ===');
       
-      // Restart the entire app to clear all cache and state
-      // This ensures a completely fresh start
-      if (__DEV__) {
-        // In development, use reloadAsync which works in Expo Go
-        console.log('Development mode: Using Updates.reloadAsync()');
-        await Updates.reloadAsync();
-      } else {
-        // In production, also use reloadAsync
-        console.log('Production mode: Using Updates.reloadAsync()');
-        await Updates.reloadAsync();
-      }
+      // Force a complete app restart to clear all cache and state
+      // Use a small delay to ensure AsyncStorage writes complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('Calling Updates.reloadAsync() to restart app...');
+      await Updates.reloadAsync();
       
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
@@ -453,6 +448,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Try to reload even if there was an error
       try {
         console.log('Attempting app reload after error...');
+        await new Promise(resolve => setTimeout(resolve, 100));
         await Updates.reloadAsync();
       } catch (reloadError) {
         console.error('Failed to reload app:', reloadError);

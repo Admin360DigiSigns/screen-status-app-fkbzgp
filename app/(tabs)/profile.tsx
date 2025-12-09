@@ -1,16 +1,33 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
-import { router } from 'expo-router';
 
 export default function ProfileScreen() {
   const { username, screenName, logout } = useAuth();
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/login');
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout? The app will restart.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            console.log('User confirmed logout - initiating logout process');
+            // Just call logout - it will handle the app restart
+            // Do NOT navigate after logout as the app will restart
+            await logout();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -36,6 +53,12 @@ export default function ProfileScreen() {
       >
         <Text style={styles.logoutButtonText}>Logout</Text>
       </TouchableOpacity>
+      
+      <View style={styles.infoBox}>
+        <Text style={styles.infoText}>
+          ℹ️ Logging out will restart the app completely to clear all cached data.
+        </Text>
+      </View>
     </ScrollView>
   );
 }
@@ -90,5 +113,19 @@ const styles = StyleSheet.create({
     color: colors.card,
     fontSize: 18,
     fontWeight: '600',
+  },
+  infoBox: {
+    marginTop: 24,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  infoText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
