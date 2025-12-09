@@ -1,10 +1,11 @@
-
-node_modules/
+# Ignore generated files
+_expo/
 dist/
-public/
-babel-plugins/
-.expo/
-android/
-ios/
-*.config.js
-metro.config.js
+web-build/
+
+# Ignore node modules
+node_modules/
+
+# Ignore build artifacts
+*.bundle.js
+*.bundle.js.map
