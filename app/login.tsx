@@ -27,7 +27,8 @@ export default function LoginScreen() {
     isAuthenticated, 
     authCode: contextAuthCode, 
     authCodeExpiry: contextAuthCodeExpiry,
-    isInitializing 
+    isInitializing,
+    logoutCounter
   } = useAuth();
   const networkState = useNetworkState();
   const [authCode, setAuthCode] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export default function LoginScreen() {
   const hasGeneratedCodeRef = useRef(false);
   const isGeneratingRef = useRef(false);
   const mountedRef = useRef(false);
-  const lastContextCodeRef = useRef<string | null>(null);
+  const lastLogoutCounterRef = useRef(logoutCounter);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -58,12 +59,49 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated]);
 
-  // Sync with context auth code
+  // CRITICAL: Detect logout and reset everything
+  useEffect(() => {
+    if (logoutCounter !== lastLogoutCounterRef.current) {
+      console.log('');
+      console.log('🔄 LOGOUT DETECTED - Counter changed from', lastLogoutCounterRef.current, 'to', logoutCounter);
+      console.log('Resetting all flags and state for fresh code generation');
+      
+      // Reset all generation flags
+      hasGeneratedCodeRef.current = false;
+      isGeneratingRef.current = false;
+      
+      // Clear local state
+      setAuthCode(null);
+      setExpiryTime(null);
+      setTimeRemaining('');
+      setErrorMessage(null);
+      setIsLoading(false);
+      setIsCheckingAuth(false);
+      
+      // Clear intervals
+      if (authCheckIntervalRef.current) {
+        clearInterval(authCheckIntervalRef.current);
+        authCheckIntervalRef.current = null;
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      
+      console.log('✓ All flags, state, and intervals reset');
+      console.log('✓ Ready for fresh code generation');
+      console.log('');
+      
+      // Update the last known logout counter
+      lastLogoutCounterRef.current = logoutCounter;
+    }
+  }, [logoutCounter]);
+
+  // Sync with context auth code (but only if it's not null)
   useEffect(() => {
     if (contextAuthCode && contextAuthCode !== authCode) {
       console.log('🔄 Syncing auth code from context:', contextAuthCode);
       setAuthCode(contextAuthCode);
-      lastContextCodeRef.current = contextAuthCode;
       
       if (contextAuthCodeExpiry) {
         const expiry = new Date(contextAuthCodeExpiry);
@@ -73,6 +111,12 @@ export default function LoginScreen() {
         // Start checking for authentication
         startAuthenticationCheck(contextAuthCode);
       }
+    } else if (!contextAuthCode && authCode) {
+      // Context code was cleared - this happens after logout
+      console.log('🔄 Context code cleared - resetting local code');
+      setAuthCode(null);
+      setExpiryTime(null);
+      setTimeRemaining('');
     }
   }, [contextAuthCode, contextAuthCodeExpiry]);
 
@@ -86,10 +130,12 @@ export default function LoginScreen() {
     console.log('Is Initializing:', isInitializing);
     console.log('Network Connected:', networkState.isConnected);
     console.log('Context Auth Code:', contextAuthCode);
+    console.log('Logout Counter:', logoutCounter);
     console.log('═══════════════════════════════════════════════════════');
     console.log('');
     
     mountedRef.current = true;
+    lastLogoutCounterRef.current = logoutCounter;
     
     Animated.parallel([
       Animated.timing(fadeInAnim, {
@@ -119,44 +165,6 @@ export default function LoginScreen() {
       }
     };
   }, []);
-
-  // CRITICAL: Detect when context code is cleared (after logout) and reset flags
-  useEffect(() => {
-    // If context code was cleared (went from having a code to null)
-    if (lastContextCodeRef.current && !contextAuthCode) {
-      console.log('');
-      console.log('🔄 CONTEXT CODE CLEARED - Resetting for fresh generation');
-      console.log('Previous code:', lastContextCodeRef.current);
-      console.log('Current code:', contextAuthCode);
-      
-      // Reset all generation flags
-      hasGeneratedCodeRef.current = false;
-      isGeneratingRef.current = false;
-      
-      // Clear local state
-      setAuthCode(null);
-      setExpiryTime(null);
-      setTimeRemaining('');
-      setErrorMessage(null);
-      
-      // Clear intervals
-      if (authCheckIntervalRef.current) {
-        clearInterval(authCheckIntervalRef.current);
-        authCheckIntervalRef.current = null;
-      }
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-      
-      console.log('✓ All flags and state reset');
-      console.log('✓ Ready for fresh code generation');
-      console.log('');
-    }
-    
-    // Update the last known context code
-    lastContextCodeRef.current = contextAuthCode;
-  }, [contextAuthCode]);
 
   // Generate code after initialization completes
   useEffect(() => {
@@ -279,6 +287,7 @@ export default function LoginScreen() {
     console.log('═══════════════════════════════════════════════════════');
     console.log('Network connected:', networkState.isConnected);
     console.log('Device ID:', deviceId);
+    console.log('Logout Counter:', logoutCounter);
     
     if (!networkState.isConnected) {
       const errorMsg = 'No Internet Connection - Please connect to the internet to generate a login code.';

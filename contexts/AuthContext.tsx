@@ -16,6 +16,7 @@ interface AuthContextType {
   authCode: string | null;
   authCodeExpiry: string | null;
   isInitializing: boolean;
+  logoutCounter: number;
   login: (username: string, password: string, screenName: string) => Promise<{ success: boolean; error?: string }>;
   loginWithCode: () => Promise<{ success: boolean; code?: string; error?: string }>;
   checkAuthenticationStatus: () => Promise<{ success: boolean; authenticated: boolean; credentials?: { username: string; password: string; screenName: string }; error?: string }>;
@@ -36,10 +37,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authCodeExpiry, setAuthCodeExpiry] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [logoutCounter, setLogoutCounter] = useState(0);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLoggingOutRef = useRef(false);
-  const logoutVersionRef = useRef(0); // Track logout version to prevent stale state
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -429,13 +430,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     isLoggingOutRef.current = true;
-    const currentLogoutVersion = ++logoutVersionRef.current;
 
     try {
       console.log('');
       console.log('═══════════════════════════════════════════════════════');
       console.log('🚪 LOGOUT INITIATED - COMPLETE CLEANUP STARTING');
-      console.log('Logout Version:', currentLogoutVersion);
       console.log('═══════════════════════════════════════════════════════');
       console.log('');
 
@@ -491,22 +490,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // ============================================================
-      // STEP 4: CLEAR ALL STATE VARIABLES
+      // STEP 4: CLEAR ALL STATE VARIABLES (INCLUDING AUTH CODE)
       // ============================================================
       console.log('🧹 STEP 4: Clearing all state variables...');
       setIsAuthenticated(false);
       setUsername(null);
       setPassword(null);
       setScreenName(null);
-      setAuthCode(null);
-      setAuthCodeExpiry(null);
+      setAuthCode(null);  // CRITICAL: Clear the auth code
+      setAuthCodeExpiry(null);  // CRITICAL: Clear the expiry
       setIsScreenActive(false);
-      console.log('  ✓ All state variables cleared');
+      console.log('  ✓ All state variables cleared (including auth code)');
 
       // ============================================================
-      // STEP 5: CLEAR ALL ASYNCSTORAGE ITEMS
+      // STEP 5: INCREMENT LOGOUT COUNTER
       // ============================================================
-      console.log('💾 STEP 5: Clearing AsyncStorage...');
+      console.log('🔢 STEP 5: Incrementing logout counter...');
+      setLogoutCounter(prev => {
+        const newCounter = prev + 1;
+        console.log(`  ✓ Logout counter: ${prev} → ${newCounter}`);
+        return newCounter;
+      });
+
+      // ============================================================
+      // STEP 6: CLEAR ALL ASYNCSTORAGE ITEMS
+      // ============================================================
+      console.log('💾 STEP 6: Clearing AsyncStorage...');
       const keysToRemove = [
         'username',
         'password',
@@ -520,16 +529,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('  ✓ All auth keys removed from AsyncStorage');
 
       // ============================================================
-      // STEP 6: SET LOGOUT FLAG (CRITICAL)
+      // STEP 7: SET LOGOUT FLAG (CRITICAL)
       // ============================================================
-      console.log('🚩 STEP 6: Setting logout flag...');
+      console.log('🚩 STEP 7: Setting logout flag...');
       await AsyncStorage.setItem('just_logged_out', 'true');
       console.log('  ✓ Logout flag set to "true"');
 
       // ============================================================
-      // STEP 7: VERIFY CLEANUP
+      // STEP 8: VERIFY CLEANUP
       // ============================================================
-      console.log('🔍 STEP 7: Verifying cleanup...');
+      console.log('🔍 STEP 8: Verifying cleanup...');
       const verifyUsername = await AsyncStorage.getItem('username');
       const verifyPassword = await AsyncStorage.getItem('password');
       const verifyScreenName = await AsyncStorage.getItem('screenName');
@@ -542,16 +551,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('    - logout flag:', verifyLogoutFlag === 'true' ? '✓ SET' : '✗ NOT SET');
 
       // ============================================================
-      // STEP 8: WAIT A MOMENT FOR STATE TO SETTLE
+      // STEP 9: WAIT A MOMENT FOR STATE TO SETTLE
       // ============================================================
-      console.log('⏳ STEP 8: Waiting for state to settle...');
-      await new Promise(resolve => setTimeout(resolve, 100));
+      console.log('⏳ STEP 9: Waiting for state to settle...');
+      await new Promise(resolve => setTimeout(resolve, 150));
       console.log('  ✓ State settled');
 
       // ============================================================
-      // STEP 9: FORCE NAVIGATION TO LOGIN
+      // STEP 10: FORCE NAVIGATION TO LOGIN
       // ============================================================
-      console.log('🔄 STEP 9: Forcing navigation to login screen...');
+      console.log('🔄 STEP 10: Forcing navigation to login screen...');
       
       // Use replace to prevent going back
       try {
@@ -561,51 +570,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('  ⚠️  Error navigating to login:', error);
       }
 
-      // ============================================================
-      // STEP 10: GENERATE NEW CODE AFTER NAVIGATION
-      // ============================================================
-      console.log('🔐 STEP 10: Scheduling new code generation...');
-      // Wait a bit for navigation to complete, then generate new code
-      setTimeout(async () => {
-        console.log('');
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('🔐 POST-LOGOUT CODE GENERATION');
-        console.log('═══════════════════════════════════════════════════════');
-        
-        if (deviceId) {
-          try {
-            console.log('Generating new authentication code...');
-            const result = await apiService.generateDisplayCode(deviceId);
-            
-            if (result.success && result.data) {
-              console.log('✅ New code generated:', result.data.code);
-              console.log('Expires at:', result.data.expires_at);
-              
-              // Update state with new code
-              setAuthCode(result.data.code);
-              setAuthCodeExpiry(result.data.expires_at);
-            } else {
-              console.error('❌ Failed to generate new code:', result.error);
-            }
-          } catch (error) {
-            console.error('❌ Exception generating new code:', error);
-          }
-        } else {
-          console.error('❌ Cannot generate code - no device ID');
-        }
-        
-        console.log('═══════════════════════════════════════════════════════');
-        console.log('');
-      }, 500);
-
       console.log('');
       console.log('═══════════════════════════════════════════════════════');
       console.log('✅ LOGOUT COMPLETE - ALL CLEANUP SUCCESSFUL');
       console.log('═══════════════════════════════════════════════════════');
-      console.log('📱 User will see login screen with fresh code generation');
+      console.log('📱 User will see login screen');
       console.log('🔒 All credentials and sessions cleared');
       console.log('🚫 Auto-login prevented by logout flag');
-      console.log('🔐 New authentication code will be generated');
+      console.log('🔐 Login screen will generate fresh authentication code');
+      console.log('🔢 Logout counter incremented to trigger fresh state');
       console.log('═══════════════════════════════════════════════════════');
       console.log('');
 
@@ -631,6 +604,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAuthCode(null);
         setAuthCodeExpiry(null);
         setIsScreenActive(false);
+        setLogoutCounter(prev => prev + 1);
         console.log('  ✓ State force-cleared');
 
         // Force clear AsyncStorage
@@ -684,6 +658,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authCode,
       authCodeExpiry,
       isInitializing,
+      logoutCounter,
       login, 
       loginWithCode,
       checkAuthenticationStatus,
