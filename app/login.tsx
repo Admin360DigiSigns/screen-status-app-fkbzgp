@@ -43,6 +43,7 @@ export default function LoginScreen() {
   const isGeneratingRef = useRef(false);
   const mountedRef = useRef(false);
   const lastLogoutCounterRef = useRef(logoutCounter);
+  const currentAuthCodeRef = useRef<string | null>(null);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -69,6 +70,7 @@ export default function LoginScreen() {
       // Reset all generation flags
       hasGeneratedCodeRef.current = false;
       isGeneratingRef.current = false;
+      currentAuthCodeRef.current = null;
       
       // Clear local state
       setAuthCode(null);
@@ -101,7 +103,11 @@ export default function LoginScreen() {
   useEffect(() => {
     if (contextAuthCode && contextAuthCode !== authCode) {
       console.log('🔄 Syncing auth code from context:', contextAuthCode);
+      console.log('Previous code:', authCode);
+      console.log('Current code ref:', currentAuthCodeRef.current);
+      
       setAuthCode(contextAuthCode);
+      currentAuthCodeRef.current = contextAuthCode;
       
       if (contextAuthCodeExpiry) {
         const expiry = new Date(contextAuthCodeExpiry);
@@ -114,7 +120,9 @@ export default function LoginScreen() {
     } else if (!contextAuthCode && authCode) {
       // Context code was cleared - this happens after logout
       console.log('🔄 Context code cleared - resetting local code');
+      console.log('Previous code:', authCode);
       setAuthCode(null);
+      currentAuthCodeRef.current = null;
       setExpiryTime(null);
       setTimeRemaining('');
     }
@@ -252,6 +260,7 @@ export default function LoginScreen() {
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
           setAuthCode(null);
+          currentAuthCodeRef.current = null;
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -288,6 +297,7 @@ export default function LoginScreen() {
     console.log('Network connected:', networkState.isConnected);
     console.log('Device ID:', deviceId);
     console.log('Logout Counter:', logoutCounter);
+    console.log('Previous code:', currentAuthCodeRef.current);
     
     if (!networkState.isConnected) {
       const errorMsg = 'No Internet Connection - Please connect to the internet to generate a login code.';
@@ -320,7 +330,16 @@ export default function LoginScreen() {
       
       if (result.success && result.code) {
         console.log('✅ Code generated successfully:', result.code);
+        console.log('Previous code was:', currentAuthCodeRef.current);
+        console.log('New code is:', result.code);
+        
+        if (currentAuthCodeRef.current === result.code) {
+          console.warn('⚠️  WARNING: New code is same as previous code!');
+          console.warn('This might indicate the backend did not clear the old code properly');
+        }
+        
         setAuthCode(result.code);
+        currentAuthCodeRef.current = result.code;
         
         // Set expiry time (10 minutes from now)
         const expiry = new Date();
@@ -379,13 +398,14 @@ export default function LoginScreen() {
 
     // Check every 3 seconds
     authCheckIntervalRef.current = setInterval(async () => {
-      console.log('🔍 Checking authentication status...');
+      console.log('🔍 Checking authentication status for code:', code);
       
       try {
         const result = await checkAuthenticationStatus();
         
         if (result.authenticated && result.credentials) {
           console.log('✅ Authentication successful!');
+          console.log('Authenticated with code:', code);
           
           // Clear interval
           if (authCheckIntervalRef.current) {
@@ -412,6 +432,7 @@ export default function LoginScreen() {
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
           setAuthCode(null);
+          currentAuthCodeRef.current = null;
           handleGenerateCode();
         }
       } catch (error) {

@@ -512,9 +512,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // ============================================================
-      // STEP 4: SEND OFFLINE STATUS (if possible)
+      // STEP 4: CLEAR DEVICE AUTHENTICATION ON BACKEND
       // ============================================================
-      console.log('📡 STEP 4: Sending offline status...');
+      console.log('🧹 STEP 4: Clearing device authentication on backend...');
+      if (deviceId) {
+        try {
+          const clearResult = await apiService.clearDeviceAuthentication(deviceId);
+          if (clearResult.success) {
+            console.log('  ✓ Device authentication cleared on backend');
+          } else {
+            console.error('  ⚠️  Failed to clear device authentication:', clearResult.error);
+          }
+        } catch (error) {
+          console.error('  ⚠️  Error clearing device authentication (continuing anyway):', error);
+        }
+      } else {
+        console.log('  ⚠️  No device ID available, skipping backend clear');
+      }
+
+      // ============================================================
+      // STEP 5: SEND OFFLINE STATUS (if possible)
+      // ============================================================
+      console.log('📡 STEP 5: Sending offline status...');
       if (deviceId && screenName && username && password) {
         try {
           await apiService.sendDeviceStatus({
@@ -535,9 +554,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // ============================================================
-      // STEP 5: CLEAR ALL STATE VARIABLES (INCLUDING AUTH CODE)
+      // STEP 6: CLEAR ALL STATE VARIABLES (INCLUDING AUTH CODE)
       // ============================================================
-      console.log('🧹 STEP 5: Clearing all state variables...');
+      console.log('🧹 STEP 6: Clearing all state variables...');
       setIsAuthenticated(false);
       setUsername(null);
       setPassword(null);
@@ -548,9 +567,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('  ✓ All state variables cleared (including auth code)');
 
       // ============================================================
-      // STEP 6: CLEAR ALL ASYNCSTORAGE ITEMS
+      // STEP 7: CLEAR ALL ASYNCSTORAGE ITEMS
       // ============================================================
-      console.log('💾 STEP 6: Clearing AsyncStorage...');
+      console.log('💾 STEP 7: Clearing AsyncStorage...');
       const keysToRemove = [
         'username',
         'password',
@@ -564,9 +583,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('  ✓ All auth keys removed from AsyncStorage');
 
       // ============================================================
-      // STEP 7: VERIFY CLEANUP
+      // STEP 8: VERIFY CLEANUP
       // ============================================================
-      console.log('🔍 STEP 7: Verifying cleanup...');
+      console.log('🔍 STEP 8: Verifying cleanup...');
       const verifyUsername = await AsyncStorage.getItem('username');
       const verifyPassword = await AsyncStorage.getItem('password');
       const verifyScreenName = await AsyncStorage.getItem('screenName');
@@ -581,9 +600,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('    - logout flag:', verifyLogoutFlag === 'true' ? '✓ SET' : '✗ NOT SET');
 
       // ============================================================
-      // STEP 8: INCREMENT LOGOUT COUNTER
+      // STEP 9: INCREMENT LOGOUT COUNTER
       // ============================================================
-      console.log('🔢 STEP 8: Incrementing logout counter...');
+      console.log('🔢 STEP 9: Incrementing logout counter...');
       setLogoutCounter(prev => {
         const newCounter = prev + 1;
         console.log(`  ✓ Logout counter: ${prev} → ${newCounter}`);
@@ -591,9 +610,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       // ============================================================
-      // STEP 9: NAVIGATE TO LOGIN SCREEN
+      // STEP 10: NAVIGATE TO LOGIN SCREEN
       // ============================================================
-      console.log('🔄 STEP 9: Navigating to login screen...');
+      console.log('🔄 STEP 10: Navigating to login screen...');
       
       // Wait a tiny moment for state to settle
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -613,6 +632,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('📱 User will see login screen');
       console.log('🔒 All credentials and sessions cleared');
       console.log('🚫 Auto-login prevented by logout flag');
+      console.log('🧹 Backend device authentication cleared');
       console.log('🔐 Login screen will generate fresh authentication code');
       console.log('🔢 Logout counter incremented to trigger fresh state');
       console.log('═══════════════════════════════════════════════════════');
@@ -635,6 +655,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Force set logout flag FIRST
         await AsyncStorage.setItem('just_logged_out', 'true');
         console.log('  ✓ Logout flag force-set');
+
+        // Force clear device authentication
+        if (deviceId) {
+          try {
+            await apiService.clearDeviceAuthentication(deviceId);
+            console.log('  ✓ Device authentication force-cleared');
+          } catch (clearError) {
+            console.error('  ⚠️  Error force-clearing device auth:', clearError);
+          }
+        }
 
         // Force clear state
         setIsAuthenticated(false);
