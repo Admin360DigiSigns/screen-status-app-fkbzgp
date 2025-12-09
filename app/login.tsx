@@ -353,6 +353,9 @@ export default function LoginScreen() {
           <View style={styles.mobileLoadingContainer}>
             <ActivityIndicator size="large" color="#3B82F6" />
             <Text style={styles.mobileLoadingText}>Initializing...</Text>
+            <Text style={styles.mobileInfoText}>
+              Preparing fresh authentication session
+            </Text>
           </View>
         </LinearGradient>
       </View>
@@ -495,7 +498,10 @@ export default function LoginScreen() {
                 Device ID: {deviceId || 'Loading...'}
               </Text>
               <Text style={styles.tvInfoText}>
-                Code will automatically regenerate when expired or after logout
+                Fresh authentication session - No auto-login
+              </Text>
+              <Text style={styles.tvInfoText}>
+                Code will automatically regenerate when expired
               </Text>
             </View>
           </Animated.View>
@@ -610,11 +616,16 @@ export default function LoginScreen() {
                 Device ID: {deviceId || 'Loading...'}
               </Text>
               <Text style={styles.mobileInfoText}>
-                Enter the code on your web app to authenticate this device
+                Fresh authentication session - No auto-login
               </Text>
               <Text style={styles.mobileInfoText}>
-                Code will automatically regenerate when expired or after logout
+                Enter the code on your web app to authenticate this device
               </Text>
+              {Platform.OS === 'ios' && (
+                <Text style={[styles.mobileInfoText, { color: '#FCA5A5', fontWeight: 'bold' }]}>
+                  iOS Note: After logout, manually close and reopen the app
+                </Text>
+              )}
             </View>
           </Animated.View>
         </ScrollView>

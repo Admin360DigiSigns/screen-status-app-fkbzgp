@@ -25,6 +25,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Storage keys
+const STORAGE_KEYS = {
+  USERNAME: 'username',
+  PASSWORD: 'password',
+  SCREEN_NAME: 'screenName',
+  LOGOUT_FLAG: 'logout_flag',
+  DEVICE_ID: 'device_id',
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
@@ -50,6 +59,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Initialize command listener with device ID
       commandListener.initialize(id);
+
+      // Check if user just logged out
+      const logoutFlag = await AsyncStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG);
+      if (logoutFlag === 'true') {
+        console.log('⚠️ LOGOUT FLAG DETECTED - User just logged out');
+        console.log('Skipping auto-login to prevent re-authentication');
+        // Clear the logout flag
+        await AsyncStorage.removeItem(STORAGE_KEYS.LOGOUT_FLAG);
+        setIsInitializing(false);
+        console.log('=== AUTH INITIALIZATION COMPLETE (LOGGED OUT STATE) ===');
+        return;
+      }
 
       // Load auth state from storage
       await loadAuthState();
@@ -170,9 +191,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Loading auth state from AsyncStorage...');
       
-      const storedUsername = await AsyncStorage.getItem('username');
-      const storedPassword = await AsyncStorage.getItem('password');
-      const storedScreenName = await AsyncStorage.getItem('screenName');
+      const storedUsername = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
+      const storedPassword = await AsyncStorage.getItem(STORAGE_KEYS.PASSWORD);
+      const storedScreenName = await AsyncStorage.getItem(STORAGE_KEYS.SCREEN_NAME);
       
       console.log('Stored credentials check:', {
         hasUsername: !!storedUsername,
@@ -212,9 +233,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (response.success) {
         // Store credentials on successful login
-        await AsyncStorage.setItem('username', inputUsername);
-        await AsyncStorage.setItem('password', inputPassword);
-        await AsyncStorage.setItem('screenName', inputScreenName);
+        await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, inputUsername);
+        await AsyncStorage.setItem(STORAGE_KEYS.PASSWORD, inputPassword);
+        await AsyncStorage.setItem(STORAGE_KEYS.SCREEN_NAME, inputScreenName);
         
         setUsername(inputUsername);
         setPassword(inputPassword);
@@ -295,9 +316,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const creds = response.data.credentials;
           
           // Store credentials
-          await AsyncStorage.setItem('username', creds.screen_username);
-          await AsyncStorage.setItem('password', creds.screen_password);
-          await AsyncStorage.setItem('screenName', creds.screen_name);
+          await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, creds.screen_username);
+          await AsyncStorage.setItem(STORAGE_KEYS.PASSWORD, creds.screen_password);
+          await AsyncStorage.setItem(STORAGE_KEYS.SCREEN_NAME, creds.screen_name);
           
           setUsername(creds.screen_username);
           setPassword(creds.screen_password);
@@ -342,28 +363,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      console.log('=== LOGOUT INITIATED ===');
-      console.log('Step 1: Clearing intervals and listeners');
+      console.log('');
+      console.log('╔════════════════════════════════════════════════════════════════╗');
+      console.log('║                    ROBUST LOGOUT INITIATED                     ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
+      console.log('');
       
-      // Step 1: Clear the intervals before logging out
+      // STEP 1: Set logout flag FIRST to prevent auto-login
+      console.log('┌─ STEP 1: Setting logout flag to prevent auto-login');
+      try {
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+        console.log('└─ ✓ Logout flag set successfully');
+      } catch (error) {
+        console.error('└─ ✗ Failed to set logout flag:', error);
+      }
+      console.log('');
+      
+      // STEP 2: Clear intervals and listeners
+      console.log('┌─ STEP 2: Clearing intervals and listeners');
       if (statusIntervalRef.current) {
-        console.log('Clearing status interval during logout');
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
+        console.log('│  ✓ Status interval cleared');
       }
-
       if (authCheckIntervalRef.current) {
-        console.log('Clearing auth check interval during logout');
         clearInterval(authCheckIntervalRef.current);
         authCheckIntervalRef.current = null;
+        console.log('│  ✓ Auth check interval cleared');
       }
-
-      // Stop listening for commands
       await commandListener.stopListening();
+      console.log('└─ ✓ Command listener stopped');
+      console.log('');
 
-      // Step 2: Send offline status before logging out
+      // STEP 3: Send offline status
       if (deviceId && screenName && username && password) {
-        console.log('Step 2: Sending offline status before logout');
+        console.log('┌─ STEP 3: Sending offline status to backend');
         try {
           await apiService.sendDeviceStatus({
             deviceId,
@@ -374,50 +408,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: 'offline',
             timestamp: new Date().toISOString(),
           });
-          console.log('✓ Offline status sent successfully');
+          console.log('└─ ✓ Offline status sent successfully');
         } catch (error) {
-          console.error('✗ Failed to send offline status:', error);
-          // Continue with logout even if this fails
+          console.error('└─ ✗ Failed to send offline status:', error);
         }
+      } else {
+        console.log('└─ ⊘ Skipping offline status (missing credentials)');
       }
+      console.log('');
 
-      // Step 3: CRITICAL - Clear backend authentication state
+      // STEP 4: CRITICAL - Clear backend authentication state
       if (deviceId) {
-        console.log('Step 3: Clearing backend authentication state');
+        console.log('┌─ STEP 4: Clearing backend authentication state');
+        console.log('│  This is CRITICAL to prevent auto-login after app restart');
         try {
           const clearResult = await apiService.clearDeviceAuthentication(deviceId);
           if (clearResult.success) {
-            console.log('✓ Backend authentication cleared successfully');
+            console.log('└─ ✓ Backend authentication cleared successfully');
+            console.log('   Device will NOT auto-login on next app start');
           } else {
-            console.error('✗ Failed to clear backend authentication:', clearResult.error);
-            // Continue with logout even if this fails
+            console.error('└─ ✗ Failed to clear backend authentication:', clearResult.error);
+            console.error('   ⚠️ WARNING: Device may auto-login on next app start!');
           }
         } catch (error) {
-          console.error('✗ Exception while clearing backend authentication:', error);
-          // Continue with logout even if this fails
+          console.error('└─ ✗ Exception while clearing backend authentication:', error);
+          console.error('   ⚠️ WARNING: Device may auto-login on next app start!');
         }
+      } else {
+        console.log('└─ ⊘ Skipping backend clear (no device ID)');
       }
+      console.log('');
 
-      // Step 4: Clear ALL stored credentials from AsyncStorage
-      console.log('Step 4: Clearing ALL stored credentials from AsyncStorage');
+      // STEP 5: Clear ALL local storage
+      console.log('┌─ STEP 5: Clearing ALL local storage');
+      const keysToRemove = [
+        STORAGE_KEYS.USERNAME,
+        STORAGE_KEYS.PASSWORD,
+        STORAGE_KEYS.SCREEN_NAME,
+      ];
+      
       try {
-        await AsyncStorage.multiRemove(['username', 'password', 'screenName']);
-        console.log('✓ AsyncStorage credentials cleared');
+        await AsyncStorage.multiRemove(keysToRemove);
+        console.log('│  ✓ AsyncStorage cleared (multiRemove)');
       } catch (error) {
-        console.error('✗ Failed to clear AsyncStorage:', error);
-        // Try individual removal as fallback
-        try {
-          await AsyncStorage.removeItem('username');
-          await AsyncStorage.removeItem('password');
-          await AsyncStorage.removeItem('screenName');
-          console.log('✓ AsyncStorage credentials cleared (fallback method)');
-        } catch (fallbackError) {
-          console.error('✗ Fallback AsyncStorage clear also failed:', fallbackError);
+        console.error('│  ✗ multiRemove failed, trying individual removal:', error);
+        // Fallback to individual removal
+        for (const key of keysToRemove) {
+          try {
+            await AsyncStorage.removeItem(key);
+            console.log(`│  ✓ Removed ${key}`);
+          } catch (removeError) {
+            console.error(`│  ✗ Failed to remove ${key}:`, removeError);
+          }
         }
       }
       
-      // Step 5: Clear state immediately
-      console.log('Step 5: Clearing authentication state');
+      // Verify storage is cleared
+      try {
+        const remainingUsername = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
+        const remainingPassword = await AsyncStorage.getItem(STORAGE_KEYS.PASSWORD);
+        const remainingScreenName = await AsyncStorage.getItem(STORAGE_KEYS.SCREEN_NAME);
+        
+        if (!remainingUsername && !remainingPassword && !remainingScreenName) {
+          console.log('└─ ✓ Verified: All credentials removed from storage');
+        } else {
+          console.error('└─ ✗ WARNING: Some credentials still in storage!');
+          console.error('   Username:', !!remainingUsername);
+          console.error('   Password:', !!remainingPassword);
+          console.error('   ScreenName:', !!remainingScreenName);
+        }
+      } catch (error) {
+        console.error('└─ ✗ Failed to verify storage clear:', error);
+      }
+      console.log('');
+      
+      // STEP 6: Clear state
+      console.log('┌─ STEP 6: Clearing authentication state');
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -425,45 +491,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
+      console.log('└─ ✓ All state variables cleared');
+      console.log('');
       
-      console.log('✓ Logout successful - all credentials cleared');
+      // STEP 7: Wait for async operations
+      console.log('┌─ STEP 7: Waiting for async operations to complete');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log('└─ ✓ Wait complete');
+      console.log('');
       
-      // Step 6: Wait for all async operations to complete
-      console.log('Step 6: Waiting for async operations to complete');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('╔════════════════════════════════════════════════════════════════╗');
+      console.log('║                   LOGOUT COMPLETED SUCCESSFULLY                ║');
+      console.log('║                                                                ║');
+      console.log('║  ✓ Backend authentication cleared                             ║');
+      console.log('║  ✓ Local storage cleared                                      ║');
+      console.log('║  ✓ State cleared                                              ║');
+      console.log('║  ✓ Logout flag set                                            ║');
+      console.log('║                                                                ║');
+      console.log('║  The app will now close. On next launch:                      ║');
+      console.log('║  • Device will NOT auto-login                                 ║');
+      console.log('║  • Fresh authentication code will be generated                ║');
+      console.log('║  • User must authenticate via web portal                      ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
+      console.log('');
       
-      console.log('=== CLOSING APP COMPLETELY ===');
-      
-      // Step 7: Platform-specific app closing
+      // STEP 8: Close the app
+      console.log('┌─ STEP 8: Closing application');
       if (Platform.OS === 'android') {
-        console.log('Android: Closing app with BackHandler.exitApp()');
+        console.log('│  Platform: Android');
+        console.log('│  Method: BackHandler.exitApp()');
+        console.log('└─ Closing app now...');
         BackHandler.exitApp();
       } else if (Platform.OS === 'ios') {
-        console.log('iOS: Apps cannot be programmatically closed per Apple guidelines');
-        console.log('User must manually close and reopen the app');
-        // On iOS, we can't close the app programmatically
-        // The user will need to manually close and reopen
-        // The credentials are already cleared, so on next open they'll see login screen
+        console.log('│  Platform: iOS');
+        console.log('│  Note: iOS apps cannot be programmatically closed');
+        console.log('│  Action: User must manually close the app');
+        console.log('└─ ⚠️ Please close the app manually and reopen it');
       } else {
-        console.log('Web/Other platform: Reloading page');
-        // For web or other platforms, just reload
+        console.log('│  Platform: Web/Other');
+        console.log('│  Method: window.location.reload()');
+        console.log('└─ Reloading page now...');
         if (typeof window !== 'undefined') {
           window.location.reload();
         }
       }
       
-      console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
-      console.error('✗ CRITICAL ERROR during logout:', error);
+      console.error('');
+      console.error('╔════════════════════════════════════════════════════════════════╗');
+      console.error('║                  ✗ CRITICAL ERROR DURING LOGOUT               ║');
+      console.error('╚════════════════════════════════════════════════════════════════╝');
+      console.error('Error:', error);
+      console.error('');
       
-      // Emergency cleanup - try to clear everything even if there was an error
-      console.log('Attempting emergency cleanup...');
+      // EMERGENCY CLEANUP
+      console.log('┌─ EMERGENCY CLEANUP: Attempting to clear everything');
       try {
-        await AsyncStorage.multiRemove(['username', 'password', 'screenName']);
+        // Set logout flag
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+        console.log('│  ✓ Logout flag set');
+        
+        // Clear storage
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.USERNAME,
+          STORAGE_KEYS.PASSWORD,
+          STORAGE_KEYS.SCREEN_NAME,
+        ]);
+        console.log('│  ✓ Storage cleared');
+        
+        // Clear backend if possible
+        if (deviceId) {
+          await apiService.clearDeviceAuthentication(deviceId);
+          console.log('│  ✓ Backend cleared');
+        }
       } catch (cleanupError) {
-        console.error('Emergency cleanup failed:', cleanupError);
+        console.error('│  ✗ Emergency cleanup failed:', cleanupError);
       }
       
+      // Clear state regardless
       setUsername(null);
       setPassword(null);
       setScreenName(null);
@@ -471,11 +576,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
+      console.log('└─ ✓ State cleared');
+      console.log('');
       
-      // Try to exit/reload even if there was an error
+      // Try to exit/reload
       try {
-        console.log('Attempting app exit/reload after error...');
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('Attempting to close/reload app after error...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
         if (Platform.OS === 'android') {
           BackHandler.exitApp();
         } else if (typeof window !== 'undefined') {

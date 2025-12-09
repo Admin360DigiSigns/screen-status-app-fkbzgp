@@ -416,7 +416,7 @@ export const getDisplayCredentials = async (
 };
 
 /**
- * Clear device authentication from backend
+ * Clear device authentication from backend with retry logic
  * This should be called during logout to ensure the device starts fresh
  * 
  * Endpoint: POST /clear-device-authentication
@@ -434,48 +434,108 @@ export const getDisplayCredentials = async (
  * }
  */
 export const clearDeviceAuthentication = async (
-  deviceId: string
+  deviceId: string,
+  maxRetries: number = 3
 ): Promise<{ success: boolean; error?: string }> => {
-  try {
-    console.log('=== CLEARING DEVICE AUTHENTICATION ===');
-    console.log('Device ID:', deviceId);
-    console.log('API Endpoint:', API_ENDPOINTS.clearDeviceAuthentication);
-    
-    const response = await fetch(API_ENDPOINTS.clearDeviceAuthentication, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ device_id: deviceId }),
-    });
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('  CLEARING DEVICE AUTHENTICATION FROM BACKEND');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('Device ID:', deviceId);
+  console.log('API Endpoint:', API_ENDPOINTS.clearDeviceAuthentication);
+  console.log('Max Retries:', maxRetries);
+  console.log('');
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`┌─ Attempt ${attempt}/${maxRetries}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(API_ENDPOINTS.clearDeviceAuthentication, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ device_id: deviceId }),
+        signal: controller.signal,
+      });
 
-    console.log('Clear auth response status:', response.status);
+      clearTimeout(timeoutId);
+      
+      console.log('│  Response status:', response.status);
+      console.log('│  Response ok:', response.ok);
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log('✓ Device authentication cleared successfully:', data);
-      return {
-        success: true,
-      };
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('✗ Failed to clear device authentication:', response.status, errorData);
-      return {
-        success: false,
-        error: errorData.error || 'Failed to clear device authentication',
-      };
+      if (response.ok) {
+        const data = await response.json();
+        console.log('└─ ✓ SUCCESS: Device authentication cleared');
+        console.log('   Response:', data);
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('  ✓ BACKEND AUTHENTICATION CLEARED SUCCESSFULLY');
+        console.log('  Device will NOT auto-login on next app start');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('');
+        return {
+          success: true,
+        };
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('└─ ✗ FAILED: HTTP', response.status);
+        console.error('   Error:', errorData.error || errorData.message || 'Unknown error');
+        
+        if (attempt < maxRetries) {
+          const waitTime = attempt * 1000; // Exponential backoff: 1s, 2s, 3s
+          console.log(`   Retrying in ${waitTime}ms...`);
+          console.log('');
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        } else {
+          console.log('');
+          console.log('═══════════════════════════════════════════════════════════════');
+          console.error('  ✗ FAILED TO CLEAR BACKEND AUTHENTICATION');
+          console.error('  ⚠️ WARNING: Device may auto-login on next app start!');
+          console.log('═══════════════════════════════════════════════════════════════');
+          console.log('');
+          return {
+            success: false,
+            error: errorData.error || 'Failed to clear device authentication after multiple attempts',
+          };
+        }
+      }
+    } catch (error) {
+      console.error('└─ ✗ EXCEPTION:', error instanceof Error ? error.message : 'Unknown error');
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('   Request timed out after 10 seconds');
+      }
+      
+      if (attempt < maxRetries) {
+        const waitTime = attempt * 1000;
+        console.log(`   Retrying in ${waitTime}ms...`);
+        console.log('');
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } else {
+        console.log('');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.error('  ✗ FAILED TO CLEAR BACKEND AUTHENTICATION');
+        console.error('  ⚠️ WARNING: Device may auto-login on next app start!');
+        console.error('  Error:', error instanceof Error ? error.message : 'Unknown error');
+        console.log('═══════════════════════════════════════════════════════════════');
+        console.log('');
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Network error occurred',
+        };
+      }
     }
-  } catch (error) {
-    console.error('✗ Error clearing device authentication:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-    }
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Network error occurred',
-    };
   }
+  
+  // Should never reach here, but just in case
+  return {
+    success: false,
+    error: 'Failed to clear device authentication',
+  };
 };
 
 // Legacy auth code methods (kept for backward compatibility)
