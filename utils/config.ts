@@ -1,48 +1,50 @@
 
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Centralized Configuration
+ * 
+ * This file contains all configuration for the app.
+ * 
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+ * 
+ * Authentication Flow:
+ * 1. Mobile app generates code using /generate-display-code
+ * 2. Web portal authenticates using /authenticate-with-code
+ * 3. Mobile app polls for credentials using /get-display-credentials
+ */
 
-// Main Supabase project configuration (for authentication, storage, etc.)
 export const SUPABASE_CONFIG = {
   url: 'https://pgcdokfiaarnhzryfzwf.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnY2Rva2ZpYWFybmh6cnlmendmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0MjI4NTUsImV4cCI6MjA0ODk5ODg1NX0.Yx0Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5',
+  anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnY2Rva2ZpYWFybmh6cnlmendmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwOTk1OTEsImV4cCI6MjA3OTY3NTU5MX0.wn4-y6x8Q-EbPGci_B27scrRXNOEvg7I4xsqeCEYqag',
+  projectId: 'pgcdokfiaarnhzryfzwf',
 };
 
-// Content Project configuration (for display content and authentication)
+// Content Project Configuration (for authentication and content)
 export const CONTENT_PROJECT_CONFIG = {
   url: 'https://gzyywcqlrjimjegbtoyc.supabase.co',
-  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eXl3Y3FscmppbWplZ2J0b3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM0MjI4NTUsImV4cCI6MjA0ODk5ODg1NX0.Yx0Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5Yx5',
+  functionsUrl: 'https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1',
 };
 
-// API Endpoints - Using Content Project for all display-related operations
+// Base URL for Edge Functions (Master Project)
+export const EDGE_FUNCTIONS_URL = `${SUPABASE_CONFIG.url}/functions/v1`;
+
+// API Endpoints - Using Content Project for all authentication
 export const API_ENDPOINTS = {
-  // Display authentication and content endpoints (Content Project)
-  displayContentConnect: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/display-content-connect`,
-  displayStatus: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/display-status`,
+  // Master Project Endpoints (legacy)
+  displayRegister: `${EDGE_FUNCTIONS_URL}/display-register`,
+  displayConnect: `${EDGE_FUNCTIONS_URL}/display-connect`,
+  displayGetContent: `${EDGE_FUNCTIONS_URL}/display-get-content`,
+  screenShareGetOffer: `${EDGE_FUNCTIONS_URL}/screen-share-get-offer`,
+  screenShareSendAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-send-answer`,
+  screenShareCreateOffer: `${EDGE_FUNCTIONS_URL}/screen-share-create-offer`,
+  screenShareGetAnswer: `${EDGE_FUNCTIONS_URL}/screen-share-get-answer`,
   
-  // New authentication code-based endpoints (Content Project)
-  generateDisplayCode: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/generate-display-code`,
-  getDisplayCredentials: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/get-display-credentials`,
-  clearDeviceAuthentication: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/clear-device-authentication`,
+  // New Authentication Endpoints (Content Project)
+  // Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+  generateDisplayCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/generate-display-code`,
+  authenticateWithCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/authenticate-with-code`,
+  getDisplayCredentials: `${CONTENT_PROJECT_CONFIG.functionsUrl}/get-display-credentials`,
   
-  // Remote command endpoints (Content Project)
-  getRemoteCommands: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/get-remote-commands`,
-  acknowledgeCommand: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/acknowledge-command`,
-  
-  // Screen share endpoints (Content Project)
-  screenShareOffer: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/screen-share-offer`,
-  screenShareAnswer: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/screen-share-answer`,
-  screenShareIceCandidate: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/screen-share-ice-candidate`,
-  screenShareStatus: `${CONTENT_PROJECT_CONFIG.url}/functions/v1/screen-share-status`,
+  // Content and Status Endpoints (Content Project)
+  displayStatus: `${CONTENT_PROJECT_CONFIG.functionsUrl}/display-status`,
+  displayContentConnect: `${CONTENT_PROJECT_CONFIG.functionsUrl}/display-connect`,
 };
-
-// Create Supabase client for main project
-export const supabase = createClient(
-  SUPABASE_CONFIG.url,
-  SUPABASE_CONFIG.anonKey
-);
-
-// Create Supabase client for content project
-export const contentSupabase = createClient(
-  CONTENT_PROJECT_CONFIG.url,
-  CONTENT_PROJECT_CONFIG.anonKey
-);

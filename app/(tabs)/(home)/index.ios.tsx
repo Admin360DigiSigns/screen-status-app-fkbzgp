@@ -104,7 +104,6 @@ export default function HomeScreen() {
     }
   }, [deviceId]);
 
-  // Sync device status - with proper dependencies
   const syncDeviceStatus = useCallback(async () => {
     if (!deviceId || !screenName || !username || !password) {
       console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
@@ -135,60 +134,16 @@ export default function HomeScreen() {
     }
   }, [deviceId, screenName, username, password, networkState.isConnected]);
 
-  // Handle preview - with proper dependencies
-  const handlePreview = useCallback(async () => {
-    console.log('🎬 Preview button pressed');
-    
-    if (!username || !password || !screenName) {
-      console.error('❌ Missing credentials for preview:', { username: !!username, password: !!password, screenName: !!screenName });
-      Alert.alert('Error', 'Missing credentials for preview');
-      return;
+  useEffect(() => {
+    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
+      syncDeviceStatus();
     }
+  }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
 
-    setIsLoadingPreview(true);
-    console.log('📡 Fetching preview content...');
-
-    try {
-      const result = await fetchDisplayContent(username, password, screenName);
-      
-      if (result.success && result.data) {
-        console.log('✅ Preview content loaded successfully');
-        setDisplayContent(result.data);
-        setIsPreviewMode(true);
-      } else {
-        console.error('❌ Preview failed:', result.error);
-        Alert.alert('Preview Error', result.error || 'Failed to load preview content');
-      }
-    } catch (error) {
-      console.error('❌ Error loading preview:', error);
-      Alert.alert('Preview Error', 'An unexpected error occurred');
-    } finally {
-      setIsLoadingPreview(false);
-    }
-  }, [username, password, screenName]);
-
-  // Handle screen share - with proper dependencies
-  const handleScreenShare = useCallback(() => {
-    console.log('🎬 Screen Share button pressed - Opening screen share receiver');
-    
-    // Verify credentials before opening
-    if (!username || !password || !screenName) {
-      console.error('❌ Missing credentials for screen share:', { username: !!username, password: !!password, screenName: !!screenName });
-      Alert.alert('Error', 'Missing credentials for screen share');
-      return;
-    }
-    
-    console.log('✅ Credentials verified, opening screen share modal');
-    setIsScreenShareMode(true);
-  }, [username, password, screenName]);
-
-  // Handle logout - with proper dependencies
-  const handleLogout = useCallback(async () => {
-    console.log('🚪 Logout button pressed');
+  const handleLogout = async () => {
     try {
       // Send offline status before logging out
       if (deviceId && screenName && username && password) {
-        console.log('📡 Sending offline status before logout...');
         await sendDeviceStatus({
           deviceId,
           screenName,
@@ -198,44 +153,68 @@ export default function HomeScreen() {
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
-        console.log('✓ Offline status sent');
       }
-      
-      console.log('🔄 Calling logout function...');
       await logout();
-      console.log('✓ Logout function completed');
     } catch (error) {
-      console.error('❌ Error during logout:', error);
+      console.error('Error during logout:', error);
       // Still logout even if status update fails
-      console.log('⚠️ Attempting logout despite error...');
       await logout();
     }
-  }, [deviceId, screenName, username, password, logout]);
+  };
 
-  // Handle manual sync
-  const handleManualSync = useCallback(() => {
-    console.log('🔄 Manual sync button pressed');
+  const handleManualSync = () => {
     syncDeviceStatus();
-  }, [syncDeviceStatus]);
+  };
 
-  // Handle close preview
-  const handleClosePreview = useCallback(() => {
-    console.log('Closing preview');
+  const handlePreview = async () => {
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for preview');
+      return;
+    }
+
+    setIsLoadingPreview(true);
+    console.log('Fetching preview content...');
+
+    try {
+      const result = await fetchDisplayContent(username, password, screenName);
+      
+      if (result.success && result.data) {
+        console.log('Preview content loaded successfully');
+        setDisplayContent(result.data);
+        setIsPreviewMode(true);
+      } else {
+        Alert.alert('Preview Error', result.error || 'Failed to load preview content');
+      }
+    } catch (error) {
+      console.error('Error loading preview:', error);
+      Alert.alert('Preview Error', 'An unexpected error occurred');
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleClosePreview = () => {
     setIsPreviewMode(false);
     setDisplayContent(null);
-  }, []);
+  };
 
-  // Handle close screen share
-  const handleCloseScreenShare = useCallback(() => {
+  const handleScreenShare = () => {
+    console.log('🎬 Screen Share button pressed - Opening screen share receiver');
+    
+    // Verify credentials before opening
+    if (!username || !password || !screenName) {
+      Alert.alert('Error', 'Missing credentials for screen share');
+      return;
+    }
+    
+    console.log('✅ Credentials verified, opening screen share modal');
+    setIsScreenShareMode(true);
+  };
+
+  const handleCloseScreenShare = () => {
     console.log('Closing screen share receiver');
     setIsScreenShareMode(false);
-  }, []);
-
-  useEffect(() => {
-    if (deviceId && screenName && username && password && networkState.isConnected !== undefined) {
-      syncDeviceStatus();
-    }
-  }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
+  };
 
   const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
     Animated.sequence([
