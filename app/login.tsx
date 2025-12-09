@@ -109,20 +109,56 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // Generate code after initialization completes
+  // Generate code after initialization completes - SIMPLIFIED LOGIC
   useEffect(() => {
-    if (!isInitializing && 
-        !isAuthenticated && 
-        deviceId && 
-        networkState.isConnected && 
-        !contextAuthCode && 
-        !hasGeneratedCodeRef.current && 
-        !isGeneratingRef.current &&
-        mountedRef.current) {
-      console.log('Initialization complete - generating code');
+    // Only generate if:
+    // 1. Initialization is complete
+    // 2. User is NOT authenticated
+    // 3. Device ID is available
+    // 4. Network is connected
+    // 5. No code exists yet (neither in context nor local state)
+    // 6. Haven't generated yet
+    // 7. Not currently generating
+    // 8. Component is mounted
+    const shouldGenerate = 
+      !isInitializing && 
+      !isAuthenticated && 
+      deviceId && 
+      networkState.isConnected && 
+      !contextAuthCode && 
+      !authCode &&
+      !hasGeneratedCodeRef.current && 
+      !isGeneratingRef.current &&
+      mountedRef.current;
+
+    if (shouldGenerate) {
+      console.log('✓ All conditions met - generating code');
+      console.log('Conditions:', {
+        isInitializing,
+        isAuthenticated,
+        hasDeviceId: !!deviceId,
+        isConnected: networkState.isConnected,
+        hasContextCode: !!contextAuthCode,
+        hasLocalCode: !!authCode,
+        hasGenerated: hasGeneratedCodeRef.current,
+        isGenerating: isGeneratingRef.current,
+        isMounted: mountedRef.current,
+      });
       handleGenerateCode();
+    } else {
+      console.log('✗ Not generating code - conditions not met:', {
+        isInitializing,
+        isAuthenticated,
+        hasDeviceId: !!deviceId,
+        isConnected: networkState.isConnected,
+        hasContextCode: !!contextAuthCode,
+        hasLocalCode: !!authCode,
+        hasGenerated: hasGeneratedCodeRef.current,
+        isGenerating: isGeneratingRef.current,
+        isMounted: mountedRef.current,
+      });
     }
-  }, [isInitializing, isAuthenticated, deviceId, networkState.isConnected, contextAuthCode]);
+  }, [isInitializing, isAuthenticated, deviceId, networkState.isConnected, contextAuthCode, authCode]);
 
   // Pulse animation for the code
   useEffect(() => {
@@ -164,6 +200,7 @@ export default function LoginScreen() {
           console.log('Code expired, auto-regenerating');
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
+          setAuthCode(null); // Clear local code to trigger regeneration
           handleGenerateCode();
         } else {
           const minutes = Math.floor(diff / 60000);
@@ -310,6 +347,7 @@ export default function LoginScreen() {
           // Generate new code
           hasGeneratedCodeRef.current = false;
           isGeneratingRef.current = false;
+          setAuthCode(null); // Clear local code to trigger regeneration
           handleGenerateCode();
         }
       } catch (error) {

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Screen Status",
-    "slug": "Screen Status",
+    "slug": "screen-status-app-fkbzgp",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -27,7 +27,7 @@
         "foregroundImage": "./assets/images/natively-dark.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.digisigns.digisigns",
+      "package": "com.digisigns.digisignsapp",
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
