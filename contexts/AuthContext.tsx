@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Updates from 'expo-updates';
 import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
 import * as Network from 'expo-network';
@@ -404,11 +405,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await AsyncStorage.removeItem('password');
       await AsyncStorage.removeItem('screenName');
       
-      // Set logout flag AFTER clearing credentials to prevent race condition
+      // Set logout flag to prevent auto-login
       await AsyncStorage.setItem('just_logged_out', 'true');
       console.log('Logout flag set in AsyncStorage');
       
-      // Clear state - this will trigger navigation to login screen
+      // Clear state
       console.log('Clearing authentication state');
       setUsername(null);
       setPassword(null);
@@ -419,7 +420,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsScreenActive(false);
       
       console.log('✓ Logout successful - credentials cleared');
-      console.log('User will be redirected to login screen where new code will be generated');
+      console.log('=== RESTARTING APP TO CLEAR CACHE ===');
+      
+      // Restart the entire app to clear all cache and state
+      // This ensures a completely fresh start
+      if (__DEV__) {
+        // In development, use reloadAsync which works in Expo Go
+        console.log('Development mode: Using Updates.reloadAsync()');
+        await Updates.reloadAsync();
+      } else {
+        // In production, also use reloadAsync
+        console.log('Production mode: Using Updates.reloadAsync()');
+        await Updates.reloadAsync();
+      }
+      
       console.log('=== LOGOUT COMPLETE ===');
     } catch (error) {
       console.error('Error during logout:', error);
@@ -435,6 +449,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
+      
+      // Try to reload even if there was an error
+      try {
+        console.log('Attempting app reload after error...');
+        await Updates.reloadAsync();
+      } catch (reloadError) {
+        console.error('Failed to reload app:', reloadError);
+      }
     }
   };
 
