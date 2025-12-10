@@ -17,6 +17,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { commandListener } from "@/utils/commandListener";
 
 SplashScreen.preventAutoHideAsync();
 
