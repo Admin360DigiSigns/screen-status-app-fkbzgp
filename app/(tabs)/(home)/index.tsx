@@ -12,6 +12,7 @@ import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 import { commandListener, AppCommand } from '@/utils/commandListener';
 import MaskedView from '@react-native-masked-view/masked-view';
+import { IconSymbol } from '@/components/IconSymbol';
 
 export default function HomeScreen() {
   const { 
@@ -191,10 +192,12 @@ export default function HomeScreen() {
   };
 
   const handleManualSync = () => {
+    console.log('User tapped Sync Status button');
     syncDeviceStatus();
   };
 
   const handlePreview = async () => {
+    console.log('User tapped Preview Content button');
     if (!username || !password || !screenName) {
       Alert.alert('Error', 'Missing credentials for preview');
       return;
@@ -424,7 +427,10 @@ export default function HomeScreen() {
                       styles.tvActionButton,
                       focusedButton === 'preview' && styles.tvActionButtonFocused
                     ]}
-                    onPress={handlePreview}
+                    onPress={() => {
+                      animateButtonPress('preview');
+                      handlePreview();
+                    }}
                     onFocus={() => setFocusedButton('preview')}
                     onBlur={() => setFocusedButton(null)}
                     activeOpacity={0.8}
@@ -434,7 +440,14 @@ export default function HomeScreen() {
                       <ActivityIndicator size="small" color="#3B82F6" />
                     ) : (
                       <React.Fragment>
-                        <Text style={styles.tvActionIcon}>👁️</Text>
+                        <View style={styles.tvActionIconContainer}>
+                          <IconSymbol 
+                            ios_icon_name="eye.fill" 
+                            android_material_icon_name="visibility" 
+                            size={24} 
+                            color="#3B82F6" 
+                          />
+                        </View>
                         <MaskedView
                           maskElement={
                             <Text style={styles.tvActionText}>Preview Content</Text>
@@ -458,12 +471,22 @@ export default function HomeScreen() {
                         styles.tvActionButton,
                         focusedButton === 'screenshare' && styles.tvActionButtonFocused
                       ]}
-                      onPress={handleScreenShare}
+                      onPress={() => {
+                        animateButtonPress('screenshare');
+                        handleScreenShare();
+                      }}
                       onFocus={() => setFocusedButton('screenshare')}
                       onBlur={() => setFocusedButton(null)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.tvActionIcon}>🔗</Text>
+                      <View style={styles.tvActionIconContainer}>
+                        <IconSymbol 
+                          ios_icon_name="tv" 
+                          android_material_icon_name="cast" 
+                          size={24} 
+                          color="#3B82F6" 
+                        />
+                      </View>
                       <MaskedView
                         maskElement={
                           <Text style={styles.tvActionText}>Screen Share</Text>
@@ -485,12 +508,22 @@ export default function HomeScreen() {
                       styles.tvActionButton,
                       focusedButton === 'sync' && styles.tvActionButtonFocused
                     ]}
-                    onPress={handleManualSync}
+                    onPress={() => {
+                      animateButtonPress('sync');
+                      handleManualSync();
+                    }}
                     onFocus={() => setFocusedButton('sync')}
                     onBlur={() => setFocusedButton(null)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.tvActionIcon}>🔄</Text>
+                    <View style={styles.tvActionIconContainer}>
+                      <IconSymbol 
+                        ios_icon_name="arrow.clockwise" 
+                        android_material_icon_name="sync" 
+                        size={24} 
+                        color="#3B82F6" 
+                      />
+                    </View>
                     <MaskedView
                       maskElement={
                         <Text style={styles.tvActionText}>Sync Status</Text>
@@ -511,12 +544,22 @@ export default function HomeScreen() {
                       styles.tvActionButton,
                       focusedButton === 'logout' && styles.tvActionButtonFocused
                     ]}
-                    onPress={handleLogout}
+                    onPress={() => {
+                      animateButtonPress('logout');
+                      handleLogout();
+                    }}
                     onFocus={() => setFocusedButton('logout')}
                     onBlur={() => setFocusedButton(null)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.tvActionIcon}>🚪</Text>
+                    <View style={styles.tvActionIconContainer}>
+                      <IconSymbol 
+                        ios_icon_name="rectangle.portrait.and.arrow.right" 
+                        android_material_icon_name="logout" 
+                        size={24} 
+                        color="#3B82F6" 
+                      />
+                    </View>
                     <MaskedView
                       maskElement={
                         <Text style={styles.tvActionText}>Logout</Text>
@@ -693,20 +736,67 @@ export default function HomeScreen() {
                 <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
               </View>
 
-              <TouchableOpacity 
-                style={styles.mobileActionButton}
-                onPress={handlePreview}
-                activeOpacity={0.8}
-                disabled={isLoadingPreview}
-              >
-                {isLoadingPreview ? (
-                  <ActivityIndicator size="small" color="#3B82F6" />
-                ) : (
-                  <React.Fragment>
-                    <Text style={styles.mobileActionIcon}>👁️</Text>
+              <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
+                <TouchableOpacity 
+                  style={styles.mobileActionButton}
+                  onPress={() => {
+                    animateButtonPress('preview');
+                    handlePreview();
+                  }}
+                  activeOpacity={0.8}
+                  disabled={isLoadingPreview}
+                >
+                  {isLoadingPreview ? (
+                    <ActivityIndicator size="small" color="#3B82F6" />
+                  ) : (
+                    <React.Fragment>
+                      <View style={styles.mobileActionIconContainer}>
+                        <IconSymbol 
+                          ios_icon_name="eye.fill" 
+                          android_material_icon_name="visibility" 
+                          size={24} 
+                          color="#3B82F6" 
+                        />
+                      </View>
+                      <MaskedView
+                        maskElement={
+                          <Text style={styles.mobileActionText}>Preview Content</Text>
+                        }
+                      >
+                        <LinearGradient
+                          colors={['#3B82F6', '#1E40AF']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                        >
+                          <Text style={[styles.mobileActionText, { opacity: 0 }]}>Preview Content</Text>
+                        </LinearGradient>
+                      </MaskedView>
+                    </React.Fragment>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+
+              {!isWebPlatform && (
+                <Animated.View style={{ transform: [{ scale: buttonScaleAnims.screenshare }] }}>
+                  <TouchableOpacity 
+                    style={styles.mobileActionButton}
+                    onPress={() => {
+                      animateButtonPress('screenshare');
+                      handleScreenShare();
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.mobileActionIconContainer}>
+                      <IconSymbol 
+                        ios_icon_name="tv" 
+                        android_material_icon_name="cast" 
+                        size={24} 
+                        color="#3B82F6" 
+                      />
+                    </View>
                     <MaskedView
                       maskElement={
-                        <Text style={styles.mobileActionText}>Preview Content</Text>
+                        <Text style={styles.mobileActionText}>Screen Share</Text>
                       }
                     >
                       <LinearGradient
@@ -714,23 +804,33 @@ export default function HomeScreen() {
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                       >
-                        <Text style={[styles.mobileActionText, { opacity: 0 }]}>Preview Content</Text>
+                        <Text style={[styles.mobileActionText, { opacity: 0 }]}>Screen Share</Text>
                       </LinearGradient>
                     </MaskedView>
-                  </React.Fragment>
-                )}
-              </TouchableOpacity>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
 
-              {!isWebPlatform && (
+              <Animated.View style={{ transform: [{ scale: buttonScaleAnims.sync }] }}>
                 <TouchableOpacity 
                   style={styles.mobileActionButton}
-                  onPress={handleScreenShare}
+                  onPress={() => {
+                    animateButtonPress('sync');
+                    handleManualSync();
+                  }}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.mobileActionIcon}>🔗</Text>
+                  <View style={styles.mobileActionIconContainer}>
+                    <IconSymbol 
+                      ios_icon_name="arrow.clockwise" 
+                      android_material_icon_name="sync" 
+                      size={24} 
+                      color="#3B82F6" 
+                    />
+                  </View>
                   <MaskedView
                     maskElement={
-                      <Text style={styles.mobileActionText}>Screen Share</Text>
+                      <Text style={styles.mobileActionText}>Sync Status</Text>
                     }
                   >
                     <LinearGradient
@@ -738,53 +838,44 @@ export default function HomeScreen() {
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
-                      <Text style={[styles.mobileActionText, { opacity: 0 }]}>Screen Share</Text>
+                      <Text style={[styles.mobileActionText, { opacity: 0 }]}>Sync Status</Text>
                     </LinearGradient>
                   </MaskedView>
                 </TouchableOpacity>
-              )}
+              </Animated.View>
 
-              <TouchableOpacity 
-                style={styles.mobileActionButton}
-                onPress={handleManualSync}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.mobileActionIcon}>🔄</Text>
-                <MaskedView
-                  maskElement={
-                    <Text style={styles.mobileActionText}>Sync Status</Text>
-                  }
+              <Animated.View style={{ transform: [{ scale: buttonScaleAnims.logout }] }}>
+                <TouchableOpacity 
+                  style={styles.mobileActionButton}
+                  onPress={() => {
+                    animateButtonPress('logout');
+                    handleLogout();
+                  }}
+                  activeOpacity={0.8}
                 >
-                  <LinearGradient
-                    colors={['#3B82F6', '#1E40AF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                  <View style={styles.mobileActionIconContainer}>
+                    <IconSymbol 
+                      ios_icon_name="rectangle.portrait.and.arrow.right" 
+                      android_material_icon_name="logout" 
+                      size={24} 
+                      color="#3B82F6" 
+                    />
+                  </View>
+                  <MaskedView
+                    maskElement={
+                      <Text style={styles.mobileActionText}>Logout</Text>
+                    }
                   >
-                    <Text style={[styles.mobileActionText, { opacity: 0 }]}>Sync Status</Text>
-                  </LinearGradient>
-                </MaskedView>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.mobileActionButton}
-                onPress={handleLogout}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.mobileActionIcon}>🚪</Text>
-                <MaskedView
-                  maskElement={
-                    <Text style={styles.mobileActionText}>Logout</Text>
-                  }
-                >
-                  <LinearGradient
-                    colors={['#3B82F6', '#1E40AF']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={[styles.mobileActionText, { opacity: 0 }]}>Logout</Text>
-                  </LinearGradient>
-                </MaskedView>
-              </TouchableOpacity>
+                    <LinearGradient
+                      colors={['#3B82F6', '#1E40AF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                    >
+                      <Text style={[styles.mobileActionText, { opacity: 0 }]}>Logout</Text>
+                    </LinearGradient>
+                  </MaskedView>
+                </TouchableOpacity>
+              </Animated.View>
             </View>
 
             {/* Footer */}
@@ -1003,14 +1094,26 @@ const styles = StyleSheet.create({
   mobileActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     gap: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 2,
   },
-  mobileActionIcon: {
-    fontSize: 20,
+  mobileActionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mobileActionText: {
     fontSize: 16,
@@ -1173,18 +1276,30 @@ const styles = StyleSheet.create({
   tvActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
     gap: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    marginBottom: 2,
   },
   tvActionButtonFocused: {
     backgroundColor: '#F3F4F6',
     borderRadius: 10,
   },
-  tvActionIcon: {
-    fontSize: 20,
+  tvActionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tvActionText: {
     fontSize: 16,
