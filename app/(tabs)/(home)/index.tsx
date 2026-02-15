@@ -149,9 +149,9 @@ export default function HomeScreen() {
     };
 
     console.log('Syncing device status with payload (password hidden)');
-    const success = await sendDeviceStatus(payload);
+    const result = await sendDeviceStatus(payload);
     
-    if (success) {
+    if (result.success) {
       setLastSyncTime(new Date());
       setSyncStatus('success');
       console.log('Status sync successful');
@@ -171,7 +171,7 @@ export default function HomeScreen() {
     try {
       // Send offline status before logging out
       if (deviceId && screenName && username && password) {
-        await sendDeviceStatus({
+        const result = await sendDeviceStatus({
           deviceId,
           screenName,
           screen_username: username,
@@ -180,6 +180,9 @@ export default function HomeScreen() {
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
+        if (!result.success) {
+          console.error('Failed to send offline status:', result.error);
+        }
       }
       await logout();
     } catch (error) {

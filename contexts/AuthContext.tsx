@@ -50,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [password, setPassword] = useState<string | null>(null);
   const [screenName, setScreenName] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [backendDeviceId, setBackendDeviceId] = useState<string | null>(null); // UUID from backend
   const [authCode, setAuthCode] = useState<string | null>(null);
   const [authCodeExpiry, setAuthCodeExpiry] = useState<string | null>(null);
   const [isScreenActive, setIsScreenActive] = useState(false);
@@ -131,9 +132,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       console.log('📡 [AuthContext] Syncing device status...');
-      const success = await apiService.sendDeviceStatus(payload);
+      const result = await apiService.sendDeviceStatus(payload);
       
-      if (success) {
+      if (result.success) {
         console.log('✅ [AuthContext] Status sync successful');
       } else {
         console.error('❌ [AuthContext] Status sync failed');
@@ -163,9 +164,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setDeviceId(id);
       console.log('✓ Device ID initialized:', id);
 
-      // Initialize command listener with device ID
-      commandListener.initialize(id);
-      console.log('✓ Command listener initialized');
+      // Try to load backend device ID from storage
+      const storedBackendDeviceId = await AsyncStorage.getItem('@backend_device_id');
+      if (storedBackendDeviceId) {
+        console.log('✓ Backend device ID loaded from storage:', storedBackendDeviceId);
+        setBackendDeviceId(storedBackendDeviceId);
+      } else {
+        console.log('⚠️ No backend device ID in storage yet (will be set after first status update)');
+      }
 
       // CRITICAL: Check if user just logged out
       const logoutFlag = await AsyncStorage.getItem(STORAGE_KEYS.LOGOUT_FLAG);
@@ -252,12 +258,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Set up GLOBAL command handlers when authenticated
   useEffect(() => {
-    if (!isAuthenticated || !deviceId) {
-      console.log('⏸️ [AuthContext] Skipping global command listener setup - not authenticated or no device ID');
+    if (!isAuthenticated || !backendDeviceId) {
+      console.log('⏸️ [AuthContext] Skipping global command listener setup - not authenticated or no backend device ID');
+      console.log('⏸️ [AuthContext] isAuthenticated:', isAuthenticated, 'backendDeviceId:', backendDeviceId);
       return;
     }
 
-    console.log('🌍 [AuthContext] Setting up GLOBAL command handlers for device:', deviceId);
+    console.log('🌍 [AuthContext] Setting up GLOBAL command handlers for backend device:', backendDeviceId);
+
+    // Initialize command listener with backend device ID (UUID from backend)
+    commandListener.initialize(backendDeviceId);
 
     // Register command handlers globally
     commandListener.registerHandler('preview_content', handlePreviewCommand);
@@ -273,7 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🧹 [AuthContext] Cleaning up global command handlers');
       commandListener.stopListening();
     };
-  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
+  }, [isAuthenticated, backendDeviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
 
   // Set up the 20-second interval when user is authenticated AND screen is active
   useEffect(() => {
@@ -313,6 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('Executing scheduled status update at:', new Date().toISOString());
           console.log('Current auth state:', {
             deviceId,
+            backendDeviceId,
             screenName,
             username,
             hasPassword: !!password,
@@ -337,10 +348,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           console.log('Sending status update...');
           
-          const success = await apiService.sendDeviceStatus(payload);
+          const result = await apiService.sendDeviceStatus(payload);
           
-          if (success) {
+          if (result.success) {
             console.log('✓ Status update sent successfully');
+            
+            // Extract backend device_id from response if available
+            if (result.data && result.data.device_id && result.data.device_id !== backendDeviceId) {
+              console.log('📌 [AuthContext] Storing backend device_id:', result.data.device_id);
+              setBackendDeviceId(result.data.device_id);
+              
+              // Persist it to AsyncStorage
+              await AsyncStorage.setItem('@backend_device_id', result.data.device_id);
+            }
           } else {
             console.log('✗ Status update failed');
           }
@@ -612,7 +632,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('┌─ STEP 3: Sending offline status to backend');
         setLogoutProgress('Sending offline status...');
         try {
-          await apiService.sendDeviceStatus({
+          const result = await apiService.sendDeviceStatus({
             deviceId,
             screenName,
             screen_username: username,
@@ -621,7 +641,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: 'offline',
             timestamp: new Date().toISOString(),
           });
-          console.log('└─ ✓ Offline status sent successfully');
+          if (result.success) {
+            console.log('└─ ✓ Offline status sent successfully');
+          } else {
+            console.error('└─ ✗ Failed to send offline status:', result.error);
+          }
         } catch (error) {
           console.error('└─ ✗ Failed to send offline status:', error);
         }
@@ -682,6 +706,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         STORAGE_KEYS.USERNAME,
         STORAGE_KEYS.PASSWORD,
         STORAGE_KEYS.SCREEN_NAME,
+        '@backend_device_id', // Also clear backend device ID
       ];
       
       try {
@@ -729,6 +754,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
+      setBackendDeviceId(null); // Clear backend device ID
       console.log('└─ ✓ All state variables cleared');
       console.log('');
       
@@ -821,6 +847,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
+      setBackendDeviceId(null);
       setShowPreviewModal(false);
       setShowScreenShareModal(false);
       setDisplayContent(null);

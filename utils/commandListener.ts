@@ -74,9 +74,12 @@ class CommandListenerService {
     console.log('║           STARTING COMMAND LISTENER                            ║');
     console.log('╚════════════════════════════════════════════════════════════════╝');
     console.log('🎧 Device ID:', this.deviceId);
+    console.log('🎧 Device ID Type:', typeof this.deviceId);
+    console.log('🎧 Device ID Length:', this.deviceId.length);
     console.log('📋 Registered handlers:', Array.from(this.commandHandlers.keys()));
     console.log('📡 Supabase URL:', 'https://gzyywcqlrjimjegbtoyc.supabase.co');
     console.log('📊 Project ID: gzyywcqlrjimjegbtoyc');
+    console.log('🔑 Anon Key (first 30 chars):', SUPABASE_CONFIG.anonKey.substring(0, 30));
     console.log('');
     
     this.isListening = true;
@@ -212,6 +215,10 @@ class CommandListenerService {
       // Use Edge Function endpoint for polling as shown in the screenshot
       const url = `${SUPABASE_CONFIG.url}/functions/v1/pending-commands`;
       
+      console.log('🔍 [CommandListener] Polling for commands...');
+      console.log('🔍 [CommandListener] URL:', url);
+      console.log('🔍 [CommandListener] Device ID:', this.deviceId);
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -224,13 +231,30 @@ class CommandListenerService {
         }),
       });
 
+      console.log('🔍 [CommandListener] Response status:', response.status);
+      console.log('🔍 [CommandListener] Response ok:', response.ok);
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ [CommandListener] Error polling for commands:', errorText);
+        console.error('❌ [CommandListener] Error polling for commands (status ' + response.status + '):', errorText);
         return;
       }
 
-      const commands = await response.json();
+      const responseText = await response.text();
+      console.log('🔍 [CommandListener] Raw response:', responseText);
+      
+      let commands;
+      try {
+        commands = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ [CommandListener] Failed to parse response JSON:', parseError);
+        console.error('❌ [CommandListener] Response text was:', responseText);
+        return;
+      }
+
+      console.log('🔍 [CommandListener] Parsed commands:', commands);
+      console.log('🔍 [CommandListener] Is array?', Array.isArray(commands));
+      console.log('🔍 [CommandListener] Length:', commands?.length);
 
       if (commands && Array.isArray(commands) && commands.length > 0) {
         console.log('');
@@ -254,9 +278,15 @@ class CommandListenerService {
           });
           await this.handleCommand(command as AppCommand);
         }
+      } else {
+        console.log('✓ [CommandListener] No pending commands');
       }
     } catch (error) {
       console.error('❌ [CommandListener] Error in pollForCommands:', error);
+      if (error instanceof Error) {
+        console.error('❌ [CommandListener] Error message:', error.message);
+        console.error('❌ [CommandListener] Error stack:', error.stack);
+      }
     }
   }
 

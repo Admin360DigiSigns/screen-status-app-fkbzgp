@@ -1,6 +1,9 @@
 
 import * as Application from 'expo-application';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const WEB_DEVICE_ID_KEY = '@web_device_id';
 
 export const getDeviceId = async (): Promise<string> => {
   try {
@@ -13,8 +16,19 @@ export const getDeviceId = async (): Promise<string> => {
       console.log('iOS Device ID:', iosId);
       return iosId || 'unknown-ios-device';
     } else {
-      console.log('Web platform - using random ID');
-      return 'web-device-' + Math.random().toString(36).substring(7);
+      // For web, persist the device ID in AsyncStorage so it doesn't change on reload
+      console.log('Web platform - checking for persisted device ID');
+      let webDeviceId = await AsyncStorage.getItem(WEB_DEVICE_ID_KEY);
+      
+      if (!webDeviceId) {
+        webDeviceId = 'web-device-' + Math.random().toString(36).substring(7);
+        await AsyncStorage.setItem(WEB_DEVICE_ID_KEY, webDeviceId);
+        console.log('Generated new web device ID:', webDeviceId);
+      } else {
+        console.log('Using persisted web device ID:', webDeviceId);
+      }
+      
+      return webDeviceId;
     }
   } catch (error) {
     console.error('Error getting device ID:', error);

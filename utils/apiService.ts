@@ -121,7 +121,7 @@ export const login = async (
   }
 };
 
-export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<boolean> => {
+export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<{ success: boolean; data?: any; error?: string }> => {
   try {
     // Log the complete payload structure (with hidden password)
     console.log('=== DEVICE STATUS PAYLOAD ===');
@@ -160,13 +160,13 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
     if (response.ok) {
       const responseData = await response.json().catch(() => null);
       console.log('Device status sent successfully. Response:', responseData);
-      return true;
+      return { success: true, data: responseData };
     } else {
       console.error('Failed to send device status. Status code:', response.status);
       const errorData = await response.json().catch(() => ({}));
       console.error('Status error details:', errorData);
       console.error('Error message:', errorData.error || errorData.message);
-      return false;
+      return { success: false, error: errorData.error || errorData.message || 'Failed to send status' };
     }
   } catch (error) {
     console.error('Error sending device status:', error);
@@ -174,7 +174,7 @@ export const sendDeviceStatus = async (payload: DeviceStatusPayload): Promise<bo
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);
     }
-    return false;
+    return { success: false, error: error instanceof Error ? error.message : 'Network error' };
   }
 };
 
