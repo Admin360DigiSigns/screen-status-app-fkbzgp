@@ -19,9 +19,9 @@ class CommandListenerService {
   private deviceId: string | null = null;
   private commandHandlers: Map<string, CommandHandler> = new Map();
   private isListening: boolean = false;
+  private pollInterval: NodeJS.Timeout | null = null;
   private lastProcessedCommandId: string | null = null;
   private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
-  private processingCommands: Set<string> = new Set(); // Track commands being processed
 
   /**
    * Initialize the command listener with device ID
@@ -55,7 +55,7 @@ class CommandListenerService {
   }
 
   /**
-   * Start listening for commands via Supabase Realtime
+   * Start listening for commands
    */
   async startListening() {
     if (!this.deviceId) {
@@ -74,10 +74,10 @@ class CommandListenerService {
     this.connectionStatus = 'connecting';
 
     // Set up Realtime channel for instant command delivery
-    await this.setupRealtimeChannel();
-    
-    // Also check for any pending commands that might have been missed
-    await this.checkPendingCommands();
+    this.setupRealtimeChannel();
+
+    // Set up polling as fallback (every 3 seconds for better responsiveness)
+    this.startPolling();
   }
 
   /**
@@ -93,89 +93,104 @@ class CommandListenerService {
       await supabase.removeChannel(this.channel);
       this.channel = null;
     }
-    
-    // Clear processing set
-    this.processingCommands.clear();
-  }
 
-  /**
-   * Check for any pending commands that might have been missed
-   */
-  private async checkPendingCommands() {
-    if (!this.deviceId) return;
-
-    try {
-      console.log('🔍 [CommandListener] Checking for pending commands...');
-      
-      const { data: pendingCommands, error } = await supabase
-        .from('app_commands')
-        .select('*')
-        .eq('device_id', this.deviceId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('❌ [CommandListener] Error fetching pending commands:', error);
-        return;
-      }
-
-      if (pendingCommands && pendingCommands.length > 0) {
-        console.log(`📨 [CommandListener] Found ${pendingCommands.length} pending command(s)`);
-        
-        // Process each pending command
-        for (const command of pendingCommands) {
-          console.log('📨 [CommandListener] Processing missed command:', command.id);
-          await this.handleCommand(command as AppCommand);
-        }
-      } else {
-        console.log('✅ [CommandListener] No pending commands found');
-      }
-    } catch (error) {
-      console.error('❌ [CommandListener] Error checking pending commands:', error);
+    // Stop polling
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
     }
   }
 
   /**
    * Set up Realtime channel for instant command delivery
    */
-  private async setupRealtimeChannel() {
+  private setupRealtimeChannel() {
     if (!this.deviceId) return;
 
-    console.log('📡 [CommandListener] Setting up Supabase Realtime subscription');
-    console.log('📡 [CommandListener] Listening for INSERT events on app_commands table');
-    console.log('📡 [CommandListener] Filtering by device_id:', this.deviceId);
+    const channelName = `app_commands:${this.deviceId}`;
+    console.log('📡 [CommandListener] Setting up Realtime channel:', channelName);
 
-    // Create a channel for this device
-    this.channel = supabase
-      .channel(`commands:${this.deviceId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'app_commands',
-          filter: `device_id=eq.${this.deviceId}`,
-        },
-        (payload) => {
-          console.log('📨 [CommandListener] ✅ Received command via Realtime:', payload);
-          const command = payload.new as AppCommand;
-          this.handleCommand(command);
-        }
-      )
+    this.channel = supabase.channel(channelName);
+
+    this.channel
+      .on('broadcast', { event: 'command' }, (payload) => {
+        console.log('📨 [CommandListener] ✅ Received command via Realtime:', payload);
+        this.handleCommand(payload.payload as AppCommand);
+      })
       .subscribe((status) => {
         console.log('📡 [CommandListener] Realtime channel status:', status);
         if (status === 'SUBSCRIBED') {
           this.connectionStatus = 'connected';
           console.log('✅ [CommandListener] Successfully subscribed to Realtime channel');
-          console.log('✅ [CommandListener] Commands will be received instantly when inserted into database');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           this.connectionStatus = 'disconnected';
           console.error('❌ [CommandListener] Realtime channel error:', status);
-        } else if (status === 'CLOSED') {
-          this.connectionStatus = 'disconnected';
-          console.log('🔌 [CommandListener] Realtime channel closed');
         }
       });
+  }
+
+  /**
+   * Start polling for commands (fallback mechanism)
+   */
+  private startPolling() {
+    console.log('🔄 [CommandListener] Starting command polling (every 3 seconds)');
+
+    // Poll immediately
+    this.pollForCommands();
+
+    // Then poll every 3 seconds
+    this.pollInterval = setInterval(() => {
+      this.pollForCommands();
+    }, 3000);
+  }
+
+  /**
+   * Poll for pending commands
+   */
+  private async pollForCommands() {
+    if (!this.deviceId || !this.isListening) return;
+
+    try {
+      // Query for pending commands for this device
+      const { data: commands, error } = await supabase
+        .from('app_commands')
+        .select('*')
+        .eq('device_id', this.deviceId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+      if (error) {
+        console.error('❌ [CommandListener] Error polling for commands:', error);
+        return;
+      }
+
+      if (commands && commands.length > 0) {
+        console.log(`📬 [CommandListener] ✅ Found ${commands.length} pending command(s) via polling`);
+        
+        for (const command of commands) {
+          // Skip if we've already processed this command
+          if (command.id === this.lastProcessedCommandId) {
+            console.log('⏭️ [CommandListener] Skipping already processed command:', command.id);
+            continue;
+          }
+
+          console.log('🎯 [CommandListener] Processing command from poll:', {
+            id: command.id,
+            command: command.command,
+            device_id: command.device_id,
+          });
+          await this.handleCommand(command as AppCommand);
+        }
+      } else {
+        // Only log occasionally to avoid spam
+        if (Math.random() < 0.1) {
+          console.log('📭 [CommandListener] No pending commands found');
+        }
+      }
+    } catch (error) {
+      console.error('❌ [CommandListener] Error in pollForCommands:', error);
+    }
   }
 
   /**
@@ -189,20 +204,17 @@ class CommandListenerService {
     console.log('⚙️ [CommandListener] Device ID:', command.device_id);
     console.log('⚙️ [CommandListener] Screen Name:', command.screen_name);
 
-    // Skip if already processed or processing
-    if (this.processingCommands.has(command.id)) {
-      console.log('⏭️ [CommandListener] Skipping - already processing command:', command.id);
-      return;
-    }
-
-    // Skip if not pending
+    // Skip if already processed
     if (command.status !== 'pending') {
       console.log('⏭️ [CommandListener] Skipping non-pending command (status:', command.status, ')');
       return;
     }
 
-    // Add to processing set
-    this.processingCommands.add(command.id);
+    // Skip if we've already processed this command
+    if (command.id === this.lastProcessedCommandId) {
+      console.log('⏭️ [CommandListener] Skipping already processed command:', command.id);
+      return;
+    }
 
     // Update last processed command ID
     this.lastProcessedCommandId = command.id;
@@ -218,7 +230,6 @@ class CommandListenerService {
       console.error('❌ [CommandListener] No handler registered for command:', command.command);
       console.error('❌ [CommandListener] Available handlers:', Array.from(this.commandHandlers.keys()));
       await this.updateCommandStatus(command.id, 'failed', 'No handler registered');
-      this.processingCommands.delete(command.id);
       return;
     }
 
@@ -236,9 +247,6 @@ class CommandListenerService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.updateCommandStatus(command.id, 'failed', errorMessage);
       console.log('❌ [CommandListener] ===== COMMAND FAILED =====');
-    } finally {
-      // Remove from processing set
-      this.processingCommands.delete(command.id);
     }
   }
 
@@ -269,7 +277,6 @@ class CommandListenerService {
 
       if (error) {
         console.error('❌ [CommandListener] Error updating command status:', error);
-        console.error('❌ [CommandListener] Error details:', JSON.stringify(error, null, 2));
       } else {
         console.log(`✅ [CommandListener] Command status updated to: ${status}`);
       }
@@ -338,41 +345,9 @@ class CommandListenerService {
       }
 
       console.log('✅ [CommandListener] Test command created:', data.id);
-      console.log('✅ [CommandListener] If Realtime is working, you should see the command being processed above');
       return true;
     } catch (error) {
       console.error('❌ [CommandListener] Error in testCommandListener:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Manually process a specific command by ID (for debugging)
-   */
-  async processCommandById(commandId: string): Promise<boolean> {
-    try {
-      console.log('🔧 [CommandListener] Manually processing command:', commandId);
-      
-      const { data: command, error } = await supabase
-        .from('app_commands')
-        .select('*')
-        .eq('id', commandId)
-        .single();
-
-      if (error) {
-        console.error('❌ [CommandListener] Error fetching command:', error);
-        return false;
-      }
-
-      if (!command) {
-        console.error('❌ [CommandListener] Command not found:', commandId);
-        return false;
-      }
-
-      await this.handleCommand(command as AppCommand);
-      return true;
-    } catch (error) {
-      console.error('❌ [CommandListener] Error in processCommandById:', error);
       return false;
     }
   }
