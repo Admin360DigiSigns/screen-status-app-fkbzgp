@@ -407,14 +407,19 @@ export default function HomeScreen() {
                     <ActivityIndicator size="small" color="#3B82F6" />
                   ) : (
                     <React.Fragment>
-                      <View style={styles.mobileActionIconContainer}>
+                      <LinearGradient
+                        colors={['#3B82F6', '#1E40AF']}
+                        style={styles.mobileActionIconContainer}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
                         <IconSymbol 
                           ios_icon_name="eye.fill" 
                           android_material_icon_name="visibility" 
                           size={24} 
-                          color="#3B82F6" 
+                          color="#FFFFFF" 
                         />
-                      </View>
+                      </LinearGradient>
                       <MaskedView
                         maskElement={
                           <Text style={styles.mobileActionText}>Preview Content</Text>
@@ -442,14 +447,19 @@ export default function HomeScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.mobileActionIconContainer}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF']}
+                    style={styles.mobileActionIconContainer}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
                     <IconSymbol 
                       ios_icon_name="tv" 
                       android_material_icon_name="cast" 
                       size={24} 
-                      color="#3B82F6" 
+                      color="#FFFFFF" 
                     />
-                  </View>
+                  </LinearGradient>
                   <MaskedView
                     maskElement={
                       <Text style={styles.mobileActionText}>Screen Share</Text>
@@ -475,14 +485,19 @@ export default function HomeScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.mobileActionIconContainer}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF']}
+                    style={styles.mobileActionIconContainer}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
                     <IconSymbol 
                       ios_icon_name="arrow.clockwise" 
                       android_material_icon_name="sync" 
                       size={24} 
-                      color="#3B82F6" 
+                      color="#FFFFFF" 
                     />
-                  </View>
+                  </LinearGradient>
                   <MaskedView
                     maskElement={
                       <Text style={styles.mobileActionText}>Sync Status</Text>
@@ -508,14 +523,19 @@ export default function HomeScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.mobileActionIconContainer}>
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF']}
+                    style={styles.mobileActionIconContainer}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
                     <IconSymbol 
                       ios_icon_name="rectangle.portrait.and.arrow.right" 
                       android_material_icon_name="logout" 
                       size={24} 
-                      color="#3B82F6" 
+                      color="#FFFFFF" 
                     />
-                  </View>
+                  </LinearGradient>
                   <MaskedView
                     maskElement={
                       <Text style={styles.mobileActionText}>Logout</Text>
@@ -764,7 +784,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EFF6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
