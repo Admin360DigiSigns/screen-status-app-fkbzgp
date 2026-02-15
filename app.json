@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Screen Status",
-    "slug": "screen-status-app-fkbzgp",
+    "slug": "Screen Status",
     "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -49,7 +49,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "digisigns",
+    "scheme": "Screen Status",
     "experiments": {
       "typedRoutes": true
     },

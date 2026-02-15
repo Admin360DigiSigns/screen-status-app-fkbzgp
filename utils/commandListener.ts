@@ -76,7 +76,7 @@ class CommandListenerService {
     // Set up Realtime channel for instant command delivery
     this.setupRealtimeChannel();
 
-    // Set up polling as fallback (every 3 seconds for better responsiveness)
+    // Set up polling as fallback (every 2 seconds for better responsiveness)
     this.startPolling();
   }
 
@@ -107,16 +107,42 @@ class CommandListenerService {
   private setupRealtimeChannel() {
     if (!this.deviceId) return;
 
-    const channelName = `app_commands:${this.deviceId}`;
+    const channelName = `app_commands:device_id=eq.${this.deviceId}`;
     console.log('📡 [CommandListener] Setting up Realtime channel:', channelName);
 
-    this.channel = supabase.channel(channelName);
-
-    this.channel
-      .on('broadcast', { event: 'command' }, (payload) => {
-        console.log('📨 [CommandListener] ✅ Received command via Realtime:', payload);
-        this.handleCommand(payload.payload as AppCommand);
-      })
+    this.channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'app_commands',
+          filter: `device_id=eq.${this.deviceId}`,
+        },
+        (payload) => {
+          console.log('📨 [CommandListener] ✅ Received command via Realtime INSERT:', payload);
+          if (payload.new) {
+            this.handleCommand(payload.new as AppCommand);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'app_commands',
+          filter: `device_id=eq.${this.deviceId}`,
+        },
+        (payload) => {
+          console.log('📨 [CommandListener] Received command via Realtime UPDATE:', payload);
+          // Only process if status changed to pending (in case of retry)
+          if (payload.new && (payload.new as AppCommand).status === 'pending') {
+            this.handleCommand(payload.new as AppCommand);
+          }
+        }
+      )
       .subscribe((status) => {
         console.log('📡 [CommandListener] Realtime channel status:', status);
         if (status === 'SUBSCRIBED') {
@@ -125,6 +151,9 @@ class CommandListenerService {
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           this.connectionStatus = 'disconnected';
           console.error('❌ [CommandListener] Realtime channel error:', status);
+        } else if (status === 'CLOSED') {
+          this.connectionStatus = 'disconnected';
+          console.log('🔌 [CommandListener] Realtime channel closed');
         }
       });
   }
@@ -133,15 +162,15 @@ class CommandListenerService {
    * Start polling for commands (fallback mechanism)
    */
   private startPolling() {
-    console.log('🔄 [CommandListener] Starting command polling (every 3 seconds)');
+    console.log('🔄 [CommandListener] Starting command polling (every 2 seconds)');
 
     // Poll immediately
     this.pollForCommands();
 
-    // Then poll every 3 seconds
+    // Then poll every 2 seconds
     this.pollInterval = setInterval(() => {
       this.pollForCommands();
-    }, 3000);
+    }, 2000);
   }
 
   /**
@@ -182,11 +211,6 @@ class CommandListenerService {
           });
           await this.handleCommand(command as AppCommand);
         }
-      } else {
-        // Only log occasionally to avoid spam
-        if (Math.random() < 0.1) {
-          console.log('📭 [CommandListener] No pending commands found');
-        }
       }
     } catch (error) {
       console.error('❌ [CommandListener] Error in pollForCommands:', error);
@@ -203,6 +227,7 @@ class CommandListenerService {
     console.log('⚙️ [CommandListener] Command Status:', command.status);
     console.log('⚙️ [CommandListener] Device ID:', command.device_id);
     console.log('⚙️ [CommandListener] Screen Name:', command.screen_name);
+    console.log('⚙️ [CommandListener] Payload:', command.payload);
 
     // Skip if already processed
     if (command.status !== 'pending') {

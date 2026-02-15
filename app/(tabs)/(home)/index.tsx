@@ -13,15 +13,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { commandListener, AppCommand } from '@/utils/commandListener';
 
 export default function HomeScreen() {
-  const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
+  const { 
+    isAuthenticated, 
+    screenName, 
+    username, 
+    password, 
+    deviceId, 
+    logout, 
+    setScreenActive,
+    showPreviewModal,
+    setShowPreviewModal,
+    showScreenShareModal,
+    setShowScreenShareModal,
+    displayContent,
+    setDisplayContent,
+  } = useAuth();
   const networkState = useNetworkState();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [isScreenShareMode, setIsScreenShareMode] = useState(false);
-  const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [focusedButton, setFocusedButton] = useState<string | null>(null);
   const [commandListenerStatus, setCommandListenerStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -38,6 +49,9 @@ export default function HomeScreen() {
   }).current;
 
   const isTVDevice = isTV();
+
+  // TV-specific scaling factor to make content smaller
+  const tvScale = isTVDevice ? 0.75 : 1;
 
   // Pulse animation for status indicator
   useEffect(() => {
@@ -117,59 +131,6 @@ export default function HomeScreen() {
     }
   }, [deviceId]);
 
-  // Command handlers - defined with useCallback to maintain stable references
-  const handlePreviewCommand = useCallback(async (command: AppCommand) => {
-    console.log('🎬 [HomeScreen] Executing preview_content command');
-    await handlePreview();
-  }, [username, password, screenName]);
-
-  const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
-    console.log('📺 [HomeScreen] Executing screenshare command');
-    if (Platform.OS !== 'web') {
-      handleScreenShare();
-    } else {
-      throw new Error('Screen share not available on web platform');
-    }
-  }, [username, password, screenName]);
-
-  const handleSyncCommand = useCallback(async (command: AppCommand) => {
-    console.log('🔄 [HomeScreen] Executing sync_status command');
-    await syncDeviceStatus();
-  }, [deviceId, screenName, username, password, networkState.isConnected]);
-
-  const handleLogoutCommand = useCallback(async (command: AppCommand) => {
-    console.log('🚪 [HomeScreen] Executing logout command');
-    await handleLogout();
-  }, [deviceId, screenName, username, password]);
-
-  // Set up command handlers when authenticated
-  useEffect(() => {
-    if (!isAuthenticated || !deviceId) {
-      console.log('⏸️ [HomeScreen] Skipping command listener setup - not authenticated or no device ID');
-      return;
-    }
-
-    console.log('🎯 [HomeScreen] Setting up command handlers for device:', deviceId);
-
-    // Initialize command listener with device ID (in case it wasn't initialized yet)
-    commandListener.initialize(deviceId);
-
-    // Register command handlers
-    commandListener.registerHandler('preview_content', handlePreviewCommand);
-    commandListener.registerHandler('screenshare', handleScreenShareCommand);
-    commandListener.registerHandler('sync_status', handleSyncCommand);
-    commandListener.registerHandler('logout', handleLogoutCommand);
-
-    // Start listening for commands
-    commandListener.startListening();
-
-    // Cleanup
-    return () => {
-      console.log('🧹 [HomeScreen] Cleaning up command handlers');
-      commandListener.stopListening();
-    };
-  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
-
   const syncDeviceStatus = useCallback(async () => {
     if (!deviceId || !screenName || !username || !password) {
       console.log('Missing required data for sync:', { deviceId, screenName, username, hasPassword: !!password });
@@ -247,7 +208,7 @@ export default function HomeScreen() {
       if (result.success && result.data) {
         console.log('Preview content loaded successfully');
         setDisplayContent(result.data);
-        setIsPreviewMode(true);
+        setShowPreviewModal(true);
       } else {
         Alert.alert('Preview Error', result.error || 'Failed to load preview content');
       }
@@ -260,7 +221,7 @@ export default function HomeScreen() {
   };
 
   const handleClosePreview = () => {
-    setIsPreviewMode(false);
+    setShowPreviewModal(false);
     setDisplayContent(null);
   };
 
@@ -274,12 +235,12 @@ export default function HomeScreen() {
     }
     
     console.log('✅ Credentials verified, opening screen share modal');
-    setIsScreenShareMode(true);
+    setShowScreenShareModal(true);
   };
 
   const handleCloseScreenShare = () => {
     console.log('Closing screen share receiver');
-    setIsScreenShareMode(false);
+    setShowScreenShareModal(false);
   };
 
   const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
@@ -305,7 +266,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Initializing device...</Text>
+        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
       </View>
     );
   }
@@ -345,7 +306,7 @@ export default function HomeScreen() {
     }
   };
 
-  // TV Layout - Compact professional design
+  // TV Layout - Compact professional design with scaling
   if (isTVDevice) {
     return (
       <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
@@ -356,7 +317,7 @@ export default function HomeScreen() {
           end={{ x: 1, y: 1 }}
         >
           {/* Compact Header */}
-          <View style={styles.tvHeader}>
+          <View style={[styles.tvHeader, { transform: [{ scale: tvScale }] }]}>
             <Image
               source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
               style={styles.tvHeaderLogo}
@@ -394,7 +355,7 @@ export default function HomeScreen() {
           </View>
 
           {/* Compact Main Content */}
-          <View style={styles.tvMainContent}>
+          <View style={[styles.tvMainContent, { transform: [{ scale: tvScale }] }]}>
             {/* Info Card - Compact */}
             <View style={styles.tvInfoCard}>
               <LinearGradient
@@ -451,7 +412,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons Grid - 2x2 Layout (removed diagnostics) */}
+            {/* Action Buttons Grid - 2x2 Layout */}
             <View style={styles.tvButtonsGrid}>
               <TouchableOpacity 
                 style={[
@@ -549,16 +510,16 @@ export default function HomeScreen() {
           </View>
 
           {/* Compact Footer */}
-          <View style={styles.tvFooter}>
+          <View style={[styles.tvFooter, { transform: [{ scale: tvScale }] }]}>
             <Text style={styles.tvFooterText}>
-              ℹ️ Status updates sent every 20 seconds • Remote commands enabled • Updates only when on this screen
+              ℹ️ Status updates sent every 20 seconds • Remote commands enabled globally • Updates only when on this screen
             </Text>
           </View>
         </LinearGradient>
 
-        {/* Preview Modal */}
+        {/* Preview Modal - Managed by AuthContext */}
         <Modal
-          visible={isPreviewMode}
+          visible={showPreviewModal}
           animationType="slide"
           presentationStyle="fullScreen"
           onRequestClose={handleClosePreview}
@@ -571,9 +532,9 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.container}>
               <View style={styles.content}>
-                <Text style={styles.errorText}>No content available</Text>
+                <Text style={[styles.errorText, { fontSize: 18 * tvScale }]}>No content available</Text>
                 <TouchableOpacity style={styles.logoutButton} onPress={handleClosePreview}>
-                  <Text style={styles.logoutButtonText}>Close</Text>
+                  <Text style={[styles.logoutButtonText, { fontSize: 18 * tvScale }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -583,7 +544,7 @@ export default function HomeScreen() {
         {/* Screen Share Modal - Only render on native platforms */}
         {!isWebPlatform && (
           <Modal
-            visible={isScreenShareMode}
+            visible={showScreenShareModal}
             animationType="slide"
             presentationStyle="fullScreen"
             onRequestClose={handleCloseScreenShare}
@@ -696,7 +657,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </View>
 
-            {/* Action Buttons (removed diagnostics) */}
+            {/* Action Buttons */}
             <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
               <TouchableOpacity 
                 style={styles.mobileButton}
@@ -796,7 +757,7 @@ export default function HomeScreen() {
                 ℹ️ Status updates sent every 20 seconds
               </Text>
               <Text style={styles.mobileFooterText}>
-                🎯 Remote commands enabled
+                🎯 Remote commands enabled globally
               </Text>
               <Text style={styles.mobileFooterText}>
                 Updates only when on this screen
@@ -811,9 +772,9 @@ export default function HomeScreen() {
         </ScrollView>
       </LinearGradient>
 
-      {/* Preview Modal */}
+      {/* Preview Modal - Managed by AuthContext */}
       <Modal
-        visible={isPreviewMode}
+        visible={showPreviewModal}
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleClosePreview}
@@ -838,7 +799,7 @@ export default function HomeScreen() {
       {/* Screen Share Modal - Only render on native platforms */}
       {!isWebPlatform && (
         <Modal
-          visible={isScreenShareMode}
+          visible={showScreenShareModal}
           animationType="slide"
           presentationStyle="fullScreen"
           onRequestClose={handleCloseScreenShare}
@@ -866,7 +827,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
     color: colors.text,
   },
   errorText: {
@@ -885,7 +845,6 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: colors.card,
-    fontSize: 18,
     fontWeight: '600',
   },
 
@@ -1065,7 +1024,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // TV styles - Compact professional design
+  // TV styles - Compact professional design with scaling
   tvContainer: {
     flex: 1,
   },
