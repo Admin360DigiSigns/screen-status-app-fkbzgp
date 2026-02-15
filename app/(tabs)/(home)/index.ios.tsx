@@ -280,7 +280,7 @@ export default function HomeScreen() {
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
       <LinearGradient
-        colors={['#F3F4F6', '#E5E7EB', '#D1D5DB']}
+        colors={['#E0E7FF', '#C7D2FE', '#A5B4FC', '#818CF8']}
         style={styles.mobileGradientBackground}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -293,7 +293,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
+                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
@@ -324,7 +324,12 @@ export default function HomeScreen() {
             {/* Display Information Card */}
             <View style={styles.mobileCard}>
               <View style={styles.mobileCardHeader}>
-                <View style={styles.mobileCardHeaderLine} />
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
+                  style={styles.mobileCardHeaderLine}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                />
                 <Text style={styles.mobileCardTitle}>DISPLAY INFORMATION</Text>
               </View>
 
@@ -362,7 +367,12 @@ export default function HomeScreen() {
             {/* Quick Actions Card */}
             <View style={styles.mobileCard}>
               <View style={styles.mobileCardHeader}>
-                <View style={styles.mobileCardHeaderLine} />
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
+                  style={styles.mobileCardHeaderLine}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                />
                 <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
               </View>
 
@@ -377,7 +387,14 @@ export default function HomeScreen() {
                 ) : (
                   <React.Fragment>
                     <Text style={styles.mobileActionIcon}>👁️</Text>
-                    <Text style={styles.mobileActionText}>Preview Content</Text>
+                    <LinearGradient
+                      colors={['#3B82F6', '#1E40AF']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.mobileActionTextGradient}
+                    >
+                      <Text style={styles.mobileActionText}>Preview Content</Text>
+                    </LinearGradient>
                   </React.Fragment>
                 )}
               </TouchableOpacity>
@@ -388,7 +405,14 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.mobileActionIcon}>🔗</Text>
-                <Text style={styles.mobileActionText}>Screen Share</Text>
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.mobileActionTextGradient}
+                >
+                  <Text style={styles.mobileActionText}>Screen Share</Text>
+                </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -397,7 +421,14 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.mobileActionIcon}>🔄</Text>
-                <Text style={styles.mobileActionText}>Sync Status</Text>
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.mobileActionTextGradient}
+                >
+                  <Text style={styles.mobileActionText}>Sync Status</Text>
+                </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -406,7 +437,14 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.mobileActionIcon}>🚪</Text>
-                <Text style={styles.mobileActionText}>Logout</Text>
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.mobileActionTextGradient}
+                >
+                  <Text style={styles.mobileActionText}>Logout</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
 
@@ -532,9 +570,9 @@ const styles = StyleSheet.create({
   },
   mobileStatusItemLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#1F2937',
     marginBottom: 8,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   mobileStatusBadge: {
     flexDirection: 'row',
@@ -560,10 +598,10 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
   },
   mobileCardHeader: {
     flexDirection: 'row',
@@ -574,7 +612,6 @@ const styles = StyleSheet.create({
   mobileCardHeaderLine: {
     width: 4,
     height: 20,
-    backgroundColor: '#3B82F6',
     borderRadius: 2,
   },
   mobileCardTitle: {
@@ -634,10 +671,15 @@ const styles = StyleSheet.create({
   mobileActionIcon: {
     fontSize: 20,
   },
+  mobileActionTextGradient: {
+    borderRadius: 4,
+  },
   mobileActionText: {
     fontSize: 16,
-    color: '#3B82F6',
+    color: '#FFFFFF',
     fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   mobileFooter: {
     flexDirection: 'row',
@@ -645,13 +687,13 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 12,
   },
   mobileFooterText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: '#1F2937',
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });
