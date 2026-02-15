@@ -12,25 +12,14 @@ import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function HomeScreen() {
-  const { 
-    isAuthenticated, 
-    screenName, 
-    username, 
-    password, 
-    deviceId, 
-    logout, 
-    setScreenActive,
-    showPreviewModal,
-    setShowPreviewModal,
-    showScreenShareModal,
-    setShowScreenShareModal,
-    displayContent,
-    setDisplayContent,
-  } = useAuth();
+  const { isAuthenticated, screenName, username, password, deviceId, logout, setScreenActive } = useAuth();
   const networkState = useNetworkState();
   const [isLoading, setIsLoading] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<'success' | 'failed' | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isScreenShareMode, setIsScreenShareMode] = useState(false);
+  const [displayContent, setDisplayContent] = useState<DisplayConnectResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [focusedButton, setFocusedButton] = useState<string | null>(null);
 
@@ -46,9 +35,6 @@ export default function HomeScreen() {
   }).current;
 
   const isTVDevice = isTV();
-
-  // TV-specific scaling factor to make content smaller
-  const tvScale = isTVDevice ? 0.75 : 1;
 
   // Pulse animation for status indicator
   useEffect(() => {
@@ -136,9 +122,9 @@ export default function HomeScreen() {
     };
 
     console.log('Syncing device status with payload (password hidden)');
-    const result = await sendDeviceStatus(payload);
+    const success = await sendDeviceStatus(payload);
     
-    if (result.success) {
+    if (success) {
       setLastSyncTime(new Date());
       setSyncStatus('success');
       console.log('Status sync successful');
@@ -158,7 +144,7 @@ export default function HomeScreen() {
     try {
       // Send offline status before logging out
       if (deviceId && screenName && username && password) {
-        const result = await sendDeviceStatus({
+        await sendDeviceStatus({
           deviceId,
           screenName,
           screen_username: username,
@@ -167,9 +153,6 @@ export default function HomeScreen() {
           status: 'offline',
           timestamp: new Date().toISOString(),
         });
-        if (!result.success) {
-          console.error('Failed to send offline status:', result.error);
-        }
       }
       await logout();
     } catch (error) {
@@ -198,7 +181,7 @@ export default function HomeScreen() {
       if (result.success && result.data) {
         console.log('Preview content loaded successfully');
         setDisplayContent(result.data);
-        setShowPreviewModal(true);
+        setIsPreviewMode(true);
       } else {
         Alert.alert('Preview Error', result.error || 'Failed to load preview content');
       }
@@ -211,7 +194,7 @@ export default function HomeScreen() {
   };
 
   const handleClosePreview = () => {
-    setShowPreviewModal(false);
+    setIsPreviewMode(false);
     setDisplayContent(null);
   };
 
@@ -225,12 +208,12 @@ export default function HomeScreen() {
     }
     
     console.log('✅ Credentials verified, opening screen share modal');
-    setShowScreenShareModal(true);
+    setIsScreenShareMode(true);
   };
 
   const handleCloseScreenShare = () => {
     console.log('Closing screen share receiver');
-    setShowScreenShareModal(false);
+    setIsScreenShareMode(false);
   };
 
   const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
@@ -256,17 +239,257 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
+        <Text style={styles.loadingText}>Initializing device...</Text>
       </View>
     );
   }
 
   const isOnline = networkState.isConnected === true;
+  const statusColor = isOnline ? '#10B981' : '#EF4444';
 
   const glowColor = statusGlowAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
   });
+
+  // TV Layout - Compact professional design
+  if (isTVDevice) {
+    return (
+      <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
+        <LinearGradient
+          colors={['#0F172A', '#1E293B', '#334155']}
+          style={styles.tvGradientBackground}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {/* Compact Header */}
+          <View style={styles.tvHeader}>
+            <Image
+              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+              style={styles.tvHeaderLogo}
+              resizeMode="contain"
+            />
+            
+            <Animated.View style={[styles.tvStatusBanner, { shadowColor: glowColor }]}>
+              <LinearGradient
+                colors={isOnline ? ['#10B981', '#059669', '#047857'] : ['#EF4444', '#DC2626', '#B91C1C']}
+                style={styles.tvStatusGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <View style={styles.tvStatusContent}>
+                  <Animated.View style={[styles.tvStatusDot, { transform: [{ scale: pulseAnim }], backgroundColor: '#FFFFFF' }]} />
+                  <View style={styles.tvStatusTextContainer}>
+                    <Text style={styles.tvStatusLabel}>SCREEN STATUS</Text>
+                    <Text style={styles.tvStatusName}>{screenName}</Text>
+                  </View>
+                  <View style={styles.tvStatusBadge}>
+                    <Text style={styles.tvStatusBadgeText}>
+                      {isOnline ? '● ONLINE' : '● OFFLINE'}
+                    </Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+          </View>
+
+          {/* Compact Main Content */}
+          <View style={styles.tvMainContent}>
+            {/* Info Card - Compact */}
+            <View style={styles.tvInfoCard}>
+              <LinearGradient
+                colors={['#1E293B', '#334155']}
+                style={styles.tvCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+              >
+                <Text style={styles.tvCardTitle}>Display Information</Text>
+                
+                <View style={styles.tvInfoRow}>
+                  <View style={styles.tvInfoItem}>
+                    <Text style={styles.tvInfoItemLabel}>Username</Text>
+                    <Text style={styles.tvInfoItemValue}>{username}</Text>
+                  </View>
+
+                  <View style={styles.tvInfoItem}>
+                    <Text style={styles.tvInfoItemLabel}>Screen Name</Text>
+                    <Text style={styles.tvInfoItemValue}>{screenName}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.tvInfoRow}>
+                  <View style={styles.tvInfoItem}>
+                    <Text style={styles.tvInfoItemLabel}>Device ID</Text>
+                    <Text style={styles.tvInfoItemValue} numberOfLines={1} ellipsizeMode="middle">
+                      {deviceId}
+                    </Text>
+                  </View>
+
+                  {lastSyncTime && (
+                    <View style={styles.tvInfoItem}>
+                      <Text style={styles.tvInfoItemLabel}>Last Sync</Text>
+                      <Text style={styles.tvInfoItemValue}>
+                        {lastSyncTime.toLocaleTimeString()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {syncStatus && (
+                  <View style={styles.tvInfoRow}>
+                    <View style={styles.tvInfoItem}>
+                      <Text style={styles.tvInfoItemLabel}>Sync Status</Text>
+                      <Text style={[
+                        styles.tvInfoItemValue,
+                        { color: syncStatus === 'success' ? '#10B981' : '#EF4444' }
+                      ]}>
+                        {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </LinearGradient>
+            </View>
+
+            {/* Action Buttons Grid - 2x2 Layout */}
+            <View style={styles.tvButtonsGrid}>
+              <TouchableOpacity 
+                style={[
+                  styles.tvButton,
+                  focusedButton === 'preview' && styles.tvButtonFocused
+                ]}
+                onPress={handlePreview}
+                onFocus={() => setFocusedButton('preview')}
+                onBlur={() => setFocusedButton(null)}
+                activeOpacity={0.9}
+                disabled={isLoadingPreview}
+              >
+                <LinearGradient
+                  colors={focusedButton === 'preview' ? ['#3B82F6', '#2563EB', '#1D4ED8'] : ['#2563EB', '#1E40AF', '#1E3A8A']}
+                  style={styles.tvButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {isLoadingPreview ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <React.Fragment>
+                      <Text style={styles.tvButtonIcon}>🎬</Text>
+                      <Text style={styles.tvButtonText}>Preview</Text>
+                    </React.Fragment>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.tvButton,
+                  focusedButton === 'screenshare' && styles.tvButtonFocused
+                ]}
+                onPress={handleScreenShare}
+                onFocus={() => setFocusedButton('screenshare')}
+                onBlur={() => setFocusedButton(null)}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={focusedButton === 'screenshare' ? ['#A855F7', '#9333EA', '#7E22CE'] : ['#9333EA', '#7E22CE', '#6B21A8']}
+                  style={styles.tvButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.tvButtonIcon}>📺</Text>
+                  <Text style={styles.tvButtonText}>Screen Share</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.tvButton,
+                  focusedButton === 'sync' && styles.tvButtonFocused
+                ]}
+                onPress={handleManualSync}
+                onFocus={() => setFocusedButton('sync')}
+                onBlur={() => setFocusedButton(null)}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={focusedButton === 'sync' ? ['#10B981', '#059669', '#047857'] : ['#059669', '#047857', '#065F46']}
+                  style={styles.tvButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.tvButtonIcon}>🔄</Text>
+                  <Text style={styles.tvButtonText}>Sync Status</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[
+                  styles.tvButton,
+                  focusedButton === 'logout' && styles.tvButtonFocused
+                ]}
+                onPress={handleLogout}
+                onFocus={() => setFocusedButton('logout')}
+                onBlur={() => setFocusedButton(null)}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={focusedButton === 'logout' ? ['#EF4444', '#DC2626', '#B91C1C'] : ['#DC2626', '#B91C1C', '#991B1B']}
+                  style={styles.tvButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.tvButtonIcon}>🚪</Text>
+                  <Text style={styles.tvButtonText}>Logout</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Compact Footer */}
+          <View style={styles.tvFooter}>
+            <Text style={styles.tvFooterText}>
+              ℹ️ Status updates sent every 1 minute • Updates only when on this screen
+            </Text>
+          </View>
+        </LinearGradient>
+
+        {/* Preview Modal */}
+        <Modal
+          visible={isPreviewMode}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleClosePreview}
+        >
+          {displayContent && displayContent.solution && displayContent.solution.playlists ? (
+            <ContentPlayer
+              playlists={displayContent.solution.playlists}
+              onClose={handleClosePreview}
+            />
+          ) : (
+            <View style={styles.container}>
+              <View style={styles.content}>
+                <Text style={styles.errorText}>No content available</Text>
+                <TouchableOpacity style={styles.logoutButton} onPress={handleClosePreview}>
+                  <Text style={styles.logoutButtonText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </Modal>
+
+        {/* Screen Share Modal */}
+        <Modal
+          visible={isScreenShareMode}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleCloseScreenShare}
+        >
+          <ScreenShareReceiver onClose={handleCloseScreenShare} />
+        </Modal>
+      </Animated.View>
+    );
+  }
 
   // Mobile Layout - Professional design with gradients and animations
   return (
@@ -457,10 +680,7 @@ export default function HomeScreen() {
             {/* Footer Info */}
             <View style={styles.mobileFooter}>
               <Text style={styles.mobileFooterText}>
-                ℹ️ Status updates sent every 20 seconds
-              </Text>
-              <Text style={styles.mobileFooterText}>
-                🎯 Remote commands enabled globally
+                ℹ️ Status updates sent every 1 minute
               </Text>
               <Text style={styles.mobileFooterText}>
                 Updates only when on this screen
@@ -470,9 +690,9 @@ export default function HomeScreen() {
         </ScrollView>
       </LinearGradient>
 
-      {/* Preview Modal - Managed by AuthContext */}
+      {/* Preview Modal */}
       <Modal
-        visible={showPreviewModal}
+        visible={isPreviewMode}
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleClosePreview}
@@ -496,7 +716,7 @@ export default function HomeScreen() {
 
       {/* Screen Share Modal */}
       <Modal
-        visible={showScreenShareModal}
+        visible={isScreenShareMode}
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleCloseScreenShare}
@@ -523,6 +743,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
+    fontSize: 16,
     color: colors.text,
   },
   errorText: {
@@ -541,6 +762,7 @@ const styles = StyleSheet.create({
   },
   logoutButtonText: {
     color: colors.card,
+    fontSize: 18,
     fontWeight: '600',
   },
 
@@ -704,6 +926,185 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     paddingVertical: 2,
+    fontWeight: '500',
+  },
+
+  // TV styles - Compact professional design
+  tvContainer: {
+    flex: 1,
+  },
+  tvGradientBackground: {
+    flex: 1,
+    paddingHorizontal: 50,
+    paddingVertical: 30,
+  },
+  tvHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  tvHeaderLogo: {
+    width: 200,
+    height: 60,
+    marginBottom: 16,
+  },
+  tvStatusBanner: {
+    width: '100%',
+    maxWidth: 900,
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  tvStatusGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 28,
+  },
+  tvStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tvStatusDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 14,
+  },
+  tvStatusTextContainer: {
+    flex: 1,
+  },
+  tvStatusLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.8)',
+    letterSpacing: 1.5,
+    marginBottom: 3,
+  },
+  tvStatusName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
+  },
+  tvStatusBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  tvStatusBadgeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.8,
+  },
+  tvMainContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+  },
+  tvInfoCard: {
+    width: '100%',
+    maxWidth: 900,
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  tvCardGradient: {
+    padding: 20,
+  },
+  tvCardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    letterSpacing: 0.8,
+  },
+  tvInfoRow: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 8,
+  },
+  tvInfoItem: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 8,
+  },
+  tvInfoItemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  tvInfoItemValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  tvButtonsGrid: {
+    width: '100%',
+    maxWidth: 900,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'center',
+  },
+  tvButton: {
+    width: '48%',
+    minWidth: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  tvButtonFocused: {
+    elevation: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    transform: [{ scale: 1.05 }],
+  },
+  tvButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  tvButtonIcon: {
+    fontSize: 22,
+  },
+  tvButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 'bold',
+    letterSpacing: 0.6,
+  },
+  tvFooter: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  tvFooterText: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
     fontWeight: '500',
   },
 });

@@ -1,7 +1,6 @@
 
 import { supabase } from './supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { SUPABASE_CONFIG } from './config';
 
 export interface AppCommand {
   id: string;
@@ -69,26 +68,15 @@ class CommandListenerService {
       return;
     }
 
-    console.log('');
-    console.log('╔════════════════════════════════════════════════════════════════╗');
-    console.log('║           STARTING COMMAND LISTENER                            ║');
-    console.log('╚════════════════════════════════════════════════════════════════╝');
-    console.log('🎧 Device ID:', this.deviceId);
-    console.log('🎧 Device ID Type:', typeof this.deviceId);
-    console.log('🎧 Device ID Length:', this.deviceId.length);
-    console.log('📋 Registered handlers:', Array.from(this.commandHandlers.keys()));
-    console.log('📡 Supabase URL:', 'https://gzyywcqlrjimjegbtoyc.supabase.co');
-    console.log('📊 Project ID: gzyywcqlrjimjegbtoyc');
-    console.log('🔑 Anon Key (first 30 chars):', SUPABASE_CONFIG.anonKey.substring(0, 30));
-    console.log('');
-    
+    console.log('🎧 [CommandListener] Starting command listener for device:', this.deviceId);
+    console.log('📋 [CommandListener] Registered handlers:', Array.from(this.commandHandlers.keys()));
     this.isListening = true;
     this.connectionStatus = 'connecting';
 
     // Set up Realtime channel for instant command delivery
     this.setupRealtimeChannel();
 
-    // Set up polling as fallback (every 2 seconds for better responsiveness)
+    // Set up polling as fallback (every 3 seconds for better responsiveness)
     this.startPolling();
   }
 
@@ -119,72 +107,24 @@ class CommandListenerService {
   private setupRealtimeChannel() {
     if (!this.deviceId) return;
 
-    const channelName = `app_commands:device_id=eq.${this.deviceId}`;
+    const channelName = `app_commands:${this.deviceId}`;
     console.log('📡 [CommandListener] Setting up Realtime channel:', channelName);
-    console.log('📡 [CommandListener] Listening for INSERT events on app_commands table');
-    console.log('📡 [CommandListener] Filter: device_id=eq.' + this.deviceId);
 
-    this.channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'app_commands',
-          filter: `device_id=eq.${this.deviceId}`,
-        },
-        (payload) => {
-          console.log('');
-          console.log('╔════════════════════════════════════════════════════════════════╗');
-          console.log('║     📨 REALTIME COMMAND RECEIVED (INSERT)                      ║');
-          console.log('╚════════════════════════════════════════════════════════════════╝');
-          console.log('📨 Full payload:', JSON.stringify(payload, null, 2));
-          console.log('');
-          
-          if (payload.new) {
-            this.handleCommand(payload.new as AppCommand);
-          } else {
-            console.error('❌ [CommandListener] No payload.new in INSERT event');
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'app_commands',
-          filter: `device_id=eq.${this.deviceId}`,
-        },
-        (payload) => {
-          console.log('📨 [CommandListener] Received command via Realtime UPDATE:', payload);
-          // Only process if status changed to pending (in case of retry)
-          if (payload.new && (payload.new as AppCommand).status === 'pending') {
-            this.handleCommand(payload.new as AppCommand);
-          }
-        }
-      )
+    this.channel = supabase.channel(channelName);
+
+    this.channel
+      .on('broadcast', { event: 'command' }, (payload) => {
+        console.log('📨 [CommandListener] ✅ Received command via Realtime:', payload);
+        this.handleCommand(payload.payload as AppCommand);
+      })
       .subscribe((status) => {
-        console.log('');
-        console.log('📡 [CommandListener] ═══════════════════════════════════════');
         console.log('📡 [CommandListener] Realtime channel status:', status);
-        console.log('📡 [CommandListener] ═══════════════════════════════════════');
-        console.log('');
-        
         if (status === 'SUBSCRIBED') {
           this.connectionStatus = 'connected';
-          console.log('✅ [CommandListener] ✅✅✅ Successfully subscribed to Realtime channel ✅✅✅');
-          console.log('✅ [CommandListener] Now listening for commands from webapp');
-          console.log('✅ [CommandListener] Device ID:', this.deviceId);
-          console.log('✅ [CommandListener] Project: gzyywcqlrjimjegbtoyc');
-          console.log('');
+          console.log('✅ [CommandListener] Successfully subscribed to Realtime channel');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           this.connectionStatus = 'disconnected';
           console.error('❌ [CommandListener] Realtime channel error:', status);
-        } else if (status === 'CLOSED') {
-          this.connectionStatus = 'disconnected';
-          console.log('🔌 [CommandListener] Realtime channel closed');
         }
       });
   }
@@ -193,75 +133,40 @@ class CommandListenerService {
    * Start polling for commands (fallback mechanism)
    */
   private startPolling() {
-    console.log('🔄 [CommandListener] Starting command polling (every 2 seconds)');
-    console.log('🔄 [CommandListener] Using Edge Function endpoint for polling');
+    console.log('🔄 [CommandListener] Starting command polling (every 3 seconds)');
 
     // Poll immediately
     this.pollForCommands();
 
-    // Then poll every 2 seconds
+    // Then poll every 3 seconds
     this.pollInterval = setInterval(() => {
       this.pollForCommands();
-    }, 2000);
+    }, 3000);
   }
 
   /**
-   * Poll for pending commands using Edge Function
+   * Poll for pending commands
    */
   private async pollForCommands() {
     if (!this.deviceId || !this.isListening) return;
 
     try {
-      // Use Edge Function endpoint for polling as shown in the screenshot
-      const url = `${SUPABASE_CONFIG.url}/functions/v1/pending-commands`;
-      
-      console.log('🔍 [CommandListener] Polling for commands...');
-      console.log('🔍 [CommandListener] URL:', url);
-      console.log('🔍 [CommandListener] Device ID:', this.deviceId);
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_CONFIG.anonKey,
-          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
-        },
-        body: JSON.stringify({
-          device_id: this.deviceId,
-        }),
-      });
+      // Query for pending commands for this device
+      const { data: commands, error } = await supabase
+        .from('app_commands')
+        .select('*')
+        .eq('device_id', this.deviceId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(10);
 
-      console.log('🔍 [CommandListener] Response status:', response.status);
-      console.log('🔍 [CommandListener] Response ok:', response.ok);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [CommandListener] Error polling for commands (status ' + response.status + '):', errorText);
+      if (error) {
+        console.error('❌ [CommandListener] Error polling for commands:', error);
         return;
       }
 
-      const responseText = await response.text();
-      console.log('🔍 [CommandListener] Raw response:', responseText);
-      
-      let commands;
-      try {
-        commands = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('❌ [CommandListener] Failed to parse response JSON:', parseError);
-        console.error('❌ [CommandListener] Response text was:', responseText);
-        return;
-      }
-
-      console.log('🔍 [CommandListener] Parsed commands:', commands);
-      console.log('🔍 [CommandListener] Is array?', Array.isArray(commands));
-      console.log('🔍 [CommandListener] Length:', commands?.length);
-
-      if (commands && Array.isArray(commands) && commands.length > 0) {
-        console.log('');
-        console.log('╔════════════════════════════════════════════════════════════════╗');
-        console.log(`║     📬 FOUND ${commands.length} PENDING COMMAND(S) VIA POLLING              ║`);
-        console.log('╚════════════════════════════════════════════════════════════════╝');
-        console.log('');
+      if (commands && commands.length > 0) {
+        console.log(`📬 [CommandListener] ✅ Found ${commands.length} pending command(s) via polling`);
         
         for (const command of commands) {
           // Skip if we've already processed this command
@@ -274,19 +179,17 @@ class CommandListenerService {
             id: command.id,
             command: command.command,
             device_id: command.device_id,
-            status: command.status,
           });
           await this.handleCommand(command as AppCommand);
         }
       } else {
-        console.log('✓ [CommandListener] No pending commands');
+        // Only log occasionally to avoid spam
+        if (Math.random() < 0.1) {
+          console.log('📭 [CommandListener] No pending commands found');
+        }
       }
     } catch (error) {
       console.error('❌ [CommandListener] Error in pollForCommands:', error);
-      if (error instanceof Error) {
-        console.error('❌ [CommandListener] Error message:', error.message);
-        console.error('❌ [CommandListener] Error stack:', error.stack);
-      }
     }
   }
 
@@ -300,7 +203,6 @@ class CommandListenerService {
     console.log('⚙️ [CommandListener] Command Status:', command.status);
     console.log('⚙️ [CommandListener] Device ID:', command.device_id);
     console.log('⚙️ [CommandListener] Screen Name:', command.screen_name);
-    console.log('⚙️ [CommandListener] Payload:', command.payload);
 
     // Skip if already processed
     if (command.status !== 'pending') {
@@ -349,7 +251,7 @@ class CommandListenerService {
   }
 
   /**
-   * Update command status using Edge Function
+   * Update command status in database
    */
   private async updateCommandStatus(
     commandId: string,
@@ -358,8 +260,8 @@ class CommandListenerService {
   ) {
     try {
       const updateData: any = {
-        command_id: commandId,
         status,
+        executed_at: new Date().toISOString(),
       };
 
       if (errorMessage) {
@@ -368,22 +270,13 @@ class CommandListenerService {
 
       console.log('💾 [CommandListener] Updating command status:', { commandId, status, errorMessage });
 
-      // Use Edge Function endpoint for acknowledging commands as shown in the screenshot
-      const url = `${SUPABASE_CONFIG.url}/functions/v1/acknowledge-command`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_CONFIG.anonKey,
-          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
-        },
-        body: JSON.stringify(updateData),
-      });
+      const { error } = await supabase
+        .from('app_commands')
+        .update(updateData)
+        .eq('id', commandId);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [CommandListener] Error updating command status:', errorText);
+      if (error) {
+        console.error('❌ [CommandListener] Error updating command status:', error);
       } else {
         console.log(`✅ [CommandListener] Command status updated to: ${status}`);
       }

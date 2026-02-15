@@ -49,7 +49,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Screen Status",
+    "scheme": "digisigns",
     "experiments": {
       "typedRoutes": true
     },
