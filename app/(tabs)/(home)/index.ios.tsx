@@ -378,7 +378,19 @@ export default function HomeScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                 />
-                <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
+                <MaskedView
+                  maskElement={
+                    <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
+                  }
+                >
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text style={[styles.mobileCardTitle, { opacity: 0 }]}>QUICK ACTIONS</Text>
+                  </LinearGradient>
+                </MaskedView>
               </View>
 
               <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
