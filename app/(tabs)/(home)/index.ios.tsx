@@ -265,11 +265,22 @@ export default function HomeScreen() {
     outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
   });
 
-  // Mobile Layout - Professional design with gradients and animations
+  // Mobile Layout - Centered design matching the image
+  const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true 
+  }) : '';
+  const syncStatusText = syncStatus === 'success' ? 'Synced' : 'Failed';
+  const commandStatusText = 'Connected';
+
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
+        colors={['#F3F4F6', '#E5E7EB', '#D1D5DB']}
         style={styles.mobileGradientBackground}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -280,188 +291,130 @@ export default function HomeScreen() {
         >
           <View style={styles.mobileContent}>
             {/* Logo */}
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.mobileLogo}
-              resizeMode="contain"
-            />
-            
-            {/* Status Banner */}
-            <Animated.View style={[styles.mobileStatusBanner, { shadowColor: glowColor }]}>
-              <LinearGradient
-                colors={isOnline ? ['#10B981', '#059669', '#047857'] : ['#EF4444', '#DC2626', '#B91C1C']}
-                style={styles.mobileStatusGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <View style={styles.mobileStatusContent}>
-                  <Animated.View style={[styles.mobileStatusDot, { transform: [{ scale: pulseAnim }] }]} />
-                  <View style={styles.mobileStatusTextContainer}>
-                    <Text style={styles.mobileStatusLabel}>SCREEN STATUS</Text>
-                    <Text style={styles.mobileStatusName}>{screenName}</Text>
-                  </View>
-                </View>
-                <View style={styles.mobileStatusBadge}>
-                  <Text style={styles.mobileStatusBadgeText}>
-                    {isOnline ? '● ONLINE' : '● OFFLINE'}
-                  </Text>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            {/* Info Card */}
-            <View style={styles.mobileInfoCard}>
-              <LinearGradient
-                colors={['#1E293B', '#334155']}
-                style={styles.mobileCardGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-              >
-                <Text style={styles.mobileCardTitle}>Display Information</Text>
-                
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Username</Text>
-                  <Text style={styles.mobileInfoItemValue}>{username}</Text>
-                </View>
-
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Screen Name</Text>
-                  <Text style={styles.mobileInfoItemValue}>{screenName}</Text>
-                </View>
-                
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Device ID</Text>
-                  <Text style={styles.mobileInfoItemValue} numberOfLines={1} ellipsizeMode="middle">
-                    {deviceId}
-                  </Text>
-                </View>
-
-                {lastSyncTime && (
-                  <View style={styles.mobileInfoItem}>
-                    <Text style={styles.mobileInfoItemLabel}>Last Sync</Text>
-                    <Text style={styles.mobileInfoItemValue}>
-                      {lastSyncTime.toLocaleTimeString()}
-                    </Text>
-                  </View>
-                )}
-
-                {syncStatus && (
-                  <View style={styles.mobileInfoItem}>
-                    <Text style={styles.mobileInfoItemLabel}>Sync Status</Text>
-                    <Text style={[
-                      styles.mobileInfoItemValue,
-                      { color: syncStatus === 'success' ? '#10B981' : '#EF4444' }
-                    ]}>
-                      {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
-                    </Text>
-                  </View>
-                )}
-              </LinearGradient>
+            <View style={styles.mobileLogoContainer}>
+              <Image
+                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
+                style={styles.mobileLogo}
+                resizeMode="contain"
+              />
             </View>
 
-            {/* Action Buttons */}
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
+            {/* Status Banner */}
+            <View style={styles.mobileStatusRow}>
+              <View style={styles.mobileStatusItem}>
+                <Text style={styles.mobileStatusItemLabel}>Remote Commands</Text>
+                <View style={styles.mobileStatusBadge}>
+                  <View style={[styles.mobileStatusDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={[styles.mobileStatusBadgeText, { color: '#10B981' }]}>
+                    {commandStatusText}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.mobileStatusItem}>
+                <Text style={styles.mobileStatusItemLabel}>{screenName}</Text>
+                <View style={[styles.mobileStatusBadge, { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.mobileStatusBadgeText, { color: isOnline ? '#10B981' : '#EF4444' }]}>
+                    {isOnline ? 'ONLINE' : 'OFFLINE'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Display Information Card */}
+            <View style={styles.mobileCard}>
+              <View style={styles.mobileCardHeader}>
+                <View style={styles.mobileCardHeaderLine} />
+                <Text style={styles.mobileCardTitle}>DISPLAY INFORMATION</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Username</Text>
+                <Text style={styles.mobileInfoValue}>{username}</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Screen Name</Text>
+                <Text style={styles.mobileInfoValue}>{screenName}</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Device ID</Text>
+                <Text style={styles.mobileInfoValue} numberOfLines={1} ellipsizeMode="middle">
+                  {deviceId}
+                </Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Last Sync</Text>
+                <Text style={styles.mobileInfoValue}>{lastSyncFormatted}</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Sync Status</Text>
+                <View style={styles.mobileSyncStatusBadge}>
+                  <Text style={styles.mobileSyncStatusIcon}>✓</Text>
+                  <Text style={styles.mobileSyncStatusText}>{syncStatusText}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Actions Card */}
+            <View style={styles.mobileCard}>
+              <View style={styles.mobileCardHeader}>
+                <View style={styles.mobileCardHeaderLine} />
+                <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
+              </View>
+
               <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('preview');
-                  handlePreview();
-                }}
-                activeOpacity={0.9}
+                style={styles.mobileActionButton}
+                onPress={handlePreview}
+                activeOpacity={0.8}
                 disabled={isLoadingPreview}
               >
-                <LinearGradient
-                  colors={['#2563EB', '#1E40AF', '#1E3A8A']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {isLoadingPreview ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <React.Fragment>
-                      <Text style={styles.mobileButtonIcon}>🎬</Text>
-                      <Text style={styles.mobileButtonText}>Preview Content</Text>
-                    </React.Fragment>
-                  )}
-                </LinearGradient>
+                {isLoadingPreview ? (
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                ) : (
+                  <React.Fragment>
+                    <Text style={styles.mobileActionIcon}>👁️</Text>
+                    <Text style={styles.mobileActionText}>Preview Content</Text>
+                  </React.Fragment>
+                )}
               </TouchableOpacity>
-            </Animated.View>
 
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.screenshare }] }}>
               <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('screenshare');
-                  handleScreenShare();
-                }}
-                activeOpacity={0.9}
+                style={styles.mobileActionButton}
+                onPress={handleScreenShare}
+                activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={['#9333EA', '#7E22CE', '#6B21A8']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileButtonIcon}>📺</Text>
-                  <Text style={styles.mobileButtonText}>Screen Share</Text>
-                </LinearGradient>
+                <Text style={styles.mobileActionIcon}>🔗</Text>
+                <Text style={styles.mobileActionText}>Screen Share</Text>
               </TouchableOpacity>
-            </Animated.View>
 
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.sync }] }}>
               <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('sync');
-                  handleManualSync();
-                }}
-                activeOpacity={0.9}
+                style={styles.mobileActionButton}
+                onPress={handleManualSync}
+                activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={['#059669', '#047857', '#065F46']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileButtonIcon}>🔄</Text>
-                  <Text style={styles.mobileButtonText}>Sync Status</Text>
-                </LinearGradient>
+                <Text style={styles.mobileActionIcon}>🔄</Text>
+                <Text style={styles.mobileActionText}>Sync Status</Text>
               </TouchableOpacity>
-            </Animated.View>
 
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.logout }] }}>
               <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('logout');
-                  handleLogout();
-                }}
-                activeOpacity={0.9}
+                style={styles.mobileActionButton}
+                onPress={handleLogout}
+                activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={['#DC2626', '#B91C1C', '#991B1B']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileButtonIcon}>🚪</Text>
-                  <Text style={styles.mobileButtonText}>Logout</Text>
-                </LinearGradient>
+                <Text style={styles.mobileActionIcon}>🚪</Text>
+                <Text style={styles.mobileActionText}>Logout</Text>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
 
-            {/* Footer Info */}
+            {/* Footer */}
             <View style={styles.mobileFooter}>
-              <Text style={styles.mobileFooterText}>
-                ℹ️ Status updates sent every 20 seconds
-              </Text>
-              <Text style={styles.mobileFooterText}>
-                🎯 Remote commands enabled globally
-              </Text>
-              <Text style={styles.mobileFooterText}>
-                Updates only when on this screen
-              </Text>
+              <Text style={styles.mobileFooterText}>Status updates every 20s</Text>
+              <Text style={styles.mobileFooterText}>Remote commands enabled</Text>
+              <Text style={styles.mobileFooterText}>Updates only on this screen</Text>
             </View>
           </View>
         </ScrollView>
@@ -541,7 +494,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Mobile styles - Professional design
+  // Mobile styles - Clean centered design
   mobileContainer: {
     flex: 1,
   },
@@ -556,151 +509,149 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 40,
+  },
+  mobileLogoContainer: {
+    marginBottom: 32,
+    alignItems: 'center',
   },
   mobileLogo: {
-    width: 220,
-    height: 80,
-    marginBottom: 24,
+    width: 200,
+    height: 70,
   },
-  mobileStatusBanner: {
-    width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 20,
-    elevation: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-  },
-  mobileStatusGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  mobileStatusContent: {
+  mobileStatusRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 24,
+    gap: 12,
   },
-  mobileStatusDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    marginRight: 12,
-  },
-  mobileStatusTextContainer: {
+  mobileStatusItem: {
     flex: 1,
+    alignItems: 'center',
   },
-  mobileStatusLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.8)',
-    letterSpacing: 1.5,
-    marginBottom: 2,
-  },
-  mobileStatusName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+  mobileStatusItemLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontWeight: '500',
   },
   mobileStatusBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+  mobileStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   mobileStatusBadgeText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: '600',
   },
-  mobileInfoCard: {
+  mobileCard: {
     width: '100%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  mobileCardGradient: {
     padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  mobileCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  mobileCardHeaderLine: {
+    width: 4,
+    height: 20,
+    backgroundColor: '#3B82F6',
+    borderRadius: 2,
   },
   mobileCardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 16,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
     letterSpacing: 0.5,
   },
-  mobileInfoItem: {
+  mobileInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#F3F4F6',
   },
-  mobileInfoItemLabel: {
+  mobileInfoLabel: {
     fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  mobileInfoValue: {
+    fontSize: 14,
+    color: '#1F2937',
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    flex: 1,
-  },
-  mobileInfoItemValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    flex: 2,
     textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
   },
-  mobileButton: {
-    width: '100%',
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 12,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  mobileButtonGradient: {
+  mobileSyncStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  mobileSyncStatusIcon: {
+    fontSize: 12,
+    color: '#10B981',
+  },
+  mobileSyncStatusText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  mobileActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
     gap: 12,
   },
-  mobileButtonIcon: {
+  mobileActionIcon: {
     fontSize: 20,
   },
-  mobileButtonText: {
-    color: '#FFFFFF',
+  mobileActionText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    color: '#3B82F6',
+    fontWeight: '600',
   },
   mobileFooter: {
-    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 12,
-    width: '100%',
   },
   mobileFooterText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+    color: '#6B7280',
     textAlign: 'center',
-    paddingVertical: 2,
     fontWeight: '500',
   },
 });

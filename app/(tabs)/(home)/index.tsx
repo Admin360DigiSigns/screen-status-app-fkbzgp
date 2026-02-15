@@ -306,215 +306,186 @@ export default function HomeScreen() {
     }
   };
 
-  // TV Layout - Compact professional design with scaling
+  // TV Layout - Centered design matching the image
   if (isTVDevice) {
+    const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true 
+    }) : '';
+    const syncStatusText = syncStatus === 'success' ? 'Synced' : 'Failed';
+
     return (
       <Animated.View style={[styles.tvContainer, { opacity: fadeInAnim }]}>
         <LinearGradient
-          colors={['#0F172A', '#1E293B', '#334155']}
+          colors={['#F3F4F6', '#E5E7EB', '#D1D5DB']}
           style={styles.tvGradientBackground}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          {/* Compact Header */}
-          <View style={[styles.tvHeader, { transform: [{ scale: tvScale }] }]}>
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.tvHeaderLogo}
-              resizeMode="contain"
-            />
-            
-            <Animated.View style={[styles.tvStatusBanner, { shadowColor: glowColor }]}>
-              <LinearGradient
-                colors={isOnline ? ['#10B981', '#059669', '#047857'] : ['#EF4444', '#DC2626', '#B91C1C']}
-                style={styles.tvStatusGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <View style={styles.tvStatusContent}>
-                  <Animated.View style={[styles.tvStatusDot, { transform: [{ scale: pulseAnim }], backgroundColor: '#FFFFFF' }]} />
-                  <View style={styles.tvStatusTextContainer}>
-                    <Text style={styles.tvStatusLabel}>SCREEN STATUS</Text>
-                    <Text style={styles.tvStatusName}>{screenName}</Text>
-                  </View>
-                  <View style={styles.tvStatusBadge}>
-                    <Text style={styles.tvStatusBadgeText}>
-                      {isOnline ? '● ONLINE' : '● OFFLINE'}
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            {/* Command Listener Status */}
-            <View style={[styles.tvCommandStatus, { backgroundColor: getCommandListenerStatusColor() + '20' }]}>
-              <Text style={[styles.tvCommandStatusText, { color: getCommandListenerStatusColor() }]}>
-                Remote Commands: {getCommandListenerStatusText()}
-              </Text>
+          <ScrollView 
+            contentContainerStyle={styles.tvScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Logo */}
+            <View style={styles.tvLogoContainer}>
+              <Image
+                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
+                style={styles.tvLogo}
+                resizeMode="contain"
+              />
             </View>
-          </View>
 
-          {/* Compact Main Content */}
-          <View style={[styles.tvMainContent, { transform: [{ scale: tvScale }] }]}>
-            {/* Info Card - Compact */}
-            <View style={styles.tvInfoCard}>
-              <LinearGradient
-                colors={['#1E293B', '#334155']}
-                style={styles.tvCardGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-              >
-                <Text style={styles.tvCardTitle}>Display Information</Text>
-                
-                <View style={styles.tvInfoRow}>
-                  <View style={styles.tvInfoItem}>
-                    <Text style={styles.tvInfoItemLabel}>Username</Text>
-                    <Text style={styles.tvInfoItemValue}>{username}</Text>
-                  </View>
-
-                  <View style={styles.tvInfoItem}>
-                    <Text style={styles.tvInfoItemLabel}>Screen Name</Text>
-                    <Text style={styles.tvInfoItemValue}>{screenName}</Text>
-                  </View>
+            {/* Status Banner */}
+            <View style={styles.tvStatusRow}>
+              <View style={styles.tvStatusItem}>
+                <Text style={styles.tvStatusItemLabel}>Remote Commands</Text>
+                <View style={styles.tvStatusBadge}>
+                  <View style={[styles.tvStatusDot, { backgroundColor: getCommandListenerStatusColor() }]} />
+                  <Text style={[styles.tvStatusBadgeText, { color: getCommandListenerStatusColor() }]}>
+                    {commandListenerStatus === 'connected' ? 'Connected' : commandListenerStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
+                  </Text>
                 </View>
-                
-                <View style={styles.tvInfoRow}>
-                  <View style={styles.tvInfoItem}>
-                    <Text style={styles.tvInfoItemLabel}>Device ID</Text>
-                    <Text style={styles.tvInfoItemValue} numberOfLines={1} ellipsizeMode="middle">
+              </View>
+
+              <View style={styles.tvStatusItem}>
+                <Text style={styles.tvStatusItemLabel}>{screenName}</Text>
+                <View style={[styles.tvStatusBadge, { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.tvStatusBadgeText, { color: isOnline ? '#10B981' : '#EF4444' }]}>
+                    {isOnline ? 'ONLINE' : 'OFFLINE'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Main Content - Two Column Layout */}
+            <View style={styles.tvMainLayout}>
+              {/* Left Column - Display Information */}
+              <View style={styles.tvLeftColumn}>
+                <View style={styles.tvCard}>
+                  <View style={styles.tvCardHeader}>
+                    <View style={styles.tvCardHeaderLine} />
+                    <Text style={styles.tvCardTitle}>DISPLAY INFORMATION</Text>
+                  </View>
+
+                  <View style={styles.tvInfoRow}>
+                    <Text style={styles.tvInfoLabel}>Username</Text>
+                    <Text style={styles.tvInfoValue}>{username}</Text>
+                  </View>
+
+                  <View style={styles.tvInfoRow}>
+                    <Text style={styles.tvInfoLabel}>Screen Name</Text>
+                    <Text style={styles.tvInfoValue}>{screenName}</Text>
+                  </View>
+
+                  <View style={styles.tvInfoRow}>
+                    <Text style={styles.tvInfoLabel}>Device ID</Text>
+                    <Text style={styles.tvInfoValue} numberOfLines={1} ellipsizeMode="middle">
                       {deviceId}
                     </Text>
                   </View>
 
-                  {lastSyncTime && (
-                    <View style={styles.tvInfoItem}>
-                      <Text style={styles.tvInfoItemLabel}>Last Sync</Text>
-                      <Text style={styles.tvInfoItemValue}>
-                        {lastSyncTime.toLocaleTimeString()}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {syncStatus && (
                   <View style={styles.tvInfoRow}>
-                    <View style={styles.tvInfoItem}>
-                      <Text style={styles.tvInfoItemLabel}>Sync Status</Text>
-                      <Text style={[
-                        styles.tvInfoItemValue,
-                        { color: syncStatus === 'success' ? '#10B981' : '#EF4444' }
-                      ]}>
-                        {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
-                      </Text>
+                    <Text style={styles.tvInfoLabel}>Last Sync</Text>
+                    <Text style={styles.tvInfoValue}>{lastSyncFormatted}</Text>
+                  </View>
+
+                  <View style={styles.tvInfoRow}>
+                    <Text style={styles.tvInfoLabel}>Sync Status</Text>
+                    <View style={styles.tvSyncStatusBadge}>
+                      <Text style={styles.tvSyncStatusIcon}>✓</Text>
+                      <Text style={styles.tvSyncStatusText}>{syncStatusText}</Text>
                     </View>
                   </View>
-                )}
-              </LinearGradient>
-            </View>
+                </View>
+              </View>
 
-            {/* Action Buttons Grid - 2x2 Layout */}
-            <View style={styles.tvButtonsGrid}>
-              <TouchableOpacity 
-                style={[
-                  styles.tvButton,
-                  focusedButton === 'preview' && styles.tvButtonFocused
-                ]}
-                onPress={handlePreview}
-                onFocus={() => setFocusedButton('preview')}
-                onBlur={() => setFocusedButton(null)}
-                activeOpacity={0.9}
-                disabled={isLoadingPreview}
-              >
-                <LinearGradient
-                  colors={focusedButton === 'preview' ? ['#3B82F6', '#2563EB', '#1D4ED8'] : ['#2563EB', '#1E40AF', '#1E3A8A']}
-                  style={styles.tvButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {isLoadingPreview ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <React.Fragment>
-                      <Text style={styles.tvButtonIcon}>🎬</Text>
-                      <Text style={styles.tvButtonText}>Preview</Text>
-                    </React.Fragment>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
+              {/* Right Column - Quick Actions */}
+              <View style={styles.tvRightColumn}>
+                <View style={styles.tvCard}>
+                  <View style={styles.tvCardHeader}>
+                    <View style={styles.tvCardHeaderLine} />
+                    <Text style={styles.tvCardTitle}>QUICK ACTIONS</Text>
+                  </View>
 
-              {!isWebPlatform && (
-                <TouchableOpacity 
-                  style={[
-                    styles.tvButton,
-                    focusedButton === 'screenshare' && styles.tvButtonFocused
-                  ]}
-                  onPress={handleScreenShare}
-                  onFocus={() => setFocusedButton('screenshare')}
-                  onBlur={() => setFocusedButton(null)}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={focusedButton === 'screenshare' ? ['#A855F7', '#9333EA', '#7E22CE'] : ['#9333EA', '#7E22CE', '#6B21A8']}
-                    style={styles.tvButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+                  <TouchableOpacity 
+                    style={[
+                      styles.tvActionButton,
+                      focusedButton === 'preview' && styles.tvActionButtonFocused
+                    ]}
+                    onPress={handlePreview}
+                    onFocus={() => setFocusedButton('preview')}
+                    onBlur={() => setFocusedButton(null)}
+                    activeOpacity={0.8}
+                    disabled={isLoadingPreview}
                   >
-                    <Text style={styles.tvButtonIcon}>📺</Text>
-                    <Text style={styles.tvButtonText}>Screen Share</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              )}
+                    {isLoadingPreview ? (
+                      <ActivityIndicator size="small" color="#3B82F6" />
+                    ) : (
+                      <React.Fragment>
+                        <Text style={styles.tvActionIcon}>👁️</Text>
+                        <Text style={styles.tvActionText}>Preview Content</Text>
+                      </React.Fragment>
+                    )}
+                  </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={[
-                  styles.tvButton,
-                  focusedButton === 'sync' && styles.tvButtonFocused
-                ]}
-                onPress={handleManualSync}
-                onFocus={() => setFocusedButton('sync')}
-                onBlur={() => setFocusedButton(null)}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={focusedButton === 'sync' ? ['#10B981', '#059669', '#047857'] : ['#059669', '#047857', '#065F46']}
-                  style={styles.tvButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.tvButtonIcon}>🔄</Text>
-                  <Text style={styles.tvButtonText}>Sync Status</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  {!isWebPlatform && (
+                    <TouchableOpacity 
+                      style={[
+                        styles.tvActionButton,
+                        focusedButton === 'screenshare' && styles.tvActionButtonFocused
+                      ]}
+                      onPress={handleScreenShare}
+                      onFocus={() => setFocusedButton('screenshare')}
+                      onBlur={() => setFocusedButton(null)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.tvActionIcon}>🔗</Text>
+                      <Text style={styles.tvActionText}>Screen Share</Text>
+                    </TouchableOpacity>
+                  )}
 
-              <TouchableOpacity 
-                style={[
-                  styles.tvButton,
-                  focusedButton === 'logout' && styles.tvButtonFocused
-                ]}
-                onPress={handleLogout}
-                onFocus={() => setFocusedButton('logout')}
-                onBlur={() => setFocusedButton(null)}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={focusedButton === 'logout' ? ['#EF4444', '#DC2626', '#B91C1C'] : ['#DC2626', '#B91C1C', '#991B1B']}
-                  style={styles.tvButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.tvButtonIcon}>🚪</Text>
-                  <Text style={styles.tvButtonText}>Logout</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[
+                      styles.tvActionButton,
+                      focusedButton === 'sync' && styles.tvActionButtonFocused
+                    ]}
+                    onPress={handleManualSync}
+                    onFocus={() => setFocusedButton('sync')}
+                    onBlur={() => setFocusedButton(null)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.tvActionIcon}>🔄</Text>
+                    <Text style={styles.tvActionText}>Sync Status</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[
+                      styles.tvActionButton,
+                      focusedButton === 'logout' && styles.tvActionButtonFocused
+                    ]}
+                    onPress={handleLogout}
+                    onFocus={() => setFocusedButton('logout')}
+                    onBlur={() => setFocusedButton(null)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.tvActionIcon}>🚪</Text>
+                    <Text style={styles.tvActionText}>Logout</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-          </View>
 
-          {/* Compact Footer */}
-          <View style={[styles.tvFooter, { transform: [{ scale: tvScale }] }]}>
-            <Text style={styles.tvFooterText}>
-              ℹ️ Status updates sent every 20 seconds • Remote commands enabled globally • Updates only when on this screen
-            </Text>
-          </View>
+            {/* Footer */}
+            <View style={styles.tvFooter}>
+              <Text style={styles.tvFooterText}>Status updates every 20s</Text>
+              <Text style={styles.tvFooterText}>Remote commands enabled</Text>
+              <Text style={styles.tvFooterText}>Updates only on this screen</Text>
+            </View>
+          </ScrollView>
         </LinearGradient>
 
         {/* Preview Modal - Managed by AuthContext */}
@@ -556,11 +527,21 @@ export default function HomeScreen() {
     );
   }
 
-  // Mobile Layout - Professional design with gradients and animations
+  // Mobile Layout - Centered design matching the image
+  const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
+    month: 'short', 
+    day: 'numeric', 
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true 
+  }) : '';
+  const syncStatusText = syncStatus === 'success' ? 'Synced' : 'Failed';
+
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#334155']}
+        colors={['#F3F4F6', '#E5E7EB', '#D1D5DB']}
         style={styles.mobileGradientBackground}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -571,202 +552,132 @@ export default function HomeScreen() {
         >
           <View style={styles.mobileContent}>
             {/* Logo */}
-            <Image
-              source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
-              style={styles.mobileLogo}
-              resizeMode="contain"
-            />
-            
+            <View style={styles.mobileLogoContainer}>
+              <Image
+                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
+                style={styles.mobileLogo}
+                resizeMode="contain"
+              />
+            </View>
+
             {/* Status Banner */}
-            <Animated.View style={[styles.mobileStatusBanner, { shadowColor: glowColor }]}>
-              <LinearGradient
-                colors={isOnline ? ['#10B981', '#059669', '#047857'] : ['#EF4444', '#DC2626', '#B91C1C']}
-                style={styles.mobileStatusGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <View style={styles.mobileStatusContent}>
-                  <Animated.View style={[styles.mobileStatusDot, { transform: [{ scale: pulseAnim }] }]} />
-                  <View style={styles.mobileStatusTextContainer}>
-                    <Text style={styles.mobileStatusLabel}>SCREEN STATUS</Text>
-                    <Text style={styles.mobileStatusName}>{screenName}</Text>
-                  </View>
-                </View>
+            <View style={styles.mobileStatusRow}>
+              <View style={styles.mobileStatusItem}>
+                <Text style={styles.mobileStatusItemLabel}>Remote Commands</Text>
                 <View style={styles.mobileStatusBadge}>
-                  <Text style={styles.mobileStatusBadgeText}>
-                    {isOnline ? '● ONLINE' : '● OFFLINE'}
+                  <View style={[styles.mobileStatusDot, { backgroundColor: getCommandListenerStatusColor() }]} />
+                  <Text style={[styles.mobileStatusBadgeText, { color: getCommandListenerStatusColor() }]}>
+                    {commandListenerStatus === 'connected' ? 'Connected' : commandListenerStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
                   </Text>
                 </View>
-              </LinearGradient>
-            </Animated.View>
+              </View>
 
-            {/* Command Listener Status */}
-            <View style={[styles.mobileCommandStatus, { backgroundColor: getCommandListenerStatusColor() + '20' }]}>
-              <Text style={[styles.mobileCommandStatusText, { color: getCommandListenerStatusColor() }]}>
-                Remote Commands: {getCommandListenerStatusText()}
-              </Text>
-            </View>
-
-            {/* Info Card */}
-            <View style={styles.mobileInfoCard}>
-              <LinearGradient
-                colors={['#1E293B', '#334155']}
-                style={styles.mobileCardGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 0, y: 1 }}
-              >
-                <Text style={styles.mobileCardTitle}>Display Information</Text>
-                
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Username</Text>
-                  <Text style={styles.mobileInfoItemValue}>{username}</Text>
-                </View>
-
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Screen Name</Text>
-                  <Text style={styles.mobileInfoItemValue}>{screenName}</Text>
-                </View>
-                
-                <View style={styles.mobileInfoItem}>
-                  <Text style={styles.mobileInfoItemLabel}>Device ID</Text>
-                  <Text style={styles.mobileInfoItemValue} numberOfLines={1} ellipsizeMode="middle">
-                    {deviceId}
+              <View style={styles.mobileStatusItem}>
+                <Text style={styles.mobileStatusItemLabel}>{screenName}</Text>
+                <View style={[styles.mobileStatusBadge, { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.mobileStatusBadgeText, { color: isOnline ? '#10B981' : '#EF4444' }]}>
+                    {isOnline ? 'ONLINE' : 'OFFLINE'}
                   </Text>
                 </View>
-
-                {lastSyncTime && (
-                  <View style={styles.mobileInfoItem}>
-                    <Text style={styles.mobileInfoItemLabel}>Last Sync</Text>
-                    <Text style={styles.mobileInfoItemValue}>
-                      {lastSyncTime.toLocaleTimeString()}
-                    </Text>
-                  </View>
-                )}
-
-                {syncStatus && (
-                  <View style={styles.mobileInfoItem}>
-                    <Text style={styles.mobileInfoItemLabel}>Sync Status</Text>
-                    <Text style={[
-                      styles.mobileInfoItemValue,
-                      { color: syncStatus === 'success' ? '#10B981' : '#EF4444' }
-                    ]}>
-                      {syncStatus === 'success' ? '✓ Success' : '✗ Failed'}
-                    </Text>
-                  </View>
-                )}
-              </LinearGradient>
+              </View>
             </View>
 
-            {/* Action Buttons */}
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
+            {/* Display Information Card */}
+            <View style={styles.mobileCard}>
+              <View style={styles.mobileCardHeader}>
+                <View style={styles.mobileCardHeaderLine} />
+                <Text style={styles.mobileCardTitle}>DISPLAY INFORMATION</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Username</Text>
+                <Text style={styles.mobileInfoValue}>{username}</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Screen Name</Text>
+                <Text style={styles.mobileInfoValue}>{screenName}</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Device ID</Text>
+                <Text style={styles.mobileInfoValue} numberOfLines={1} ellipsizeMode="middle">
+                  {deviceId}
+                </Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Last Sync</Text>
+                <Text style={styles.mobileInfoValue}>{lastSyncFormatted}</Text>
+              </View>
+
+              <View style={styles.mobileInfoRow}>
+                <Text style={styles.mobileInfoLabel}>Sync Status</Text>
+                <View style={styles.mobileSyncStatusBadge}>
+                  <Text style={styles.mobileSyncStatusIcon}>✓</Text>
+                  <Text style={styles.mobileSyncStatusText}>{syncStatusText}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Actions Card */}
+            <View style={styles.mobileCard}>
+              <View style={styles.mobileCardHeader}>
+                <View style={styles.mobileCardHeaderLine} />
+                <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
+              </View>
+
               <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('preview');
-                  handlePreview();
-                }}
-                activeOpacity={0.9}
+                style={styles.mobileActionButton}
+                onPress={handlePreview}
+                activeOpacity={0.8}
                 disabled={isLoadingPreview}
               >
-                <LinearGradient
-                  colors={['#2563EB', '#1E40AF', '#1E3A8A']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  {isLoadingPreview ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <React.Fragment>
-                      <Text style={styles.mobileButtonIcon}>🎬</Text>
-                      <Text style={styles.mobileButtonText}>Preview Content</Text>
-                    </React.Fragment>
-                  )}
-                </LinearGradient>
+                {isLoadingPreview ? (
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                ) : (
+                  <React.Fragment>
+                    <Text style={styles.mobileActionIcon}>👁️</Text>
+                    <Text style={styles.mobileActionText}>Preview Content</Text>
+                  </React.Fragment>
+                )}
               </TouchableOpacity>
-            </Animated.View>
 
-            {!isWebPlatform && (
-              <Animated.View style={{ transform: [{ scale: buttonScaleAnims.screenshare }] }}>
+              {!isWebPlatform && (
                 <TouchableOpacity 
-                  style={styles.mobileButton}
-                  onPress={() => {
-                    animateButtonPress('screenshare');
-                    handleScreenShare();
-                  }}
-                  activeOpacity={0.9}
+                  style={styles.mobileActionButton}
+                  onPress={handleScreenShare}
+                  activeOpacity={0.8}
                 >
-                  <LinearGradient
-                    colors={['#9333EA', '#7E22CE', '#6B21A8']}
-                    style={styles.mobileButtonGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.mobileButtonIcon}>📺</Text>
-                    <Text style={styles.mobileButtonText}>Screen Share</Text>
-                  </LinearGradient>
+                  <Text style={styles.mobileActionIcon}>🔗</Text>
+                  <Text style={styles.mobileActionText}>Screen Share</Text>
                 </TouchableOpacity>
-              </Animated.View>
-            )}
-
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.sync }] }}>
-              <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('sync');
-                  handleManualSync();
-                }}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={['#059669', '#047857', '#065F46']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileButtonIcon}>🔄</Text>
-                  <Text style={styles.mobileButtonText}>Sync Status</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View style={{ transform: [{ scale: buttonScaleAnims.logout }] }}>
-              <TouchableOpacity 
-                style={styles.mobileButton}
-                onPress={() => {
-                  animateButtonPress('logout');
-                  handleLogout();
-                }}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={['#DC2626', '#B91C1C', '#991B1B']}
-                  style={styles.mobileButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.mobileButtonIcon}>🚪</Text>
-                  <Text style={styles.mobileButtonText}>Logout</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Footer Info */}
-            <View style={styles.mobileFooter}>
-              <Text style={styles.mobileFooterText}>
-                ℹ️ Status updates sent every 20 seconds
-              </Text>
-              <Text style={styles.mobileFooterText}>
-                🎯 Remote commands enabled globally
-              </Text>
-              <Text style={styles.mobileFooterText}>
-                Updates only when on this screen
-              </Text>
-              {isWebPlatform && (
-                <Text style={[styles.mobileFooterText, { color: '#EF4444', marginTop: 8 }]}>
-                  ⚠️ Screen Share only available on mobile devices
-                </Text>
               )}
+
+              <TouchableOpacity 
+                style={styles.mobileActionButton}
+                onPress={handleManualSync}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mobileActionIcon}>🔄</Text>
+                <Text style={styles.mobileActionText}>Sync Status</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.mobileActionButton}
+                onPress={handleLogout}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mobileActionIcon}>🚪</Text>
+                <Text style={styles.mobileActionText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Footer */}
+            <View style={styles.mobileFooter}>
+              <Text style={styles.mobileFooterText}>Status updates every 20s</Text>
+              <Text style={styles.mobileFooterText}>Remote commands enabled</Text>
+              <Text style={styles.mobileFooterText}>Updates only on this screen</Text>
             </View>
           </View>
         </ScrollView>
@@ -848,7 +759,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Mobile styles - Professional design
+  // Mobile styles - Clean centered design
   mobileContainer: {
     flex: 1,
   },
@@ -863,356 +774,321 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 40,
+  },
+  mobileLogoContainer: {
+    marginBottom: 32,
+    alignItems: 'center',
   },
   mobileLogo: {
-    width: 220,
-    height: 80,
-    marginBottom: 24,
+    width: 200,
+    height: 70,
   },
-  mobileStatusBanner: {
-    width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 12,
-    elevation: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-  },
-  mobileStatusGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  mobileStatusContent: {
+  mobileStatusRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 24,
+    gap: 12,
   },
-  mobileStatusDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    marginRight: 12,
-  },
-  mobileStatusTextContainer: {
+  mobileStatusItem: {
     flex: 1,
+    alignItems: 'center',
   },
-  mobileStatusLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.8)',
-    letterSpacing: 1.5,
-    marginBottom: 2,
-  },
-  mobileStatusName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
+  mobileStatusItemLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontWeight: '500',
   },
   mobileStatusBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 6,
+  },
+  mobileStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   mobileStatusBadgeText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  mobileCommandStatus: {
-    width: '100%',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  mobileCommandStatusText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    letterSpacing: 0.3,
   },
-  mobileInfoCard: {
+  mobileCard: {
     width: '100%',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  mobileCardGradient: {
     padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  mobileCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  mobileCardHeaderLine: {
+    width: 4,
+    height: 20,
+    backgroundColor: '#3B82F6',
+    borderRadius: 2,
   },
   mobileCardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 16,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
     letterSpacing: 0.5,
   },
-  mobileInfoItem: {
+  mobileInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#F3F4F6',
   },
-  mobileInfoItemLabel: {
+  mobileInfoLabel: {
     fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  mobileInfoValue: {
+    fontSize: 14,
+    color: '#1F2937',
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    flex: 1,
-  },
-  mobileInfoItemValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    flex: 2,
     textAlign: 'right',
+    flex: 1,
+    marginLeft: 12,
   },
-  mobileButton: {
-    width: '100%',
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 12,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  mobileButtonGradient: {
+  mobileSyncStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  mobileSyncStatusIcon: {
+    fontSize: 12,
+    color: '#10B981',
+  },
+  mobileSyncStatusText: {
+    fontSize: 12,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  mobileActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
     gap: 12,
   },
-  mobileButtonIcon: {
+  mobileActionIcon: {
     fontSize: 20,
   },
-  mobileButtonText: {
-    color: '#FFFFFF',
+  mobileActionText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    color: '#3B82F6',
+    fontWeight: '600',
   },
   mobileFooter: {
-    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 12,
-    width: '100%',
   },
   mobileFooterText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+    color: '#6B7280',
     textAlign: 'center',
-    paddingVertical: 2,
     fontWeight: '500',
   },
 
-  // TV styles - Compact professional design with scaling
+  // TV styles - Clean centered design
   tvContainer: {
     flex: 1,
   },
   tvGradientBackground: {
     flex: 1,
-    paddingHorizontal: 50,
-    paddingVertical: 30,
   },
-  tvHeader: {
+  tvScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 60,
+    paddingVertical: 40,
     alignItems: 'center',
-    marginBottom: 20,
   },
-  tvHeaderLogo: {
-    width: 200,
-    height: 60,
-    marginBottom: 16,
+  tvLogoContainer: {
+    marginBottom: 40,
+    alignItems: 'center',
   },
-  tvStatusBanner: {
-    width: '100%',
-    maxWidth: 900,
-    borderRadius: 14,
-    overflow: 'hidden',
-    elevation: 10,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    marginBottom: 12,
+  tvLogo: {
+    width: 300,
+    height: 100,
   },
-  tvStatusGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 28,
-  },
-  tvStatusContent: {
+  tvStatusRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 1200,
+    marginBottom: 40,
+    gap: 40,
+  },
+  tvStatusItem: {
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  tvStatusDot: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 14,
-  },
-  tvStatusTextContainer: {
-    flex: 1,
-  },
-  tvStatusLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.8)',
-    letterSpacing: 1.5,
-    marginBottom: 3,
-  },
-  tvStatusName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 0.8,
+  tvStatusItemLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 12,
+    fontWeight: '500',
   },
   tvStatusBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 16,
+    gap: 8,
+  },
+  tvStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   tvStatusBadgeText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 0.8,
-  },
-  tvCommandStatus: {
-    width: '100%',
-    maxWidth: 900,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-  },
-  tvCommandStatusText: {
     fontSize: 14,
     fontWeight: '600',
-    letterSpacing: 0.5,
   },
-  tvMainContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 24,
-  },
-  tvInfoCard: {
+  tvMainLayout: {
+    flexDirection: 'row',
     width: '100%',
-    maxWidth: 900,
-    borderRadius: 14,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    maxWidth: 1200,
+    gap: 40,
+    marginBottom: 40,
   },
-  tvCardGradient: {
-    padding: 20,
+  tvLeftColumn: {
+    flex: 1,
+  },
+  tvRightColumn: {
+    flex: 1,
+  },
+  tvCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  tvCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 28,
+    gap: 16,
+  },
+  tvCardHeaderLine: {
+    width: 5,
+    height: 24,
+    backgroundColor: '#3B82F6',
+    borderRadius: 3,
   },
   tvCardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
     letterSpacing: 0.8,
   },
   tvInfoRow: {
     flexDirection: 'row',
-    gap: 20,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  tvInfoItem: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 8,
+  tvInfoLabel: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  tvInfoItemLabel: {
-    fontSize: 13,
+  tvInfoValue: {
+    fontSize: 16,
+    color: '#1F2937',
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 4,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
   },
-  tvInfoItemValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  tvButtonsGrid: {
-    width: '100%',
-    maxWidth: 900,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'center',
-  },
-  tvButton: {
-    width: '48%',
-    minWidth: 200,
-    borderRadius: 12,
-    overflow: 'hidden',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  tvButtonFocused: {
-    elevation: 14,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    transform: [{ scale: 1.05 }],
-  },
-  tvButtonGradient: {
+  tvSyncStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 6,
+  },
+  tvSyncStatusIcon: {
+    fontSize: 14,
+    color: '#10B981',
+  },
+  tvSyncStatusText: {
+    fontSize: 14,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  tvActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 18,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    gap: 16,
   },
-  tvButtonIcon: {
-    fontSize: 22,
+  tvActionButtonFocused: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
   },
-  tvButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: 'bold',
-    letterSpacing: 0.6,
+  tvActionIcon: {
+    fontSize: 24,
+  },
+  tvActionText: {
+    fontSize: 18,
+    color: '#3B82F6',
+    fontWeight: '600',
   },
   tvFooter: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 10,
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    maxWidth: 1200,
+    paddingVertical: 20,
+    paddingHorizontal: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 16,
   },
   tvFooterText: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: '#6B7280',
     textAlign: 'center',
     fontWeight: '500',
   },
