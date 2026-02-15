@@ -307,7 +307,7 @@ export default function HomeScreen() {
     }
   };
 
-  // TV Layout - Centered design matching the image
+  // TV Layout - Centered design matching the image - NO SCROLLING
   if (isTVDevice) {
     const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
       month: 'short', 
@@ -327,14 +327,11 @@ export default function HomeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         >
-          <ScrollView 
-            contentContainerStyle={styles.tvScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={styles.tvScrollContent}>
             {/* Logo */}
             <View style={styles.tvLogoContainer}>
               <Image
-                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
                 style={styles.tvLogo}
                 resizeMode="contain"
               />
@@ -544,7 +541,7 @@ export default function HomeScreen() {
               <Text style={styles.tvFooterText}>Remote commands enabled</Text>
               <Text style={styles.tvFooterText}>Updates only on this screen</Text>
             </View>
-          </ScrollView>
+          </View>
         </LinearGradient>
 
         {/* Preview Modal - Managed by AuthContext */}
@@ -613,7 +610,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
@@ -1035,67 +1032,71 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // TV styles - Clean centered design
+  // TV styles - Clean centered design - NO SCROLLING
   tvContainer: {
     flex: 1,
   },
   tvGradientBackground: {
     flex: 1,
-  },
-  tvScrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 60,
-    paddingVertical: 40,
+    justifyContent: 'center',
     alignItems: 'center',
   },
+  tvScrollContent: {
+    flex: 1,
+    paddingHorizontal: 40,
+    paddingVertical: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
   tvLogoContainer: {
-    marginBottom: 40,
+    marginBottom: 20,
     alignItems: 'center',
   },
   tvLogo: {
-    width: 300,
-    height: 100,
+    width: 280,
+    height: 90,
   },
   tvStatusRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     width: '100%',
-    maxWidth: 1200,
-    marginBottom: 40,
-    gap: 40,
+    maxWidth: 1100,
+    marginBottom: 24,
+    gap: 32,
   },
   tvStatusItem: {
     alignItems: 'center',
   },
   tvStatusItemLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#1F2937',
-    marginBottom: 12,
+    marginBottom: 8,
     fontWeight: '600',
   },
   tvStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    gap: 6,
   },
   tvStatusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   tvStatusBadgeText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   tvMainLayout: {
     flexDirection: 'row',
     width: '100%',
-    maxWidth: 1200,
-    gap: 40,
-    marginBottom: 40,
+    maxWidth: 1100,
+    gap: 32,
+    marginBottom: 24,
   },
   tvLeftColumn: {
     flex: 1,
@@ -1105,102 +1106,102 @@ const styles = StyleSheet.create({
   },
   tvCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 32,
+    borderRadius: 16,
+    padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   tvCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 28,
-    gap: 16,
+    marginBottom: 20,
+    gap: 12,
   },
   tvCardHeaderLine: {
-    width: 5,
-    height: 24,
-    borderRadius: 3,
+    width: 4,
+    height: 20,
+    borderRadius: 2,
   },
   tvCardTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1F2937',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   tvInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   tvInfoLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
   },
   tvInfoValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#1F2937',
     fontWeight: '600',
     textAlign: 'right',
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
   },
   tvSyncStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#D1FAE5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
   },
   tvSyncStatusIcon: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#10B981',
   },
   tvSyncStatusText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#10B981',
     fontWeight: '600',
   },
   tvActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    gap: 16,
+    gap: 12,
   },
   tvActionButtonFocused: {
     backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   tvActionIcon: {
-    fontSize: 24,
+    fontSize: 20,
   },
   tvActionText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
   },
   tvFooter: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    maxWidth: 1200,
-    paddingVertical: 20,
-    paddingHorizontal: 40,
+    maxWidth: 1100,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 16,
+    borderRadius: 12,
   },
   tvFooterText: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#1F2937',
     textAlign: 'center',
     fontWeight: '600',
