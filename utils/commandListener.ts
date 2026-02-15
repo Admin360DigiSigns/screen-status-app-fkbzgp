@@ -1,6 +1,7 @@
 
 import { supabase } from './supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { SUPABASE_CONFIG } from './config';
 
 export interface AppCommand {
   id: string;
@@ -190,6 +191,7 @@ class CommandListenerService {
    */
   private startPolling() {
     console.log('🔄 [CommandListener] Starting command polling (every 2 seconds)');
+    console.log('🔄 [CommandListener] Using Edge Function endpoint for polling');
 
     // Poll immediately
     this.pollForCommands();
@@ -201,27 +203,36 @@ class CommandListenerService {
   }
 
   /**
-   * Poll for pending commands
+   * Poll for pending commands using Edge Function
    */
   private async pollForCommands() {
     if (!this.deviceId || !this.isListening) return;
 
     try {
-      // Query for pending commands for this device
-      const { data: commands, error } = await supabase
-        .from('app_commands')
-        .select('*')
-        .eq('device_id', this.deviceId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
-        .limit(10);
+      // Use Edge Function endpoint for polling as shown in the screenshot
+      const url = `${SUPABASE_CONFIG.url}/functions/v1/pending-commands`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+        },
+        body: JSON.stringify({
+          device_id: this.deviceId,
+        }),
+      });
 
-      if (error) {
-        console.error('❌ [CommandListener] Error polling for commands:', error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [CommandListener] Error polling for commands:', errorText);
         return;
       }
 
-      if (commands && commands.length > 0) {
+      const commands = await response.json();
+
+      if (commands && Array.isArray(commands) && commands.length > 0) {
         console.log('');
         console.log('╔════════════════════════════════════════════════════════════════╗');
         console.log(`║     📬 FOUND ${commands.length} PENDING COMMAND(S) VIA POLLING              ║`);
@@ -308,7 +319,7 @@ class CommandListenerService {
   }
 
   /**
-   * Update command status in database
+   * Update command status using Edge Function
    */
   private async updateCommandStatus(
     commandId: string,
@@ -317,8 +328,8 @@ class CommandListenerService {
   ) {
     try {
       const updateData: any = {
+        command_id: commandId,
         status,
-        executed_at: new Date().toISOString(),
       };
 
       if (errorMessage) {
@@ -327,13 +338,22 @@ class CommandListenerService {
 
       console.log('💾 [CommandListener] Updating command status:', { commandId, status, errorMessage });
 
-      const { error } = await supabase
-        .from('app_commands')
-        .update(updateData)
-        .eq('id', commandId);
+      // Use Edge Function endpoint for acknowledging commands as shown in the screenshot
+      const url = `${SUPABASE_CONFIG.url}/functions/v1/acknowledge-command`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+        },
+        body: JSON.stringify(updateData),
+      });
 
-      if (error) {
-        console.error('❌ [CommandListener] Error updating command status:', error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [CommandListener] Error updating command status:', errorText);
       } else {
         console.log(`✅ [CommandListener] Command status updated to: ${status}`);
       }

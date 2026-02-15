@@ -15,7 +15,7 @@
 
 export const SUPABASE_CONFIG = {
   url: 'https://gzyywcqlrjimjegbtoyc.supabase.co',
-  anonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY_HERE',
+  anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6eXl3Y3FscmppbWplZ2J0b3ljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY4NjMxMjEsImV4cCI6MjA1MjQzOTEyMX0.gEyAIsTiaY_HhtofyhdaYAXu3-8fE_Dp61Z9P3ax50',
   projectId: 'gzyywcqlrjimjegbtoyc',
 };
 
