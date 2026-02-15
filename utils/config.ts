@@ -11,6 +11,11 @@
  * 2. Web portal authenticates using /authenticate-with-code
  * 3. Mobile app polls for credentials using /get-display-credentials
  * 4. On logout, mobile app clears backend auth using /clear-device-authentication
+ * 
+ * Command Flow:
+ * 1. Web portal sends commands using /send-command
+ * 2. Mobile app polls for commands using /get-pending-commands
+ * 3. Mobile app updates command status using /update-command-status
  */
 
 export const SUPABASE_CONFIG = {
@@ -28,7 +33,7 @@ export const CONTENT_PROJECT_CONFIG = {
 // Base URL for Edge Functions (Master Project)
 export const EDGE_FUNCTIONS_URL = `${SUPABASE_CONFIG.url}/functions/v1`;
 
-// API Endpoints - Using Content Project for all authentication
+// API Endpoints - Using Content Project for all authentication and commands
 export const API_ENDPOINTS = {
   // Master Project Endpoints (legacy)
   displayRegister: `${EDGE_FUNCTIONS_URL}/display-register`,
@@ -45,6 +50,10 @@ export const API_ENDPOINTS = {
   authenticateWithCode: `${CONTENT_PROJECT_CONFIG.functionsUrl}/authenticate-with-code`,
   getDisplayCredentials: `${CONTENT_PROJECT_CONFIG.functionsUrl}/get-display-credentials`,
   clearDeviceAuthentication: `${CONTENT_PROJECT_CONFIG.functionsUrl}/clear-device-authentication`,
+  
+  // Command Endpoints (Content Project)
+  getPendingCommands: `${CONTENT_PROJECT_CONFIG.functionsUrl}/get-pending-commands`,
+  updateCommandStatus: `${CONTENT_PROJECT_CONFIG.functionsUrl}/update-command-status`,
   
   // Content and Status Endpoints (Content Project)
   displayStatus: `${CONTENT_PROJECT_CONFIG.functionsUrl}/display-status`,

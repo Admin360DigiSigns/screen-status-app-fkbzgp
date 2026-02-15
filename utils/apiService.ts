@@ -612,3 +612,143 @@ export const checkAuthStatus = async (
     };
   }
 };
+
+/**
+ * Get pending commands for a device
+ * Mobile App polls this endpoint to retrieve commands
+ * 
+ * Endpoint: POST /get-pending-commands
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+ * 
+ * Request Body:
+ * {
+ *   "device_id": "unique-device-identifier"
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "commands": [
+ *     {
+ *       "id": "command-uuid",
+ *       "device_id": "device-uuid",
+ *       "screen_name": "Lobby Display",
+ *       "command": "preview_content",
+ *       "status": "pending",
+ *       "payload": {},
+ *       "created_at": "2024-12-08T19:36:26.000Z"
+ *     }
+ *   ]
+ * }
+ */
+export const getPendingCommands = async (
+  deviceId: string
+): Promise<{ success: boolean; commands?: any[]; error?: string }> => {
+  try {
+    console.log('Getting pending commands for device:', deviceId);
+    
+    const response = await fetch(API_ENDPOINTS.getPendingCommands, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ device_id: deviceId }),
+    });
+
+    console.log('Get pending commands response status:', response.status);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Pending commands retrieved:', data.commands?.length || 0);
+      return {
+        success: true,
+        commands: data.commands || [],
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to get pending commands:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to get pending commands',
+      };
+    }
+  } catch (error) {
+    console.error('Error getting pending commands:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+};
+
+/**
+ * Update command status
+ * Mobile App calls this after processing a command
+ * 
+ * Endpoint: POST /update-command-status
+ * Base URL: https://gzyywcqlrjimjegbtoyc.supabase.co/functions/v1
+ * 
+ * Request Body:
+ * {
+ *   "command_id": "command-uuid",
+ *   "status": "completed",
+ *   "executed_at": "2024-12-08T19:36:26.000Z",
+ *   "error_message": "Optional error message if failed"
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Command status updated successfully"
+ * }
+ */
+export const updateCommandStatus = async (
+  commandId: string,
+  status: 'processing' | 'completed' | 'failed',
+  errorMessage?: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('Updating command status:', { commandId, status, errorMessage });
+    
+    const payload: any = {
+      command_id: commandId,
+      status,
+      executed_at: new Date().toISOString(),
+    };
+
+    if (errorMessage) {
+      payload.error_message = errorMessage;
+    }
+
+    const response = await fetch(API_ENDPOINTS.updateCommandStatus, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    console.log('Update command status response status:', response.status);
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Command status updated successfully');
+      return {
+        success: true,
+      };
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Failed to update command status:', response.status, errorData);
+      return {
+        success: false,
+        error: errorData.error || 'Failed to update command status',
+      };
+    }
+  } catch (error) {
+    console.error('Error updating command status:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error occurred',
+    };
+  }
+};

@@ -1,6 +1,7 @@
 
 import { supabase } from './supabaseClient';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { API_ENDPOINTS } from './config';
 
 export interface AppCommand {
   id: string;
@@ -234,6 +235,7 @@ class CommandListenerService {
     console.log('🔄 [CommandListener] STARTING COMMAND POLLING');
     console.log('🔄 Interval: 2 seconds');
     console.log('🔄 Device ID:', this.deviceId);
+    console.log('🔄 Using API endpoint:', API_ENDPOINTS.getPendingCommands);
     console.log('🔄 ═══════════════════════════════════════════════════════════');
     console.log('');
 
@@ -249,7 +251,7 @@ class CommandListenerService {
   }
 
   /**
-   * Poll for pending commands
+   * Poll for pending commands using the backend API endpoint
    */
   private async pollForCommands() {
     if (!this.deviceId || !this.isListening) {
@@ -263,26 +265,36 @@ class CommandListenerService {
     console.log(`🔄 [CommandListener] Device ID: ${this.deviceId}`);
 
     try {
-      // Query for pending commands for this device
-      console.log('🔄 [CommandListener] Querying Supabase for pending commands...');
-      const { data: commands, error } = await supabase
-        .from('app_commands')
-        .select('*')
-        .eq('device_id', this.deviceId)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true })
-        .limit(10);
+      // Call the backend API endpoint to get pending commands
+      console.log('🔄 [CommandListener] Calling API endpoint:', API_ENDPOINTS.getPendingCommands);
+      
+      const response = await fetch(API_ENDPOINTS.getPendingCommands, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          device_id: this.deviceId 
+        }),
+      });
 
-      if (error) {
-        console.error('❌ [CommandListener] Error polling for commands:', error);
+      console.log('🔄 [CommandListener] API response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [CommandListener] API error:', response.status, errorText);
         console.log(`🔄 [CommandListener] ===== POLL #${this.pollCount} FAILED =====`);
         console.log('');
         return;
       }
 
-      console.log(`🔄 [CommandListener] Query successful. Found ${commands?.length || 0} pending command(s)`);
+      const data = await response.json();
+      console.log(`🔄 [CommandListener] API response:`, data);
 
-      if (commands && commands.length > 0) {
+      const commands = data.commands || [];
+      console.log(`🔄 [CommandListener] Found ${commands.length} pending command(s)`);
+
+      if (commands.length > 0) {
         console.log('');
         console.log('📬 ═══════════════════════════════════════════════════════════');
         console.log(`📬 [CommandListener] ✅ FOUND ${commands.length} PENDING COMMAND(S)`);
@@ -318,6 +330,10 @@ class CommandListenerService {
       console.log('');
     } catch (error) {
       console.error('❌ [CommandListener] Exception in pollForCommands:', error);
+      if (error instanceof Error) {
+        console.error('❌ [CommandListener] Error message:', error.message);
+        console.error('❌ [CommandListener] Error stack:', error.stack);
+      }
       console.log(`🔄 [CommandListener] ===== POLL #${this.pollCount} EXCEPTION =====`);
       console.log('');
     }
@@ -401,7 +417,7 @@ class CommandListenerService {
   }
 
   /**
-   * Update command status in database
+   * Update command status using the backend API endpoint
    */
   private async updateCommandStatus(
     commandId: string,
@@ -410,6 +426,7 @@ class CommandListenerService {
   ) {
     try {
       const updateData: any = {
+        command_id: commandId,
         status,
         executed_at: new Date().toISOString(),
       };
@@ -420,13 +437,17 @@ class CommandListenerService {
 
       console.log('💾 [CommandListener] Updating command status:', { commandId, status, errorMessage });
 
-      const { error } = await supabase
-        .from('app_commands')
-        .update(updateData)
-        .eq('id', commandId);
+      const response = await fetch(API_ENDPOINTS.updateCommandStatus, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
 
-      if (error) {
-        console.error('❌ [CommandListener] Error updating command status:', error);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [CommandListener] Error updating command status:', response.status, errorText);
       } else {
         console.log(`✅ [CommandListener] Command status updated to: ${status}`);
       }
