@@ -1,16 +1,17 @@
+
 {
   "expo": {
-    "name": "Screen Status",
-    "slug": "Screen Status",
+    "name": "360DigiSigns",
+    "slug": "360DigiSigns",
     "version": "2.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/natively-dark.png",
+    "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/natively-dark.png",
+      "image": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
@@ -24,8 +25,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/natively-dark.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
+        "backgroundColor": "#ffffff"
       },
       "package": "com.digisigns.digisignsapp",
       "permissions": [
@@ -37,11 +38,10 @@
         "MODIFY_AUDIO_SETTINGS",
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
-      ],
-      "buildToolsVersion": "29.0.3"
+      ]
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
       "bundler": "metro"
     },
     "plugins": [
@@ -49,13 +49,12 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Screen Status",
+    "scheme": "360DigiSigns",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "Screen Status"
+  }
 }
