@@ -2,12 +2,12 @@
 {
   "expo": {
     "name": "360DigiSigns",
-    "slug": "360DigiSigns",
-    "version": "2.0.0",
+    "slug": "screen-status-app-fkbzgp",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
       "resizeMode": "contain",
@@ -38,7 +38,8 @@
         "MODIFY_AUDIO_SETTINGS",
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
-      ]
+      ],
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
@@ -49,7 +50,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "360DigiSigns",
+    "scheme": "digisigns360",
     "experiments": {
       "typedRoutes": true
     },

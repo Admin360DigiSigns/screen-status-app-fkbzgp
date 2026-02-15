@@ -1,3 +1,4 @@
+
 {
   "build": {
     "development": {
@@ -9,17 +10,27 @@
       },
       "ios": {
         "simulator": true
+      },
+      "env": {
+        "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "withoutCredentials": true
+      },
+      "env": {
+        "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
       }
     },
     "production": {
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
       }
     }
   },
