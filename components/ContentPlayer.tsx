@@ -19,14 +19,10 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [showControls, setShowControls] = useState(false);
   const [hideControlsTimeout, setHideControlsTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const tvEventHandlerRef = useRef<TVEventHandler | null>(null);
 
   const isTVDevice = isTV();
-
-  // TV-specific scaling factor to make content smaller
-  const tvScaleFactor = isTVDevice ? 0.7 : 1;
 
   // Listen for dimension changes (orientation, window resize)
   useEffect(() => {
@@ -131,33 +127,14 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     currentItem?.media_type === 'video' ? currentItem.media_url : null,
     (player) => {
       if (currentItem?.media_type === 'video') {
-        console.log('🎥 [ContentPlayer] Initializing video player for:', currentItem.media_url);
         player.loop = false;
-        player.muted = false;
-        player.volume = 1.0;
-        
-        // Add error handling
-        player.addListener('statusChange', (status) => {
-          console.log('🎥 [ContentPlayer] Video status changed:', status);
-          if (status.error) {
-            console.error('🎥 [ContentPlayer] Video error:', status.error);
-            setVideoError(status.error.message || 'Video playback error');
-            setIsLoading(false);
-          }
-        });
-        
-        player.play().catch((error) => {
-          console.error('🎥 [ContentPlayer] Failed to play video:', error);
-          setVideoError('Failed to play video');
-          setIsLoading(false);
-        });
+        player.play();
       }
     }
   );
 
   const moveToNextItem = useCallback(() => {
     console.log('Moving to next item');
-    setVideoError(null); // Clear any video errors
     
     if (currentItemIndex < currentItems.length - 1) {
       // Move to next item in current playlist
@@ -192,18 +169,46 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
       screenSize: `${screenDimensions.width}x${screenDimensions.height}`,
     });
 
-    // Always use contain for best compatibility
-    return 'contain';
+    // For TV devices
+    if (isTVDevice) {
+      if (isImageLandscape) {
+        // Landscape image on TV: fit width, height adjusts
+        return 'contain';
+      } else {
+        // Portrait image on TV: fit height, width adjusts
+        return 'contain';
+      }
+    }
+
+    // For mobile/tablet devices
+    if (isScreenLandscape) {
+      // Mobile in landscape mode
+      if (isImageLandscape) {
+        // Landscape image on landscape screen: fit width
+        return 'contain';
+      } else {
+        // Portrait image on landscape screen: fit height
+        return 'contain';
+      }
+    } else {
+      // Mobile in portrait mode
+      if (isImageLandscape) {
+        // Landscape image on portrait screen: fit width
+        return 'contain';
+      } else {
+        // Portrait image on portrait screen: fit height
+        return 'contain';
+      }
+    }
   }, [imageAspectRatio, screenDimensions, isTVDevice]);
 
   // Get image dimensions when image loads
   const handleImageLoad = useCallback((uri: string) => {
-    console.log('📷 [ContentPlayer] Loading image:', uri);
     Image.getSize(
       uri,
       (width, height) => {
         const aspectRatio = width / height;
-        console.log('📷 [ContentPlayer] Image dimensions loaded:', {
+        console.log('Image dimensions loaded:', {
           width,
           height,
           aspectRatio,
@@ -213,7 +218,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         setIsLoading(false);
       },
       (error) => {
-        console.error('📷 [ContentPlayer] Failed to get image dimensions:', error);
+        console.error('Failed to get image dimensions:', error);
         setImageAspectRatio(1); // Default to square aspect ratio
         setIsLoading(false);
       }
@@ -226,7 +231,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
       return;
     }
 
-    console.log('🎬 [ContentPlayer] Playing item:', {
+    console.log('Playing item:', {
       type: currentItem.media_type,
       url: currentItem.media_url,
       duration: currentItem.duration,
@@ -236,7 +241,6 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
 
     setIsLoading(true);
     setImageAspectRatio(null); // Reset aspect ratio for new item
-    setVideoError(null); // Clear any video errors
 
     // Clear any existing timeout
     if (timeoutRef.current) {
@@ -253,22 +257,11 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     } else if (currentItem.media_type === 'video') {
       // For videos, replace the source and play
       if (videoPlayer) {
-        console.log('🎥 [ContentPlayer] Replacing video source');
         videoPlayer.replace(currentItem.media_url);
-        
-        // Wait a bit for the video to load before playing
-        setTimeout(() => {
-          videoPlayer.play().then(() => {
-            console.log('🎥 [ContentPlayer] Video playing successfully');
-            setIsLoading(false);
-          }).catch((error) => {
-            console.error('🎥 [ContentPlayer] Failed to play video:', error);
-            setVideoError('Failed to play video');
-            setIsLoading(false);
-          });
-        }, 500);
+        videoPlayer.play();
+        setIsLoading(false);
 
-        // Set timeout based on duration
+        // Set timeout based on duration or video length
         timeoutRef.current = setTimeout(() => {
           moveToNextItem();
         }, currentItem.duration);
@@ -286,9 +279,9 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     return (
       <View style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { fontSize: 18 * tvScaleFactor }]}>No content available to play</Text>
+          <Text style={styles.errorText}>No content available to play</Text>
           <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={[styles.closeButtonText, { fontSize: 18 * tvScaleFactor }]}>Close</Text>
+            <Text style={styles.closeButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -307,14 +300,6 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         {isLoading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { fontSize: 16 * tvScaleFactor }]}>Loading content...</Text>
-          </View>
-        )}
-
-        {videoError && (
-          <View style={styles.errorOverlay}>
-            <Text style={[styles.errorText, { fontSize: 16 * tvScaleFactor }]}>⚠️ {videoError}</Text>
-            <Text style={[styles.errorSubText, { fontSize: 14 * tvScaleFactor }]}>Moving to next item...</Text>
           </View>
         )}
 
@@ -323,14 +308,11 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
             source={{ uri: currentItem.media_url }}
             style={styles.media}
             resizeMode={resizeMode}
-            onLoadStart={() => {
-              console.log('📷 [ContentPlayer] Image load started');
-            }}
             onLoadEnd={() => {
-              console.log('📷 [ContentPlayer] Image loaded successfully with resizeMode:', resizeMode);
+              console.log('Image loaded successfully with resizeMode:', resizeMode);
             }}
             onError={(error) => {
-              console.error('📷 [ContentPlayer] Image load error:', error);
+              console.error('Image load error:', error);
               setIsLoading(false);
             }}
           />
@@ -340,9 +322,6 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
             style={styles.media}
             contentFit="contain"
             nativeControls={false}
-            onLoadStart={() => {
-              console.log('🎥 [ContentPlayer] Video load started');
-            }}
           />
         ) : null}
       </View>
@@ -352,31 +331,31 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         <React.Fragment>
           {/* Close button */}
           <TouchableOpacity 
-            style={[styles.closeButtonTop, isTVDevice && styles.closeButtonTopTV]} 
+            style={styles.closeButtonTop} 
             onPress={onClose}
             onFocus={() => console.log('Close button focused')}
           >
-            <Text style={[styles.closeButtonTopText, { fontSize: 16 * tvScaleFactor }]}>✕ Close Preview</Text>
+            <Text style={styles.closeButtonTopText}>✕ Close Preview</Text>
           </TouchableOpacity>
 
           {/* Info overlay - Description */}
-          <View style={[styles.infoOverlay, isTVDevice && styles.infoOverlayTV]}>
-            <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
+          <View style={styles.infoOverlay}>
+            <Text style={styles.infoText}>
               Playlist: {currentPlaylist.name} ({currentPlaylistIndex + 1}/{activePlaylists.length})
             </Text>
-            <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
+            <Text style={styles.infoText}>
               Item: {currentItemIndex + 1}/{currentItems.length} - {currentItem.media_type}
             </Text>
-            <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
+            <Text style={styles.infoText}>
               Screen: {Math.round(screenDimensions.width)}x{Math.round(screenDimensions.height)} 
               {isTVDevice ? ' (TV)' : ' (Mobile)'}
             </Text>
             {imageAspectRatio && (
-              <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
+              <Text style={styles.infoText}>
                 Image: {imageAspectRatio > 1 ? 'Landscape' : 'Portrait'} ({imageAspectRatio.toFixed(2)}) - Mode: {resizeMode}
               </Text>
             )}
-            <Text style={[styles.infoText, { marginTop: 8, fontStyle: 'italic', opacity: 0.8, fontSize: 12 * tvScaleFactor }]}>
+            <Text style={[styles.infoText, { marginTop: 8, fontStyle: 'italic', opacity: 0.8 }]}>
               {isTVDevice ? 'Press any button on remote to show/hide controls' : 'Tap screen to show/hide controls'}
             </Text>
           </View>
@@ -389,7 +368,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: colors.background,
   },
   contentContainer: {
     flex: 1,
@@ -403,23 +382,10 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  errorOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    padding: 20,
   },
   closeButtonTop: {
     position: 'absolute',
@@ -433,14 +399,9 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.3)',
     elevation: 5,
   },
-  closeButtonTopTV: {
-    top: 30,
-    right: 30,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-  },
   closeButtonTopText: {
     color: colors.card,
+    fontSize: 16,
     fontWeight: '600',
   },
   infoOverlay: {
@@ -448,19 +409,14 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     padding: 12,
     borderRadius: 8,
     zIndex: 50,
   },
-  infoOverlayTV: {
-    bottom: 30,
-    left: 30,
-    right: 30,
-    padding: 16,
-  },
   infoText: {
     color: colors.card,
+    fontSize: 14,
     marginVertical: 2,
   },
   errorContainer: {
@@ -468,17 +424,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#000',
   },
   errorText: {
-    color: '#FFFFFF',
+    color: colors.text,
+    fontSize: 18,
     marginBottom: 20,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  errorSubText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 8,
     textAlign: 'center',
   },
   closeButton: {
@@ -489,6 +439,7 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     color: colors.card,
+    fontSize: 18,
     fontWeight: '600',
   },
 });

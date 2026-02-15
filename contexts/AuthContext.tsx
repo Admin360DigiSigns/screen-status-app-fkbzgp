@@ -1,12 +1,11 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform, BackHandler, Alert, Modal as RNModal } from 'react-native';
+import { Platform, BackHandler } from 'react-native';
 import * as apiService from '@/utils/apiService';
 import { getDeviceId } from '@/utils/deviceUtils';
 import * as Network from 'expo-network';
-import { commandListener, AppCommand } from '@/utils/commandListener';
-import { fetchDisplayContent } from '@/utils/apiService';
+import { commandListener } from '@/utils/commandListener';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -24,12 +23,6 @@ interface AuthContextType {
   checkAuthenticationStatus: () => Promise<{ success: boolean; authenticated: boolean; credentials?: { username: string; password: string; screenName: string }; error?: string }>;
   logout: () => Promise<void>;
   setScreenActive: (active: boolean) => void;
-  showPreviewModal: boolean;
-  setShowPreviewModal: (show: boolean) => void;
-  showScreenShareModal: boolean;
-  setShowScreenShareModal: (show: boolean) => void;
-  displayContent: any;
-  setDisplayContent: (content: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,97 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitializing, setIsInitializing] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [logoutProgress, setLogoutProgress] = useState('');
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [showScreenShareModal, setShowScreenShareModal] = useState(false);
-  const [displayContent, setDisplayContent] = useState<any>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLoggingOutRef = useRef(false);
-
-  // Global command handlers - defined at the context level so they work everywhere
-  const handlePreviewCommand = useCallback(async (command: AppCommand) => {
-    console.log('🎬 [AuthContext] Executing preview_content command globally');
-    
-    if (!username || !password || !screenName) {
-      console.error('❌ [AuthContext] Missing credentials for preview');
-      return;
-    }
-
-    try {
-      console.log('📡 [AuthContext] Fetching display content...');
-      const result = await fetchDisplayContent(username, password, screenName);
-      
-      if (result.success && result.data) {
-        console.log('✅ [AuthContext] Preview content loaded successfully');
-        setDisplayContent(result.data);
-        setShowPreviewModal(true);
-      } else {
-        console.error('❌ [AuthContext] Failed to load preview content:', result.error);
-        Alert.alert('Preview Error', result.error || 'Failed to load preview content');
-      }
-    } catch (error) {
-      console.error('❌ [AuthContext] Error loading preview:', error);
-      Alert.alert('Preview Error', 'An unexpected error occurred');
-    }
-  }, [username, password, screenName]);
-
-  const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
-    console.log('📺 [AuthContext] Executing screenshare command globally');
-    
-    if (Platform.OS === 'web') {
-      console.error('❌ [AuthContext] Screen share not available on web');
-      Alert.alert('Not Available', 'Screen share is not available on web platform');
-      return;
-    }
-
-    if (!username || !password || !screenName) {
-      console.error('❌ [AuthContext] Missing credentials for screen share');
-      return;
-    }
-
-    console.log('✅ [AuthContext] Opening screen share modal');
-    setShowScreenShareModal(true);
-  }, [username, password, screenName]);
-
-  const handleSyncCommand = useCallback(async (command: AppCommand) => {
-    console.log('🔄 [AuthContext] Executing sync_status command globally');
-    
-    if (!deviceId || !screenName || !username || !password) {
-      console.error('❌ [AuthContext] Missing required data for sync');
-      return;
-    }
-
-    try {
-      const networkState = await Network.getNetworkStateAsync();
-      const status = networkState.isConnected ? 'online' : 'offline';
-      
-      const payload = {
-        deviceId,
-        screenName,
-        screen_username: username,
-        screen_password: password,
-        screen_name: screenName,
-        status,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log('📡 [AuthContext] Syncing device status...');
-      const success = await apiService.sendDeviceStatus(payload);
-      
-      if (success) {
-        console.log('✅ [AuthContext] Status sync successful');
-      } else {
-        console.error('❌ [AuthContext] Status sync failed');
-      }
-    } catch (error) {
-      console.error('❌ [AuthContext] Error during sync:', error);
-    }
-  }, [deviceId, screenName, username, password]);
-
-  const handleLogoutCommand = useCallback(async (command: AppCommand) => {
-    console.log('🚪 [AuthContext] Executing logout command globally');
-    await logout();
-  }, []);
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -249,31 +154,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
-
-  // Set up GLOBAL command handlers when authenticated
-  useEffect(() => {
-    if (!isAuthenticated || !deviceId) {
-      console.log('⏸️ [AuthContext] Skipping global command listener setup - not authenticated or no device ID');
-      return;
-    }
-
-    console.log('🌍 [AuthContext] Setting up GLOBAL command handlers for device:', deviceId);
-
-    // Register command handlers globally
-    commandListener.registerHandler('preview_content', handlePreviewCommand);
-    commandListener.registerHandler('screenshare', handleScreenShareCommand);
-    commandListener.registerHandler('sync_status', handleSyncCommand);
-    commandListener.registerHandler('logout', handleLogoutCommand);
-
-    // Start listening for commands globally
-    commandListener.startListening();
-
-    // Cleanup
-    return () => {
-      console.log('🧹 [AuthContext] Cleaning up global command handlers');
-      commandListener.stopListening();
-    };
-  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
 
   // Set up the 20-second interval when user is authenticated AND screen is active
   useEffect(() => {
@@ -572,11 +452,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoggingOut(true);
       setLogoutProgress('Give us a moment while we log you out...');
       
-      // Close any open modals
-      setShowPreviewModal(false);
-      setShowScreenShareModal(false);
-      setDisplayContent(null);
-      
       // STEP 1: Set logout flag FIRST with timestamp to prevent auto-login
       console.log('┌─ STEP 1: Setting logout flag with timestamp');
       setLogoutProgress('Setting logout flag...');
@@ -821,9 +696,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAuthCodeExpiry(null);
       setIsAuthenticated(false);
       setIsScreenActive(false);
-      setShowPreviewModal(false);
-      setShowScreenShareModal(false);
-      setDisplayContent(null);
       console.log('└─ ✓ State cleared');
       console.log('');
       
@@ -865,13 +737,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginWithCode,
       checkAuthenticationStatus,
       logout,
-      setScreenActive,
-      showPreviewModal,
-      setShowPreviewModal,
-      showScreenShareModal,
-      setShowScreenShareModal,
-      displayContent,
-      setDisplayContent,
+      setScreenActive 
     }}>
       {children}
     </AuthContext.Provider>
