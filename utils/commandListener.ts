@@ -74,7 +74,8 @@ class CommandListenerService {
     console.log('╚════════════════════════════════════════════════════════════════╝');
     console.log('🎧 Device ID:', this.deviceId);
     console.log('📋 Registered handlers:', Array.from(this.commandHandlers.keys()));
-    console.log('📡 Supabase URL:', 'https://pgcdokfiaarnhzryfzwf.supabase.co');
+    console.log('📡 Supabase URL:', 'https://gzyywcqlrjimjegbtoyc.supabase.co');
+    console.log('📊 Project ID: gzyywcqlrjimjegbtoyc');
     console.log('');
     
     this.isListening = true;
@@ -172,6 +173,7 @@ class CommandListenerService {
           console.log('✅ [CommandListener] ✅✅✅ Successfully subscribed to Realtime channel ✅✅✅');
           console.log('✅ [CommandListener] Now listening for commands from webapp');
           console.log('✅ [CommandListener] Device ID:', this.deviceId);
+          console.log('✅ [CommandListener] Project: gzyywcqlrjimjegbtoyc');
           console.log('');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           this.connectionStatus = 'disconnected';

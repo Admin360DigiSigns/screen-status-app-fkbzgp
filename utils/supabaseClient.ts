@@ -1,11 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration - MASTER PROJECT for app_commands table
-const SUPABASE_URL = 'https://pgcdokfiaarnhzryfzwf.supabase.co';
+// Supabase configuration - CONTENT PROJECT for app_commands table
+// This is the project where the webapp sends commands
+const SUPABASE_URL = 'https://gzyywcqlrjimjegbtoyc.supabase.co';
 
-// Using environment variable if available, otherwise use the configured anon key
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBnY2Rva2ZpYWFybmh6cnlmendmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwOTk1OTEsImV4cCI6MjA3OTY3NTU5MX0.wn4-y6x8Q-EbPGci_B27scrRXNOEvg7I4xsqeCEYqag';
+// IMPORTANT: You need to get the anon key for project gzyywcqlrjimjegbtoyc
+// Go to: https://supabase.com/dashboard/project/gzyywcqlrjimjegbtoyc/settings/api
+// Copy the "anon" key and replace the placeholder below
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_ANON_KEY_HERE';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
@@ -21,4 +24,4 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 console.log('✅ Supabase client initialized successfully');
 console.log('📡 Supabase URL:', SUPABASE_URL);
 console.log('🔑 Anon key configured: Yes');
-console.log('🎯 This client connects to the MASTER PROJECT for app_commands table');
+console.log('🎯 This client connects to the CONTENT PROJECT (gzyywcqlrjimjegbtoyc) for app_commands table');
