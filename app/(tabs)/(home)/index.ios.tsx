@@ -10,6 +10,7 @@ import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
 import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 export default function HomeScreen() {
   const { 
@@ -280,10 +281,10 @@ export default function HomeScreen() {
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
       <LinearGradient
-        colors={['#E0E7FF', '#C7D2FE', '#A5B4FC', '#818CF8']}
+        colors={['#FFFFFF', '#F0F4FF', '#E0E7FF', '#C7D2FE']}
         style={styles.mobileGradientBackground}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0, y: 1 }}
       >
         <ScrollView 
           contentContainerStyle={styles.mobileScrollContent}
@@ -293,7 +294,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/e7d83a94-28be-4159-800f-98c51daa0f57.png')}
+                source={require('@/assets/images/d3f8669c-9bdf-4c32-b616-b1fd1e549933.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
@@ -387,14 +388,19 @@ export default function HomeScreen() {
                 ) : (
                   <React.Fragment>
                     <Text style={styles.mobileActionIcon}>👁️</Text>
-                    <LinearGradient
-                      colors={['#3B82F6', '#1E40AF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.mobileActionTextGradient}
+                    <MaskedView
+                      maskElement={
+                        <Text style={styles.mobileActionText}>Preview Content</Text>
+                      }
                     >
-                      <Text style={styles.mobileActionText}>Preview Content</Text>
-                    </LinearGradient>
+                      <LinearGradient
+                        colors={['#3B82F6', '#1E40AF']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                      >
+                        <Text style={[styles.mobileActionText, { opacity: 0 }]}>Preview Content</Text>
+                      </LinearGradient>
+                    </MaskedView>
                   </React.Fragment>
                 )}
               </TouchableOpacity>
@@ -405,14 +411,19 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.mobileActionIcon}>🔗</Text>
-                <LinearGradient
-                  colors={['#3B82F6', '#1E40AF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.mobileActionTextGradient}
+                <MaskedView
+                  maskElement={
+                    <Text style={styles.mobileActionText}>Screen Share</Text>
+                  }
                 >
-                  <Text style={styles.mobileActionText}>Screen Share</Text>
-                </LinearGradient>
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={[styles.mobileActionText, { opacity: 0 }]}>Screen Share</Text>
+                  </LinearGradient>
+                </MaskedView>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -421,14 +432,19 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.mobileActionIcon}>🔄</Text>
-                <LinearGradient
-                  colors={['#3B82F6', '#1E40AF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.mobileActionTextGradient}
+                <MaskedView
+                  maskElement={
+                    <Text style={styles.mobileActionText}>Sync Status</Text>
+                  }
                 >
-                  <Text style={styles.mobileActionText}>Sync Status</Text>
-                </LinearGradient>
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={[styles.mobileActionText, { opacity: 0 }]}>Sync Status</Text>
+                  </LinearGradient>
+                </MaskedView>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -437,14 +453,19 @@ export default function HomeScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.mobileActionIcon}>🚪</Text>
-                <LinearGradient
-                  colors={['#3B82F6', '#1E40AF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.mobileActionTextGradient}
+                <MaskedView
+                  maskElement={
+                    <Text style={styles.mobileActionText}>Logout</Text>
+                  }
                 >
-                  <Text style={styles.mobileActionText}>Logout</Text>
-                </LinearGradient>
+                  <LinearGradient
+                    colors={['#3B82F6', '#1E40AF']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={[styles.mobileActionText, { opacity: 0 }]}>Logout</Text>
+                  </LinearGradient>
+                </MaskedView>
               </TouchableOpacity>
             </View>
 
@@ -671,15 +692,9 @@ const styles = StyleSheet.create({
   mobileActionIcon: {
     fontSize: 20,
   },
-  mobileActionTextGradient: {
-    borderRadius: 4,
-  },
   mobileActionText: {
     fontSize: 16,
-    color: '#FFFFFF',
     fontWeight: '600',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
   },
   mobileFooter: {
     flexDirection: 'row',
