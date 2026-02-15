@@ -68,8 +68,15 @@ class CommandListenerService {
       return;
     }
 
-    console.log('🎧 [CommandListener] Starting command listener for device:', this.deviceId);
-    console.log('📋 [CommandListener] Registered handlers:', Array.from(this.commandHandlers.keys()));
+    console.log('');
+    console.log('╔════════════════════════════════════════════════════════════════╗');
+    console.log('║           STARTING COMMAND LISTENER                            ║');
+    console.log('╚════════════════════════════════════════════════════════════════╝');
+    console.log('🎧 Device ID:', this.deviceId);
+    console.log('📋 Registered handlers:', Array.from(this.commandHandlers.keys()));
+    console.log('📡 Supabase URL:', 'https://pgcdokfiaarnhzryfzwf.supabase.co');
+    console.log('');
+    
     this.isListening = true;
     this.connectionStatus = 'connecting';
 
@@ -109,6 +116,8 @@ class CommandListenerService {
 
     const channelName = `app_commands:device_id=eq.${this.deviceId}`;
     console.log('📡 [CommandListener] Setting up Realtime channel:', channelName);
+    console.log('📡 [CommandListener] Listening for INSERT events on app_commands table');
+    console.log('📡 [CommandListener] Filter: device_id=eq.' + this.deviceId);
 
     this.channel = supabase
       .channel(channelName)
@@ -121,9 +130,17 @@ class CommandListenerService {
           filter: `device_id=eq.${this.deviceId}`,
         },
         (payload) => {
-          console.log('📨 [CommandListener] ✅ Received command via Realtime INSERT:', payload);
+          console.log('');
+          console.log('╔════════════════════════════════════════════════════════════════╗');
+          console.log('║     📨 REALTIME COMMAND RECEIVED (INSERT)                      ║');
+          console.log('╚════════════════════════════════════════════════════════════════╝');
+          console.log('📨 Full payload:', JSON.stringify(payload, null, 2));
+          console.log('');
+          
           if (payload.new) {
             this.handleCommand(payload.new as AppCommand);
+          } else {
+            console.error('❌ [CommandListener] No payload.new in INSERT event');
           }
         }
       )
@@ -144,10 +161,18 @@ class CommandListenerService {
         }
       )
       .subscribe((status) => {
+        console.log('');
+        console.log('📡 [CommandListener] ═══════════════════════════════════════');
         console.log('📡 [CommandListener] Realtime channel status:', status);
+        console.log('📡 [CommandListener] ═══════════════════════════════════════');
+        console.log('');
+        
         if (status === 'SUBSCRIBED') {
           this.connectionStatus = 'connected';
-          console.log('✅ [CommandListener] Successfully subscribed to Realtime channel');
+          console.log('✅ [CommandListener] ✅✅✅ Successfully subscribed to Realtime channel ✅✅✅');
+          console.log('✅ [CommandListener] Now listening for commands from webapp');
+          console.log('✅ [CommandListener] Device ID:', this.deviceId);
+          console.log('');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           this.connectionStatus = 'disconnected';
           console.error('❌ [CommandListener] Realtime channel error:', status);
@@ -195,7 +220,11 @@ class CommandListenerService {
       }
 
       if (commands && commands.length > 0) {
-        console.log(`📬 [CommandListener] ✅ Found ${commands.length} pending command(s) via polling`);
+        console.log('');
+        console.log('╔════════════════════════════════════════════════════════════════╗');
+        console.log(`║     📬 FOUND ${commands.length} PENDING COMMAND(S) VIA POLLING              ║`);
+        console.log('╚════════════════════════════════════════════════════════════════╝');
+        console.log('');
         
         for (const command of commands) {
           // Skip if we've already processed this command
@@ -208,6 +237,7 @@ class CommandListenerService {
             id: command.id,
             command: command.command,
             device_id: command.device_id,
+            status: command.status,
           });
           await this.handleCommand(command as AppCommand);
         }
