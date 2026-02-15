@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
       "resizeMode": "contain",
@@ -21,7 +21,8 @@
         "NSCameraUsageDescription": "This app needs camera access for WebRTC screen sharing",
         "NSMicrophoneUsageDescription": "This app needs microphone access for WebRTC screen sharing"
       },
-      "bitcode": false
+      "bitcode": false,
+      "newArchEnabled": true
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +40,8 @@
         "BLUETOOTH",
         "BLUETOOTH_CONNECT"
       ],
-      "versionCode": 2
+      "versionCode": 2,
+      "newArchEnabled": true
     },
     "web": {
       "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",

@@ -19,7 +19,7 @@ android.enableJetifier=true
 
 # React Native settings
 reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
-newArchEnabled=false
+newArchEnabled=true
 hermesEnabled=true
 
 # Kotlin daemon settings
