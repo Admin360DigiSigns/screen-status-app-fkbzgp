@@ -65,10 +65,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Global command handlers - defined at the context level so they work everywhere
   const handlePreviewCommand = useCallback(async (command: AppCommand) => {
-    console.log('🎬 [AuthContext] Executing preview_content command globally');
+    console.log('🎬 [AuthContext] ===== PREVIEW COMMAND HANDLER CALLED =====');
+    console.log('🎬 [AuthContext] Command:', command);
+    console.log('🎬 [AuthContext] Current credentials:', { username, password: !!password, screenName });
     
     if (!username || !password || !screenName) {
       console.error('❌ [AuthContext] Missing credentials for preview');
+      Alert.alert('Preview Error', 'Missing credentials. Please log in again.');
       return;
     }
 
@@ -80,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('✅ [AuthContext] Preview content loaded successfully');
         setDisplayContent(result.data);
         setShowPreviewModal(true);
+        console.log('✅ [AuthContext] Preview modal opened');
       } else {
         console.error('❌ [AuthContext] Failed to load preview content:', result.error);
         Alert.alert('Preview Error', result.error || 'Failed to load preview content');
@@ -88,10 +92,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('❌ [AuthContext] Error loading preview:', error);
       Alert.alert('Preview Error', 'An unexpected error occurred');
     }
+    
+    console.log('🎬 [AuthContext] ===== PREVIEW COMMAND HANDLER COMPLETE =====');
   }, [username, password, screenName]);
 
   const handleScreenShareCommand = useCallback(async (command: AppCommand) => {
-    console.log('📺 [AuthContext] Executing screenshare command globally');
+    console.log('📺 [AuthContext] ===== SCREENSHARE COMMAND HANDLER CALLED =====');
+    console.log('📺 [AuthContext] Command:', command);
+    console.log('📺 [AuthContext] Platform:', Platform.OS);
     
     if (Platform.OS === 'web') {
       console.error('❌ [AuthContext] Screen share not available on web');
@@ -101,15 +109,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!username || !password || !screenName) {
       console.error('❌ [AuthContext] Missing credentials for screen share');
+      Alert.alert('Screen Share Error', 'Missing credentials. Please log in again.');
       return;
     }
 
     console.log('✅ [AuthContext] Opening screen share modal');
     setShowScreenShareModal(true);
+    console.log('✅ [AuthContext] Screen share modal opened');
+    console.log('📺 [AuthContext] ===== SCREENSHARE COMMAND HANDLER COMPLETE =====');
   }, [username, password, screenName]);
 
   const handleSyncCommand = useCallback(async (command: AppCommand) => {
-    console.log('🔄 [AuthContext] Executing sync_status command globally');
+    console.log('🔄 [AuthContext] ===== SYNC COMMAND HANDLER CALLED =====');
+    console.log('🔄 [AuthContext] Command:', command);
+    console.log('🔄 [AuthContext] Current state:', { deviceId, screenName, username, password: !!password });
     
     if (!deviceId || !screenName || !username || !password) {
       console.error('❌ [AuthContext] Missing required data for sync');
@@ -141,11 +154,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('❌ [AuthContext] Error during sync:', error);
     }
+    
+    console.log('🔄 [AuthContext] ===== SYNC COMMAND HANDLER COMPLETE =====');
   }, [deviceId, screenName, username, password]);
 
   const handleLogoutCommand = useCallback(async (command: AppCommand) => {
-    console.log('🚪 [AuthContext] Executing logout command globally');
+    console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER CALLED =====');
+    console.log('🚪 [AuthContext] Command:', command);
+    console.log('🚪 [AuthContext] Executing logout...');
     await logout();
+    console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER COMPLETE =====');
   }, []);
 
   const initializeAuth = useCallback(async () => {
@@ -252,28 +270,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Set up GLOBAL command handlers when authenticated
   useEffect(() => {
+    console.log('');
+    console.log('╔════════════════════════════════════════════════════════════════╗');
+    console.log('║           COMMAND LISTENER SETUP EFFECT TRIGGERED             ║');
+    console.log('╚════════════════════════════════════════════════════════════════╝');
+    console.log('Current state:', {
+      isAuthenticated,
+      deviceId: !!deviceId,
+      username: !!username,
+      password: !!password,
+      screenName: !!screenName,
+    });
+    console.log('');
+
     if (!isAuthenticated || !deviceId) {
-      console.log('⏸️ [AuthContext] Skipping global command listener setup - not authenticated or no device ID');
+      console.log('⏸️ [AuthContext] Skipping global command listener setup');
+      console.log('   Reason: Not authenticated or no device ID');
+      console.log('   isAuthenticated:', isAuthenticated);
+      console.log('   deviceId:', deviceId);
       return;
     }
 
-    console.log('🌍 [AuthContext] Setting up GLOBAL command handlers for device:', deviceId);
+    console.log('🌍 [AuthContext] ===== SETTING UP GLOBAL COMMAND HANDLERS =====');
+    console.log('🌍 [AuthContext] Device ID:', deviceId);
+    console.log('🌍 [AuthContext] Screen Name:', screenName);
+    console.log('🌍 [AuthContext] Username:', username);
 
     // Register command handlers globally
+    console.log('📝 [AuthContext] Registering command handlers...');
     commandListener.registerHandler('preview_content', handlePreviewCommand);
+    console.log('   ✓ Registered: preview_content');
+    
     commandListener.registerHandler('screenshare', handleScreenShareCommand);
+    console.log('   ✓ Registered: screenshare');
+    
     commandListener.registerHandler('sync_status', handleSyncCommand);
+    console.log('   ✓ Registered: sync_status');
+    
     commandListener.registerHandler('logout', handleLogoutCommand);
+    console.log('   ✓ Registered: logout');
 
     // Start listening for commands globally
+    console.log('🎧 [AuthContext] Starting command listener...');
     commandListener.startListening();
+    console.log('✅ [AuthContext] Command listener started');
+    console.log('🌍 [AuthContext] ===== GLOBAL COMMAND HANDLERS SETUP COMPLETE =====');
+    console.log('');
 
     // Cleanup
     return () => {
-      console.log('🧹 [AuthContext] Cleaning up global command handlers');
+      console.log('');
+      console.log('🧹 [AuthContext] ===== CLEANING UP GLOBAL COMMAND HANDLERS =====');
       commandListener.stopListening();
+      console.log('✅ [AuthContext] Command listener stopped');
+      console.log('🧹 [AuthContext] ===== CLEANUP COMPLETE =====');
+      console.log('');
     };
-  }, [isAuthenticated, deviceId, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
+  }, [isAuthenticated, deviceId, username, password, screenName, handlePreviewCommand, handleScreenShareCommand, handleSyncCommand, handleLogoutCommand]);
 
   // Set up the 20-second interval when user is authenticated AND screen is active
   useEffect(() => {
@@ -310,6 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         try {
           console.log('===========================================');
+          console.log('Interval triggered - sending status update');
           console.log('Executing scheduled status update at:', new Date().toISOString());
           console.log('Current auth state:', {
             deviceId,
@@ -356,7 +410,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Set up interval to send status every 20 seconds (20000 milliseconds)
       statusIntervalRef.current = setInterval(() => {
-        console.log('Interval triggered - sending status update');
         sendStatusUpdate();
       }, 20000);
       

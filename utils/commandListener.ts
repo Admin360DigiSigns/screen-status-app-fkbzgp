@@ -22,12 +22,18 @@ class CommandListenerService {
   private pollInterval: NodeJS.Timeout | null = null;
   private lastProcessedCommandId: string | null = null;
   private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
+  private pollCount: number = 0;
 
   /**
    * Initialize the command listener with device ID
    */
   initialize(deviceId: string) {
-    console.log('🎯 [CommandListener] Initializing for device:', deviceId);
+    console.log('');
+    console.log('🎯 ═══════════════════════════════════════════════════════════');
+    console.log('🎯 [CommandListener] INITIALIZING');
+    console.log('🎯 Device ID:', deviceId);
+    console.log('🎯 ═══════════════════════════════════════════════════════════');
+    console.log('');
     this.deviceId = deviceId;
   }
 
@@ -37,6 +43,7 @@ class CommandListenerService {
   registerHandler(command: string, handler: CommandHandler) {
     console.log('📝 [CommandListener] Registering handler for command:', command);
     this.commandHandlers.set(command, handler);
+    console.log('📝 [CommandListener] Total handlers registered:', this.commandHandlers.size);
   }
 
   /**
@@ -58,47 +65,77 @@ class CommandListenerService {
    * Start listening for commands
    */
   async startListening() {
+    console.log('');
+    console.log('🎧 ═══════════════════════════════════════════════════════════');
+    console.log('🎧 [CommandListener] START LISTENING CALLED');
+    console.log('🎧 ═══════════════════════════════════════════════════════════');
+    
     if (!this.deviceId) {
       console.error('❌ [CommandListener] Cannot start listening: device ID not set');
+      console.log('🎧 ═══════════════════════════════════════════════════════════');
+      console.log('');
       return;
     }
 
     if (this.isListening) {
       console.log('⚠️ [CommandListener] Already listening for commands');
+      console.log('🎧 ═══════════════════════════════════════════════════════════');
+      console.log('');
       return;
     }
 
-    console.log('🎧 [CommandListener] Starting command listener for device:', this.deviceId);
-    console.log('📋 [CommandListener] Registered handlers:', Array.from(this.commandHandlers.keys()));
+    console.log('🎧 [CommandListener] Device ID:', this.deviceId);
+    console.log('🎧 [CommandListener] Registered handlers:', Array.from(this.commandHandlers.keys()));
+    console.log('🎧 [CommandListener] Handler count:', this.commandHandlers.size);
+    
     this.isListening = true;
     this.connectionStatus = 'connecting';
+    this.pollCount = 0;
 
     // Set up Realtime channel for instant command delivery
+    console.log('🎧 [CommandListener] Setting up Realtime channel...');
     this.setupRealtimeChannel();
 
     // Set up polling as fallback (every 2 seconds for better responsiveness)
+    console.log('🎧 [CommandListener] Setting up polling...');
     this.startPolling();
+    
+    console.log('✅ [CommandListener] Listening started successfully');
+    console.log('🎧 ═══════════════════════════════════════════════════════════');
+    console.log('');
   }
 
   /**
    * Stop listening for commands
    */
   async stopListening() {
-    console.log('🛑 [CommandListener] Stopping command listener');
+    console.log('');
+    console.log('🛑 ═══════════════════════════════════════════════════════════');
+    console.log('🛑 [CommandListener] STOP LISTENING CALLED');
+    console.log('🛑 ═══════════════════════════════════════════════════════════');
+    
     this.isListening = false;
     this.connectionStatus = 'disconnected';
 
     // Unsubscribe from Realtime channel
     if (this.channel) {
+      console.log('🛑 [CommandListener] Removing Realtime channel...');
       await supabase.removeChannel(this.channel);
       this.channel = null;
+      console.log('✓ Realtime channel removed');
     }
 
     // Stop polling
     if (this.pollInterval) {
+      console.log('🛑 [CommandListener] Clearing poll interval...');
       clearInterval(this.pollInterval);
       this.pollInterval = null;
+      console.log('✓ Poll interval cleared');
     }
+    
+    console.log('✅ [CommandListener] Listening stopped');
+    console.log('🛑 ═══════════════════════════════════════════════════════════');
+    console.log('');
   }
 
   /**
@@ -108,7 +145,12 @@ class CommandListenerService {
     if (!this.deviceId) return;
 
     const channelName = `app_commands:device_id=eq.${this.deviceId}`;
-    console.log('📡 [CommandListener] Setting up Realtime channel:', channelName);
+    console.log('');
+    console.log('📡 ═══════════════════════════════════════════════════════════');
+    console.log('📡 [CommandListener] SETTING UP REALTIME CHANNEL');
+    console.log('📡 Channel name:', channelName);
+    console.log('📡 Device ID:', this.deviceId);
+    console.log('📡 ═══════════════════════════════════════════════════════════');
 
     this.channel = supabase
       .channel(channelName)
@@ -121,9 +163,17 @@ class CommandListenerService {
           filter: `device_id=eq.${this.deviceId}`,
         },
         (payload) => {
-          console.log('📨 [CommandListener] ✅ Received command via Realtime INSERT:', payload);
+          console.log('');
+          console.log('📨 ═══════════════════════════════════════════════════════════');
+          console.log('📨 [CommandListener] ✅ REALTIME INSERT EVENT RECEIVED');
+          console.log('📨 Payload:', JSON.stringify(payload, null, 2));
+          console.log('📨 ═══════════════════════════════════════════════════════════');
+          console.log('');
+          
           if (payload.new) {
             this.handleCommand(payload.new as AppCommand);
+          } else {
+            console.error('❌ [CommandListener] No payload.new in INSERT event');
           }
         }
       )
@@ -136,15 +186,29 @@ class CommandListenerService {
           filter: `device_id=eq.${this.deviceId}`,
         },
         (payload) => {
-          console.log('📨 [CommandListener] Received command via Realtime UPDATE:', payload);
+          console.log('');
+          console.log('📨 ═══════════════════════════════════════════════════════════');
+          console.log('📨 [CommandListener] REALTIME UPDATE EVENT RECEIVED');
+          console.log('📨 Payload:', JSON.stringify(payload, null, 2));
+          console.log('📨 ═══════════════════════════════════════════════════════════');
+          console.log('');
+          
           // Only process if status changed to pending (in case of retry)
           if (payload.new && (payload.new as AppCommand).status === 'pending') {
             this.handleCommand(payload.new as AppCommand);
+          } else {
+            console.log('⏭️ [CommandListener] Skipping UPDATE - not pending status');
           }
         }
       )
       .subscribe((status) => {
-        console.log('📡 [CommandListener] Realtime channel status:', status);
+        console.log('');
+        console.log('📡 ═══════════════════════════════════════════════════════════');
+        console.log('📡 [CommandListener] REALTIME CHANNEL STATUS CHANGE');
+        console.log('📡 Status:', status);
+        console.log('📡 ═══════════════════════════════════════════════════════════');
+        console.log('');
+        
         if (status === 'SUBSCRIBED') {
           this.connectionStatus = 'connected';
           console.log('✅ [CommandListener] Successfully subscribed to Realtime channel');
@@ -156,13 +220,22 @@ class CommandListenerService {
           console.log('🔌 [CommandListener] Realtime channel closed');
         }
       });
+      
+    console.log('✅ [CommandListener] Realtime channel setup complete');
+    console.log('');
   }
 
   /**
    * Start polling for commands (fallback mechanism)
    */
   private startPolling() {
-    console.log('🔄 [CommandListener] Starting command polling (every 2 seconds)');
+    console.log('');
+    console.log('🔄 ═══════════════════════════════════════════════════════════');
+    console.log('🔄 [CommandListener] STARTING COMMAND POLLING');
+    console.log('🔄 Interval: 2 seconds');
+    console.log('🔄 Device ID:', this.deviceId);
+    console.log('🔄 ═══════════════════════════════════════════════════════════');
+    console.log('');
 
     // Poll immediately
     this.pollForCommands();
@@ -171,16 +244,27 @@ class CommandListenerService {
     this.pollInterval = setInterval(() => {
       this.pollForCommands();
     }, 2000);
+    
+    console.log('✅ [CommandListener] Polling started');
   }
 
   /**
    * Poll for pending commands
    */
   private async pollForCommands() {
-    if (!this.deviceId || !this.isListening) return;
+    if (!this.deviceId || !this.isListening) {
+      console.log('⏸️ [CommandListener] Skipping poll - not listening or no device ID');
+      return;
+    }
+
+    this.pollCount++;
+    console.log(`🔄 [CommandListener] ===== POLL #${this.pollCount} =====`);
+    console.log(`🔄 [CommandListener] Polling for commands at: ${new Date().toISOString()}`);
+    console.log(`🔄 [CommandListener] Device ID: ${this.deviceId}`);
 
     try {
       // Query for pending commands for this device
+      console.log('🔄 [CommandListener] Querying Supabase for pending commands...');
       const { data: commands, error } = await supabase
         .from('app_commands')
         .select('*')
@@ -191,29 +275,51 @@ class CommandListenerService {
 
       if (error) {
         console.error('❌ [CommandListener] Error polling for commands:', error);
+        console.log(`🔄 [CommandListener] ===== POLL #${this.pollCount} FAILED =====`);
+        console.log('');
         return;
       }
 
+      console.log(`🔄 [CommandListener] Query successful. Found ${commands?.length || 0} pending command(s)`);
+
       if (commands && commands.length > 0) {
-        console.log(`📬 [CommandListener] ✅ Found ${commands.length} pending command(s) via polling`);
+        console.log('');
+        console.log('📬 ═══════════════════════════════════════════════════════════');
+        console.log(`📬 [CommandListener] ✅ FOUND ${commands.length} PENDING COMMAND(S)`);
+        console.log('📬 ═══════════════════════════════════════════════════════════');
         
         for (const command of commands) {
+          console.log('📬 Command:', {
+            id: command.id,
+            command: command.command,
+            device_id: command.device_id,
+            screen_name: command.screen_name,
+            status: command.status,
+            created_at: command.created_at,
+          });
+          
           // Skip if we've already processed this command
           if (command.id === this.lastProcessedCommandId) {
             console.log('⏭️ [CommandListener] Skipping already processed command:', command.id);
             continue;
           }
 
-          console.log('🎯 [CommandListener] Processing command from poll:', {
-            id: command.id,
-            command: command.command,
-            device_id: command.device_id,
-          });
+          console.log('🎯 [CommandListener] Processing command from poll:', command.id);
           await this.handleCommand(command as AppCommand);
         }
+        
+        console.log('📬 ═══════════════════════════════════════════════════════════');
+        console.log('');
+      } else {
+        console.log(`🔄 [CommandListener] No pending commands found`);
       }
+      
+      console.log(`🔄 [CommandListener] ===== POLL #${this.pollCount} COMPLETE =====`);
+      console.log('');
     } catch (error) {
-      console.error('❌ [CommandListener] Error in pollForCommands:', error);
+      console.error('❌ [CommandListener] Exception in pollForCommands:', error);
+      console.log(`🔄 [CommandListener] ===== POLL #${this.pollCount} EXCEPTION =====`);
+      console.log('');
     }
   }
 
@@ -221,42 +327,58 @@ class CommandListenerService {
    * Handle a received command
    */
   private async handleCommand(command: AppCommand) {
-    console.log('⚙️ [CommandListener] ===== HANDLING COMMAND =====');
-    console.log('⚙️ [CommandListener] Command ID:', command.id);
-    console.log('⚙️ [CommandListener] Command Type:', command.command);
-    console.log('⚙️ [CommandListener] Command Status:', command.status);
-    console.log('⚙️ [CommandListener] Device ID:', command.device_id);
-    console.log('⚙️ [CommandListener] Screen Name:', command.screen_name);
-    console.log('⚙️ [CommandListener] Payload:', command.payload);
+    console.log('');
+    console.log('⚙️ ═══════════════════════════════════════════════════════════');
+    console.log('⚙️ [CommandListener] HANDLING COMMAND');
+    console.log('⚙️ ═══════════════════════════════════════════════════════════');
+    console.log('⚙️ Command ID:', command.id);
+    console.log('⚙️ Command Type:', command.command);
+    console.log('⚙️ Command Status:', command.status);
+    console.log('⚙️ Device ID:', command.device_id);
+    console.log('⚙️ Screen Name:', command.screen_name);
+    console.log('⚙️ Payload:', JSON.stringify(command.payload, null, 2));
+    console.log('⚙️ Created At:', command.created_at);
+    console.log('⚙️ ═══════════════════════════════════════════════════════════');
 
     // Skip if already processed
     if (command.status !== 'pending') {
       console.log('⏭️ [CommandListener] Skipping non-pending command (status:', command.status, ')');
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
       return;
     }
 
     // Skip if we've already processed this command
     if (command.id === this.lastProcessedCommandId) {
       console.log('⏭️ [CommandListener] Skipping already processed command:', command.id);
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
       return;
     }
 
     // Update last processed command ID
     this.lastProcessedCommandId = command.id;
+    console.log('✓ Updated last processed command ID:', command.id);
 
     // Mark command as processing
     console.log('🔄 [CommandListener] Marking command as processing...');
     await this.updateCommandStatus(command.id, 'processing');
 
     // Get handler for this command
+    console.log('🔍 [CommandListener] Looking for handler for command:', command.command);
+    console.log('🔍 [CommandListener] Available handlers:', Array.from(this.commandHandlers.keys()));
     const handler = this.commandHandlers.get(command.command);
 
     if (!handler) {
       console.error('❌ [CommandListener] No handler registered for command:', command.command);
       console.error('❌ [CommandListener] Available handlers:', Array.from(this.commandHandlers.keys()));
       await this.updateCommandStatus(command.id, 'failed', 'No handler registered');
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
       return;
     }
+
+    console.log('✓ Handler found for command:', command.command);
 
     try {
       // Execute the handler
@@ -266,12 +388,15 @@ class CommandListenerService {
       // Mark command as completed
       await this.updateCommandStatus(command.id, 'completed');
       console.log('✅ [CommandListener] Command completed successfully:', command.id);
-      console.log('✅ [CommandListener] ===== COMMAND HANDLED =====');
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
     } catch (error) {
       console.error('❌ [CommandListener] Error executing command handler:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.updateCommandStatus(command.id, 'failed', errorMessage);
-      console.log('❌ [CommandListener] ===== COMMAND FAILED =====');
+      console.log('❌ [CommandListener] Command failed:', command.id);
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
     }
   }
 
@@ -306,7 +431,7 @@ class CommandListenerService {
         console.log(`✅ [CommandListener] Command status updated to: ${status}`);
       }
     } catch (error) {
-      console.error('❌ [CommandListener] Error in updateCommandStatus:', error);
+      console.error('❌ [CommandListener] Exception in updateCommandStatus:', error);
     }
   }
 
@@ -335,7 +460,7 @@ class CommandListenerService {
       console.log(`📜 [CommandListener] Fetched ${commands?.length || 0} commands from history`);
       return (commands || []) as AppCommand[];
     } catch (error) {
-      console.error('❌ [CommandListener] Error in getCommandHistory:', error);
+      console.error('❌ [CommandListener] Exception in getCommandHistory:', error);
       return [];
     }
   }
@@ -372,7 +497,7 @@ class CommandListenerService {
       console.log('✅ [CommandListener] Test command created:', data.id);
       return true;
     } catch (error) {
-      console.error('❌ [CommandListener] Error in testCommandListener:', error);
+      console.error('❌ [CommandListener] Exception in testCommandListener:', error);
       return false;
     }
   }
