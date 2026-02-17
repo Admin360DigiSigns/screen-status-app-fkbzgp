@@ -5,31 +5,31 @@
     "slug": "screen-status-app-fkbzgp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png",
+    "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png",
+      "image": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.screenstatusappfkbzgp",
-      "icon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png"
+      "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png",
+        "foregroundImage": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
         "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.screenstatusappfkbzgp",
-      "icon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png"
+      "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png"
+      "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
     },
     "plugins": [
       "expo-router"
