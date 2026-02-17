@@ -1,38 +1,36 @@
 
 #!/bin/bash
 
-# This script runs before dependencies are installed during EAS Build
-
-echo "Setting up Gradle properties for memory optimization..."
-
-# Create gradle.properties if it doesn't exist
+# Create android directory if it doesn't exist
 mkdir -p android
-cat > android/gradle.properties << 'EOF'
-# Increase memory for build - AGGRESSIVE SETTINGS
-org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:ReservedCodeCacheSize=512m -Dfile.encoding=UTF-8
-org.gradle.parallel=true
-org.gradle.caching=true
-org.gradle.configureondemand=true
+
+# Create gradle.properties with optimized memory settings
+cat > android/gradle.properties <<EOL
+# Gradle JVM memory settings - Increased for large builds
+org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError
+
+# Gradle daemon and parallel execution
 org.gradle.daemon=true
+org.gradle.parallel=true
+org.gradle.configureondemand=true
 
 # Android settings
 android.useAndroidX=true
 android.enableJetifier=true
 
-# React Native settings - Build only arm64-v8a to reduce memory usage
-reactNativeArchitectures=arm64-v8a
-newArchEnabled=true
-hermesEnabled=true
+# Kotlin daemon memory settings
+kotlin.daemon.jvm.options=-Xmx4096m -XX:MaxMetaspaceSize=1536m
 
-# Kotlin daemon settings - INCREASED
-kotlin.daemon.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m
-
-# Disable unnecessary features to save memory
+# Memory optimization - Disable R8 full mode and dexing artifact transform
 android.enableR8.fullMode=false
 android.enableDexingArtifactTransform=false
 
-# Flipper
-FLIPPER_VERSION=0.125.0
-EOF
+# New Architecture (required for react-native-reanimated)
+newArchEnabled=true
 
-echo "Gradle properties configured successfully"
+# Reduce build complexity
+android.enableD8.desugaring=true
+android.enableBuildCache=true
+EOL
+
+echo "✅ gradle.properties configured with optimized memory settings"
