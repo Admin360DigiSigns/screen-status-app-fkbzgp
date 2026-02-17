@@ -7,7 +7,6 @@ import {
   Platform,
   ScrollView,
   Alert,
-  Image,
   Animated,
   ActivityIndicator,
   Dimensions,
@@ -20,6 +19,7 @@ import { router } from 'expo-router';
 import { isTV } from '@/utils/deviceUtils';
 import QRCode from 'react-native-qrcode-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 export default function LoginScreen() {
   const { 
@@ -437,8 +437,7 @@ export default function LoginScreen() {
       return {
         qrSize: Math.min(width * 0.18, height * 0.35, 280),
         codeSize: Math.min(width * 0.05, 60),
-        logoWidth: Math.min(width * 0.2, 320),
-        logoHeight: Math.min(height * 0.1, 100),
+        logoFontSize: Math.min(width * 0.04, 48),
         containerMaxWidth: Math.min(width * 0.9, 1200),
         spacing: 30,
       };
@@ -447,8 +446,7 @@ export default function LoginScreen() {
       return {
         qrSize: Math.min(width * 0.5, 200),
         codeSize: 36,
-        logoWidth: Math.min(width * 0.6, 240),
-        logoHeight: 100,
+        logoFontSize: 32,
         containerMaxWidth: width * 0.9,
         spacing: 24,
       };
@@ -470,11 +468,24 @@ export default function LoginScreen() {
             end={{ x: 0, y: 1 }}
           >
             <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
-              <Image
-                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
-                style={[styles.tvLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
-                resizeMode="contain"
-              />
+              <MaskedView
+                maskElement={
+                  <Text style={[styles.tvLogoText, { fontSize: sizes.logoFontSize }]}>
+                    360DigiSigns
+                  </Text>
+                }
+              >
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.tvLogoGradient}
+                >
+                  <Text style={[styles.tvLogoText, { fontSize: sizes.logoFontSize, opacity: 0 }]}>
+                    360DigiSigns
+                  </Text>
+                </LinearGradient>
+              </MaskedView>
               
               <View style={styles.tvConnectionBadgeContainer}>
                 <View style={[styles.tvConnectionBadge, { backgroundColor: isOnline ? '#10B981' : '#EF4444' }]}>
@@ -587,11 +598,24 @@ export default function LoginScreen() {
             showsVerticalScrollIndicator={false}
           >
             <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
-              <Image
-                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
-                style={[styles.mobileLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
-                resizeMode="contain"
-              />
+              <MaskedView
+                maskElement={
+                  <Text style={[styles.mobileLogoText, { fontSize: sizes.logoFontSize }]}>
+                    360DigiSigns
+                  </Text>
+                }
+              >
+                <LinearGradient
+                  colors={['#3B82F6', '#1E40AF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.mobileLogoGradient}
+                >
+                  <Text style={[styles.mobileLogoText, { fontSize: sizes.logoFontSize, opacity: 0 }]}>
+                    360DigiSigns
+                  </Text>
+                </LinearGradient>
+              </MaskedView>
               
               <View style={styles.mobileConnectionBadgeContainer}>
                 <View style={[styles.mobileConnectionBadge, { backgroundColor: isOnline ? '#10B981' : '#EF4444' }]}>
@@ -764,8 +788,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  mobileLogo: {
+  mobileLogoText: {
+    fontWeight: 'bold',
+    textAlign: 'center',
     marginBottom: 32,
+  },
+  mobileLogoGradient: {
+    paddingVertical: 8,
   },
   mobileConnectionBadgeContainer: {
     marginBottom: 24,
@@ -941,8 +970,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tvLogo: {
+  tvLogoText: {
+    fontWeight: 'bold',
+    textAlign: 'center',
     marginBottom: 24,
+  },
+  tvLogoGradient: {
+    paddingVertical: 8,
   },
   tvConnectionBadgeContainer: {
     marginBottom: 20,
