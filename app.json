@@ -1,61 +1,50 @@
 
 {
   "expo": {
-    "name": "360DigiSigns",
+    "name": "screen-status-app-fkbzgp",
     "slug": "screen-status-app-fkbzgp",
-    "version": "1.0.1",
+    "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png",
+    "icon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png",
+    "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png",
+      "image": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.digisigns.digisignsapp",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "This app needs camera access for WebRTC screen sharing",
-        "NSMicrophoneUsageDescription": "This app needs microphone access for WebRTC screen sharing"
-      },
-      "bitcode": false
+      "bundleIdentifier": "com.anonymous.screenstatusappfkbzgp",
+      "icon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png",
+        "foregroundImage": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.digisigns.digisignsapp",
-      "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "WAKE_LOCK",
-        "CAMERA",
-        "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "BLUETOOTH",
-        "BLUETOOTH_CONNECT"
-      ],
-      "versionCode": 2
+      "package": "com.anonymous.screenstatusappfkbzgp",
+      "icon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png"
     },
     "web": {
-      "favicon": "./assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png"
     },
     "plugins": [
-      "expo-font",
-      "expo-router",
-      "expo-web-browser"
+      "expo-router"
     ],
-    "scheme": "digisigns360",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
-    }
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "YOUR_PROJECT_ID"
+      }
+    },
+    "newArchEnabled": false
   }
 }

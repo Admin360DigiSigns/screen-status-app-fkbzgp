@@ -157,7 +157,6 @@ export default function HomeScreen() {
   }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
 
   const handleLogout = async () => {
-    console.log('User tapped Logout button');
     try {
       // Send offline status before logging out
       if (deviceId && screenName && username && password) {
@@ -265,12 +264,6 @@ export default function HomeScreen() {
 
   const isOnline = networkState.isConnected === true;
 
-  const glowColor = statusGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
-  });
-
-  // Mobile Layout - Centered design matching the image
   const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
     month: 'short', 
     day: 'numeric', 
@@ -280,7 +273,6 @@ export default function HomeScreen() {
     hour12: true 
   }) : '';
   const syncStatusText = syncStatus === 'success' ? 'Synced' : 'Failed';
-  const commandStatusText = 'Connected';
 
   return (
     <Animated.View style={[styles.mobileContainer, { opacity: fadeInAnim }]}>
@@ -298,7 +290,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
+                source={require('@/assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
@@ -306,16 +298,6 @@ export default function HomeScreen() {
 
             {/* Status Banner */}
             <View style={styles.mobileStatusRow}>
-              <View style={styles.mobileStatusItem}>
-                <Text style={styles.mobileStatusItemLabel}>Remote Commands</Text>
-                <View style={styles.mobileStatusBadge}>
-                  <View style={[styles.mobileStatusDot, { backgroundColor: '#10B981' }]} />
-                  <Text style={[styles.mobileStatusBadgeText, { color: '#10B981' }]}>
-                    {commandStatusText}
-                  </Text>
-                </View>
-              </View>
-
               <View style={styles.mobileStatusItem}>
                 <Text style={styles.mobileStatusItemLabel}>{screenName}</Text>
                 <View style={[styles.mobileStatusBadge, { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2' }]}>
@@ -556,7 +538,6 @@ export default function HomeScreen() {
             {/* Footer */}
             <View style={styles.mobileFooter}>
               <Text style={styles.mobileFooterText}>Status updates every 20s</Text>
-              <Text style={styles.mobileFooterText}>Remote commands enabled</Text>
               <Text style={styles.mobileFooterText}>Updates only on this screen</Text>
             </View>
           </View>
@@ -664,13 +645,12 @@ const styles = StyleSheet.create({
   },
   mobileStatusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     width: '100%',
     marginBottom: 24,
     gap: 12,
   },
   mobileStatusItem: {
-    flex: 1,
     alignItems: 'center',
   },
   mobileStatusItemLabel: {

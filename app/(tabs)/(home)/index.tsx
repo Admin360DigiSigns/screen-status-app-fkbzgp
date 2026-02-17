@@ -334,7 +334,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.tvLogoContainer}>
               <Image
-                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
+                source={require('@/assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png')}
                 style={styles.tvLogo}
                 resizeMode="contain"
               />
@@ -510,7 +510,7 @@ export default function HomeScreen() {
                             android_material_icon_name="cast" 
                             size={24} 
                             color="#FFFFFF" 
-                          />
+                            />
                         </LinearGradient>
                         <MaskedView
                           maskElement={
@@ -693,7 +693,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
+                source={require('@/assets/images/a0abb848-4472-4851-807b-7745e0e5a819.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
