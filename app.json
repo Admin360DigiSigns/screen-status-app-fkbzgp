@@ -32,13 +32,7 @@
       "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
     },
     "plugins": [
-      "expo-router",
-      [
-        "react-native-reanimated/plugin",
-        {
-          "relativeSourceLocation": true
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
