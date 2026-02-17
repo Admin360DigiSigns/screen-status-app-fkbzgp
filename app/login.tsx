@@ -471,7 +471,7 @@ export default function LoginScreen() {
           >
             <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
               <Image
-                source={require('@/assets/images/logo.png')}
+                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
                 style={[styles.tvLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
                 resizeMode="contain"
               />
@@ -588,7 +588,7 @@ export default function LoginScreen() {
           >
             <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
               <Image
-                source={require('@/assets/images/logo.png')}
+                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
                 style={[styles.mobileLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
                 resizeMode="contain"
               />

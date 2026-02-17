@@ -262,28 +262,6 @@ export default function HomeScreen() {
     ]).start();
   };
 
-  if (!isAuthenticated) {
-    return <Redirect href="/login" />;
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
-      </View>
-    );
-  }
-
-  const isOnline = networkState.isConnected === true;
-  const statusColor = isOnline ? '#10B981' : '#EF4444';
-  const isWebPlatform = Platform.OS === 'web';
-
-  const glowColor = statusGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
-  });
-
   const getCommandListenerStatusColor = () => {
     switch (commandListenerStatus) {
       case 'connected':
@@ -310,6 +288,28 @@ export default function HomeScreen() {
     }
   };
 
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
+      </View>
+    );
+  }
+
+  const isOnline = networkState.isConnected === true;
+  const statusColor = isOnline ? '#10B981' : '#EF4444';
+  const isWebPlatform = Platform.OS === 'web';
+
+  const glowColor = statusGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
+  });
+
   // TV Layout - Centered design matching the image - NO SCROLLING
   if (isTVDevice) {
     const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
@@ -334,7 +334,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.tvLogoContainer}>
               <Image
-                source={require('@/assets/images/logo.png')}
+                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
                 style={styles.tvLogo}
                 resizeMode="contain"
               />
@@ -693,7 +693,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/logo.png')}
+                source={require('@/assets/images/5b592639-ad41-4d0e-8dfa-d5ba506c8754.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
