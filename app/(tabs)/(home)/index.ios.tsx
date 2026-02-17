@@ -298,7 +298,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
+                source={require('@/assets/images/logo.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />
