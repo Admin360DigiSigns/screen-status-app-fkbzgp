@@ -1,50 +1,32 @@
 
 #!/bin/bash
 
-# Clear Metro bundler cache to ensure fresh build
-echo "🧹 Clearing Metro bundler cache..."
-rm -rf node_modules/.cache
-rm -rf .expo
-rm -rf $TMPDIR/metro-*
-rm -rf $TMPDIR/haste-map-*
+# This script runs before dependencies are installed during EAS Build
 
-# Create android directory if it doesn't exist
+echo "Setting up Gradle properties for memory optimization..."
+
+# Create gradle.properties if it doesn't exist
 mkdir -p android
-
-# Create gradle.properties with MAXIMUM memory settings
-cat > android/gradle.properties <<EOL
-# Gradle JVM memory settings - MAXIMUM allocation for build
-org.gradle.jvmargs=-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1536m -XX:+HeapDumpOnOutOfMemoryError -XX:MaxPermSize=2048m
-
-# Gradle daemon and parallel execution
-org.gradle.daemon=true
-org.gradle.parallel=false
-org.gradle.configureondemand=false
+cat > android/gradle.properties << 'EOF'
+# Increase memory for build
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.parallel=true
 org.gradle.caching=true
 
 # Android settings
 android.useAndroidX=true
 android.enableJetifier=true
 
-# Kotlin daemon memory settings - INCREASED
-kotlin.daemon.jvm.options=-Xmx6144m -XX:MaxMetaspaceSize=2048m
+# React Native settings
+reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+newArchEnabled=false
+hermesEnabled=true
 
-# Memory optimization - Disable memory-intensive features
-android.enableR8.fullMode=false
-android.enableDexingArtifactTransform=false
-android.enableD8.desugaring=false
+# Kotlin daemon settings
+kotlin.daemon.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
 
-# New Architecture (required for react-native-reanimated)
-newArchEnabled=true
+# Flipper
+FLIPPER_VERSION=0.125.0
+EOF
 
-# Build optimization - Single architecture only
-android.enableBuildCache=true
-
-# Disable unnecessary features to save memory
-org.gradle.jvmargs.kapt=-Xmx4096m
-kapt.use.worker.api=false
-kapt.incremental.apt=false
-EOL
-
-echo "✅ gradle.properties configured with MAXIMUM memory settings"
-echo "✅ Metro cache cleared"
+echo "Gradle properties configured successfully"

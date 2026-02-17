@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "360DigiSigns",
@@ -6,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
       "resizeMode": "contain",
@@ -20,8 +21,7 @@
         "NSCameraUsageDescription": "This app needs camera access for WebRTC screen sharing",
         "NSMicrophoneUsageDescription": "This app needs microphone access for WebRTC screen sharing"
       },
-      "bitcode": false,
-      "newArchEnabled": true
+      "bitcode": false
     },
     "android": {
       "adaptiveIcon": {
@@ -35,10 +35,11 @@
         "WAKE_LOCK",
         "CAMERA",
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
+        "MODIFY_AUDIO_SETTINGS",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT"
       ],
-      "versionCode": 3,
-      "newArchEnabled": true
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",

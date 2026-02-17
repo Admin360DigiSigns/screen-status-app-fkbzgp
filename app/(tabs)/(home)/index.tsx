@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView, Animated, Image } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
@@ -333,19 +333,11 @@ export default function HomeScreen() {
           <View style={styles.tvScrollContent}>
             {/* Logo */}
             <View style={styles.tvLogoContainer}>
-              <MaskedView
-                maskElement={
-                  <Text style={styles.tvLogoText}>360DigiSigns</Text>
-                }
-              >
-                <LinearGradient
-                  colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={[styles.tvLogoText, { opacity: 0 }]}>360DigiSigns</Text>
-                </LinearGradient>
-              </MaskedView>
+              <Image
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
+                style={styles.tvLogo}
+                resizeMode="contain"
+              />
             </View>
 
             {/* Status Banner */}
@@ -700,19 +692,11 @@ export default function HomeScreen() {
           <View style={styles.mobileContent}>
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
-              <MaskedView
-                maskElement={
-                  <Text style={styles.mobileLogoText}>360DigiSigns</Text>
-                }
-              >
-                <LinearGradient
-                  colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={[styles.mobileLogoText, { opacity: 0 }]}>360DigiSigns</Text>
-                </LinearGradient>
-              </MaskedView>
+              <Image
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
+                style={styles.mobileLogo}
+                resizeMode="contain"
+              />
             </View>
 
             {/* Status Banner */}
@@ -1073,10 +1057,9 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     alignItems: 'center',
   },
-  mobileLogoText: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: 1,
+  mobileLogo: {
+    width: 200,
+    height: 70,
   },
   mobileStatusRow: {
     flexDirection: 'row',
@@ -1244,10 +1227,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'center',
   },
-  tvLogoText: {
-    fontSize: 48,
-    fontWeight: '800',
-    letterSpacing: 2,
+  tvLogo: {
+    width: 280,
+    height: 90,
   },
   tvStatusRow: {
     flexDirection: 'row',
