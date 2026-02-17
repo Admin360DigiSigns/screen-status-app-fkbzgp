@@ -1,6 +1,13 @@
 
 #!/bin/bash
 
+# Clear Metro bundler cache to ensure fresh build
+echo "🧹 Clearing Metro bundler cache..."
+rm -rf node_modules/.cache
+rm -rf .expo
+rm -rf $TMPDIR/metro-*
+rm -rf $TMPDIR/haste-map-*
+
 # Create android directory if it doesn't exist
 mkdir -p android
 
@@ -40,3 +47,4 @@ kapt.incremental.apt=false
 EOL
 
 echo "✅ gradle.properties configured with MAXIMUM memory settings"
+echo "✅ Metro cache cleared"

@@ -1,0 +1,5 @@
+
+# Metro bundler cache reset marker
+# This file signals that the cache should be cleared
+# Last updated: 2024-01-15
+# Reason: Removed expo-glass-effect imports from modal files
