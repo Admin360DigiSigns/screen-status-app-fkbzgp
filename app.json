@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "360DigiSigns",
@@ -35,11 +36,9 @@
         "WAKE_LOCK",
         "CAMERA",
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS",
-        "BLUETOOTH",
-        "BLUETOOTH_CONNECT"
+        "MODIFY_AUDIO_SETTINGS"
       ],
-      "versionCode": 2,
+      "versionCode": 3,
       "newArchEnabled": true
     },
     "web": {

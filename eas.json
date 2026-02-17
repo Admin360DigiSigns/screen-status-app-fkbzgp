@@ -12,7 +12,8 @@
         "simulator": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1536m -XX:+HeapDumpOnOutOfMemoryError -XX:MaxPermSize=2048m",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       }
     },
     "preview": {
@@ -22,7 +23,8 @@
         "withoutCredentials": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1536m -XX:+HeapDumpOnOutOfMemoryError -XX:MaxPermSize=2048m",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       }
     },
     "production": {
@@ -30,7 +32,8 @@
         "buildType": "apk"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1536m -XX:+HeapDumpOnOutOfMemoryError -XX:MaxPermSize=2048m",
+        "NODE_OPTIONS": "--max-old-space-size=8192"
       }
     }
   },
