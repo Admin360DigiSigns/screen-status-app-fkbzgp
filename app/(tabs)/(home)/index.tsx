@@ -262,6 +262,28 @@ export default function HomeScreen() {
     ]).start();
   };
 
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
+      </View>
+    );
+  }
+
+  const isOnline = networkState.isConnected === true;
+  const statusColor = isOnline ? '#10B981' : '#EF4444';
+  const isWebPlatform = Platform.OS === 'web';
+
+  const glowColor = statusGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
+  });
+
   const getCommandListenerStatusColor = () => {
     switch (commandListenerStatus) {
       case 'connected':
@@ -288,28 +310,6 @@ export default function HomeScreen() {
     }
   };
 
-  if (!isAuthenticated) {
-    return <Redirect href="/login" />;
-  }
-
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
-      </View>
-    );
-  }
-
-  const isOnline = networkState.isConnected === true;
-  const statusColor = isOnline ? '#10B981' : '#EF4444';
-  const isWebPlatform = Platform.OS === 'web';
-
-  const glowColor = statusGlowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['rgba(16, 185, 129, 0.2)', 'rgba(16, 185, 129, 0.6)'],
-  });
-
   // TV Layout - Centered design matching the image - NO SCROLLING
   if (isTVDevice) {
     const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
@@ -334,7 +334,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.tvLogoContainer}>
               <Image
-                source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
                 style={styles.tvLogo}
                 resizeMode="contain"
               />
@@ -510,7 +510,7 @@ export default function HomeScreen() {
                             android_material_icon_name="cast" 
                             size={24} 
                             color="#FFFFFF" 
-                            />
+                          />
                         </LinearGradient>
                         <MaskedView
                           maskElement={
@@ -693,7 +693,7 @@ export default function HomeScreen() {
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
               <Image
-                source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
                 style={styles.mobileLogo}
                 resizeMode="contain"
               />

@@ -1,12 +1,11 @@
 
 {
   "expo": {
-    "name": "screen-status-app-fkbzgp",
+    "name": "360DigiSigns",
     "slug": "screen-status-app-fkbzgp",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
-    "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
@@ -16,8 +15,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.screenstatusappfkbzgp",
-      "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
+      "bundleIdentifier": "com.digisigns.digisignsapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "This app needs camera access for WebRTC screen sharing",
+        "NSMicrophoneUsageDescription": "This app needs microphone access for WebRTC screen sharing"
+      },
+      "bitcode": false
     },
     "android": {
       "adaptiveIcon": {
@@ -25,45 +29,33 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.digisigns.digisignsapp",
-      "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
-      "newArchEnabled": false,
-      "permissions": []
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WAKE_LOCK",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "BLUETOOTH",
+        "BLUETOOTH_CONNECT"
+      ],
+      "versionCode": 2
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
+      "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
+      "bundler": "metro"
     },
     "plugins": [
+      "expo-font",
       "expo-router",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "newArchEnabled": false,
-            "enableProguardInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false,
-            "permissions": []
-          }
-        }
-      ],
-      [
-        "react-native-reanimated",
-        {
-          "relativeSourceLocation": true
-        }
-      ]
+      "expo-web-browser"
     ],
+    "scheme": "digisigns360",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
-      "eas": {
-        "projectId": "YOUR_PROJECT_ID"
-      }
+      "router": {}
     }
   }
 }

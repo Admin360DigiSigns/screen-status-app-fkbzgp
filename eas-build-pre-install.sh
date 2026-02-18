@@ -1,31 +1,32 @@
 
 #!/bin/bash
 
-# Create android/gradle.properties if it doesn't exist
-mkdir -p android
-if [ ! -f "android/gradle.properties" ]; then
-  touch "android/gradle.properties"
-fi
+# This script runs before dependencies are installed during EAS Build
 
-# Append or update properties in gradle.properties
-{
-  echo "org.gradle.jvmargs=-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:G1HeapRegionSize=16M"
-  echo "kotlin.daemon.jvmargs=-Xmx5120m -XX:MaxMetaspaceSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:G1HeapRegionSize=16M"
-  echo "android.useNewApkCreator=false"
-  echo "android.enableR8=true"
-  echo "android.injected.build.api=34"
-  echo "android.buildCache=true"
-  echo "org.gradle.caching=true"
-  echo "org.gradle.parallel=true"
-  echo "org.gradle.daemon=true"
-  echo "org.gradle.workers.max=4"
-  echo "org.gradle.configureondemand=false"
-  echo "android.ndkVersion=26.1.10909125"
-  echo "cmake.version=3.22.1"
-  echo "newArchEnabled=false"
-  echo "org.gradle.daemon.idletimeout=3600000"
-  echo "android.useAndroidX=true"
-  echo "android.enableJetifier=true"
-  echo "hermesEnabled=true"
-  echo "org.gradle.vfs.watch=false"
-} >> android/gradle.properties
+echo "Setting up Gradle properties for memory optimization..."
+
+# Create gradle.properties if it doesn't exist
+mkdir -p android
+cat > android/gradle.properties << 'EOF'
+# Increase memory for build
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+org.gradle.caching=true
+
+# Android settings
+android.useAndroidX=true
+android.enableJetifier=true
+
+# React Native settings
+reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+newArchEnabled=false
+hermesEnabled=true
+
+# Kotlin daemon settings
+kotlin.daemon.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
+
+# Flipper
+FLIPPER_VERSION=0.125.0
+EOF
+
+echo "Gradle properties configured successfully"

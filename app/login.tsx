@@ -471,7 +471,7 @@ export default function LoginScreen() {
           >
             <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
               <Image
-                source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
                 style={[styles.tvLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
                 resizeMode="contain"
               />
@@ -588,7 +588,7 @@ export default function LoginScreen() {
           >
             <Animated.View style={[styles.mobileContent, { transform: [{ translateY: slideUpAnim }] }]}>
               <Image
-                source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
+                source={require('@/assets/images/54af2979-8ebd-4f8d-bb57-064336e72cf5.png')}
                 style={[styles.mobileLogo, { width: sizes.logoWidth, height: sizes.logoHeight }]}
                 resizeMode="contain"
               />
