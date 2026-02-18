@@ -25,7 +25,8 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.digisigns.digisignsapp",
-      "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
+      "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
+      "newArchEnabled": false
     },
     "web": {
       "bundler": "metro",
@@ -33,13 +34,7 @@
       "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg"
     },
     "plugins": [
-      "expo-router",
-      [
-        "react-native-reanimated",
-        {
-          "relativeSourceLocation": true
-        }
-      ]
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true
