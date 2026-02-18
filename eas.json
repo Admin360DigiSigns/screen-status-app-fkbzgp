@@ -12,7 +12,8 @@
         "simulator": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
       }
     },
     "preview": {
@@ -22,7 +23,8 @@
         "withoutCredentials": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
       }
     },
     "production": {
@@ -30,7 +32,8 @@
         "buildType": "apk"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC",
+        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
       }
     }
   },
