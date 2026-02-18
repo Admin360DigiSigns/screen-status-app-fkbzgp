@@ -6,41 +6,53 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
+        "gradleCommand": ":app:assembleDebug",
+        "resourceClass": "large"
       },
       "ios": {
         "simulator": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=5120m -XX:ReservedCodeCacheSize=1536m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC"
+        "GRADLE_OPTS": "-Xmx14336m -XX:MaxMetaspaceSize=7168m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m",
+        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "withoutCredentials": true
+        "withoutCredentials": true,
+        "resourceClass": "large"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=5120m -XX:ReservedCodeCacheSize=1536m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC"
+        "GRADLE_OPTS": "-Xmx14336m -XX:MaxMetaspaceSize=7168m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m",
+        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m"
       }
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "resourceClass": "large"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx12288m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
-        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx8192m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1536m"
+        "GRADLE_OPTS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=32m",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
+        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
+        "ORG_GRADLE_JVM_ARGS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:MaxGCPauseMillis=200"
       }
     },
     "production-aab": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "resourceClass": "large"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx12288m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
-        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx8192m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1536m"
+        "GRADLE_OPTS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=32m",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
+        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
+        "ORG_GRADLE_JVM_ARGS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:MaxGCPauseMillis=200"
       }
     }
   },
