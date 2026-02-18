@@ -42,8 +42,15 @@
           "android": {
             "newArchEnabled": false,
             "enableProguardInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false
+            "enableShrinkResourcesInReleaseBuilds": false,
+            "permissions": []
           }
+        }
+      ],
+      [
+        "react-native-reanimated",
+        {
+          "relativeSourceLocation": true
         }
       ]
     ],
