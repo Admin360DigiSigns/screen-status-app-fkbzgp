@@ -1,25 +1,36 @@
 
 #!/bin/bash
 
-# EAS Build Pre-Install Script
-# This script runs before dependencies are installed to optimize the build environment
+# Create android directory if it doesn't exist
+mkdir -p android
 
-echo "🔧 Configuring build environment for memory optimization..."
+# Create gradle.properties with optimized memory settings
+cat > android/gradle.properties <<EOL
+# Gradle JVM memory settings - Increased for large builds
+org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError
 
-# Set environment variables for maximum memory allocation
-export GRADLE_OPTS="-Xmx8192m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC"
-export NODE_OPTIONS="--max-old-space-size=8192"
+# Gradle daemon and parallel execution
+org.gradle.daemon=true
+org.gradle.parallel=true
+org.gradle.configureondemand=true
 
-# Clean any existing build artifacts
-echo "🧹 Cleaning build artifacts..."
-rm -rf android/build 2>/dev/null || true
-rm -rf android/app/build 2>/dev/null || true
-rm -rf android/.gradle 2>/dev/null || true
-rm -rf node_modules/.cache 2>/dev/null || true
+# Android settings
+android.useAndroidX=true
+android.enableJetifier=true
 
-# Clear Gradle caches
-echo "🗑️  Clearing Gradle caches..."
-rm -rf ~/.gradle/caches 2>/dev/null || true
-rm -rf ~/.gradle/daemon 2>/dev/null || true
+# Kotlin daemon memory settings
+kotlin.daemon.jvm.options=-Xmx4096m -XX:MaxMetaspaceSize=1536m
 
-echo "✅ Build environment configured successfully"
+# Memory optimization - Disable R8 full mode and dexing artifact transform
+android.enableR8.fullMode=false
+android.enableDexingArtifactTransform=false
+
+# New Architecture (required for react-native-reanimated)
+newArchEnabled=true
+
+# Reduce build complexity
+android.enableD8.desugaring=true
+android.enableBuildCache=true
+EOL
+
+echo "✅ gradle.properties configured with optimized memory settings"
