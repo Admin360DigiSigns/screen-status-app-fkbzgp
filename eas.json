@@ -30,7 +30,15 @@
         "buildType": "apk"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx10240m"
+      }
+    },
+    "production-aab": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "GRADLE_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=4096m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx10240m"
       }
     }
   },
