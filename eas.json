@@ -13,9 +13,10 @@
         "simulator": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx14336m -XX:MaxMetaspaceSize=7168m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
-        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m",
-        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m"
+        "GRADLE_OPTS": "-Xmx18432m -XX:MaxMetaspaceSize=10240m -XX:ReservedCodeCacheSize=3072m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx12288m -XX:MaxMetaspaceSize=8192m",
+        "KOTLIN_DAEMON_OPTS": "-Xmx12288m -XX:MaxMetaspaceSize=8192m",
+        "ORG_GRADLE_PROJECT_ksp.jvm.args": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:+UseG1GC"
       }
     },
     "preview": {
@@ -26,9 +27,10 @@
         "resourceClass": "large"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx14336m -XX:MaxMetaspaceSize=7168m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
-        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m",
-        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m"
+        "GRADLE_OPTS": "-Xmx18432m -XX:MaxMetaspaceSize=10240m -XX:ReservedCodeCacheSize=3072m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx12288m -XX:MaxMetaspaceSize=8192m",
+        "KOTLIN_DAEMON_OPTS": "-Xmx12288m -XX:MaxMetaspaceSize=8192m",
+        "ORG_GRADLE_PROJECT_ksp.jvm.args": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:+UseG1GC"
       }
     },
     "production": {
@@ -37,10 +39,11 @@
         "resourceClass": "large"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=32m",
-        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
-        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
-        "ORG_GRADLE_JVM_ARGS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:MaxGCPauseMillis=200"
+        "GRADLE_OPTS": "-Xmx20480m -XX:MaxMetaspaceSize=12288m -XX:ReservedCodeCacheSize=3072m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=32m -XX:+UnlockExperimentalVMOptions",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=3072m -XX:+UseG1GC",
+        "KOTLIN_DAEMON_OPTS": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=3072m -XX:+UseG1GC",
+        "ORG_GRADLE_JVM_ARGS": "-Xmx20480m -XX:MaxMetaspaceSize=12288m -XX:ReservedCodeCacheSize=3072m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:MaxGCPauseMillis=200",
+        "ORG_GRADLE_PROJECT_ksp.jvm.args": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       }
     },
     "production-aab": {
@@ -49,10 +52,11 @@
         "resourceClass": "large"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=32m",
-        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
-        "KOTLIN_DAEMON_OPTS": "-Xmx10240m -XX:MaxMetaspaceSize=6144m -XX:ReservedCodeCacheSize=2048m",
-        "ORG_GRADLE_JVM_ARGS": "-Xmx16384m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:MaxGCPauseMillis=200"
+        "GRADLE_OPTS": "-Xmx20480m -XX:MaxMetaspaceSize=12288m -XX:ReservedCodeCacheSize=3072m -XX:+HeapDumpOnOutOfMemoryError -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:G1HeapRegionSize=32m -XX:+UnlockExperimentalVMOptions",
+        "ORG_GRADLE_PROJECT_kotlin.daemon.jvmargs": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=3072m -XX:+UseG1GC",
+        "KOTLIN_DAEMON_OPTS": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:ReservedCodeCacheSize=3072m -XX:+UseG1GC",
+        "ORG_GRADLE_JVM_ARGS": "-Xmx20480m -XX:MaxMetaspaceSize=12288m -XX:ReservedCodeCacheSize=3072m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:MaxGCPauseMillis=200",
+        "ORG_GRADLE_PROJECT_ksp.jvm.args": "-Xmx12288m -XX:MaxMetaspaceSize=8192m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
       }
     }
   },
