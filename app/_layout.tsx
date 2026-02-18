@@ -1,5 +1,4 @@
 
-import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
 import { Stack, router } from "expo-router";
@@ -18,6 +17,9 @@ import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { commandListener } from "@/utils/commandListener";
+
+// Import Reanimated at the top to ensure proper initialization
+import 'react-native-reanimated';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -87,7 +89,7 @@ export default function RootLayout() {
       >
         <AuthProvider>
           <WidgetProvider>
-            <GestureHandlerRootView>
+            <GestureHandlerRootView style={{ flex: 1 }}>
               <Stack>
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen 
