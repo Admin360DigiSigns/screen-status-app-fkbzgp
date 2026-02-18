@@ -1,32 +1,51 @@
 
 #!/bin/bash
 
-# This script runs before dependencies are installed during EAS Build
+# This script runs before the build to set up gradle.properties
+# It will be executed during the EAS build process
 
-echo "Setting up Gradle properties for memory optimization..."
+echo "Setting up gradle.properties for Android build..."
 
-# Create gradle.properties if it doesn't exist
+# Create android directory if it doesn't exist
 mkdir -p android
-cat > android/gradle.properties << 'EOF'
-# Increase memory for build
-org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
-org.gradle.parallel=true
-org.gradle.caching=true
 
-# Android settings
+# Create gradle.properties with optimized memory settings
+cat > android/gradle.properties << 'EOF'
+# Project-wide Gradle settings.
+
+# Memory allocation for Gradle daemon
+org.gradle.jvmargs=-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+
+# Memory allocation for Kotlin compiler
+kotlin.daemon.jvm.options=-Xmx3072m -XX:MaxMetaspaceSize=1024m
+
+# AndroidX package structure to make it clearer which packages are bundled with the
+# Android operating system, and which are packaged with your app's APK
 android.useAndroidX=true
+
+# Automatically convert third-party libraries to use AndroidX
 android.enableJetifier=true
 
-# React Native settings
-reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+# Enable R8 code shrinker
+android.enableR8=true
+
+# Use new APK creator
+android.useNewApkCreator=true
+
+# Gradle caching
+org.gradle.caching=true
+
+# Configure on demand
+org.gradle.configureondemand=true
+
+# Parallel builds
+org.gradle.parallel=true
+
+# Disable new architecture (required for react-native-reanimated 3.x)
 newArchEnabled=false
+
+# Hermes engine
 hermesEnabled=true
-
-# Kotlin daemon settings
-kotlin.daemon.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
-
-# Flipper
-FLIPPER_VERSION=0.125.0
 EOF
 
-echo "Gradle properties configured successfully"
+echo "gradle.properties created successfully"
