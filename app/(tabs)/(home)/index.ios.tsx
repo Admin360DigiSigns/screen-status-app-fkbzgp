@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, ScrollView, Animated, Image } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
@@ -10,7 +10,6 @@ import ContentPlayer from '@/components/ContentPlayer';
 import ScreenShareReceiver from '@/components/ScreenShareReceiver';
 import { isTV } from '@/utils/deviceUtils';
 import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { IconSymbol } from '@/components/IconSymbol';
 
 export default function HomeScreen() {
@@ -297,19 +296,11 @@ export default function HomeScreen() {
           <View style={styles.mobileContent}>
             {/* Logo */}
             <View style={styles.mobileLogoContainer}>
-              <MaskedView
-                maskElement={
-                  <Text style={styles.mobileLogoText}>360DigiSigns</Text>
-                }
-              >
-                <LinearGradient
-                  colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={[styles.mobileLogoText, { opacity: 0 }]}>360DigiSigns</Text>
-                </LinearGradient>
-              </MaskedView>
+              <Image 
+                source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
+                style={styles.mobileLogo}
+                resizeMode="contain"
+              />
             </View>
 
             {/* Status Banner */}
@@ -386,19 +377,7 @@ export default function HomeScreen() {
                   start={{ x: 0, y: 0 }}
                   end={{ x: 0, y: 1 }}
                 />
-                <MaskedView
-                  maskElement={
-                    <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
-                  }
-                >
-                  <LinearGradient
-                    colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <Text style={[styles.mobileCardTitle, { opacity: 0 }]}>QUICK ACTIONS</Text>
-                  </LinearGradient>
-                </MaskedView>
+                <Text style={styles.mobileCardTitle}>QUICK ACTIONS</Text>
               </View>
 
               <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
@@ -428,19 +407,7 @@ export default function HomeScreen() {
                           color="#FFFFFF" 
                         />
                       </LinearGradient>
-                      <MaskedView
-                        maskElement={
-                          <Text style={styles.mobileActionText}>Preview Content</Text>
-                        }
-                      >
-                        <LinearGradient
-                          colors={['#3B82F6', '#1E40AF']}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                        >
-                          <Text style={[styles.mobileActionText, { opacity: 0 }]}>Preview Content</Text>
-                        </LinearGradient>
-                      </MaskedView>
+                      <Text style={styles.mobileActionText}>Preview Content</Text>
                     </React.Fragment>
                   )}
                 </TouchableOpacity>
@@ -468,19 +435,7 @@ export default function HomeScreen() {
                       color="#FFFFFF" 
                     />
                   </LinearGradient>
-                  <MaskedView
-                    maskElement={
-                      <Text style={styles.mobileActionText}>Screen Share</Text>
-                    }
-                  >
-                    <LinearGradient
-                      colors={['#3B82F6', '#1E40AF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={[styles.mobileActionText, { opacity: 0 }]}>Screen Share</Text>
-                    </LinearGradient>
-                  </MaskedView>
+                  <Text style={styles.mobileActionText}>Screen Share</Text>
                 </TouchableOpacity>
               </Animated.View>
 
@@ -506,19 +461,7 @@ export default function HomeScreen() {
                       color="#FFFFFF" 
                     />
                   </LinearGradient>
-                  <MaskedView
-                    maskElement={
-                      <Text style={styles.mobileActionText}>Sync Status</Text>
-                    }
-                  >
-                    <LinearGradient
-                      colors={['#3B82F6', '#1E40AF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={[styles.mobileActionText, { opacity: 0 }]}>Sync Status</Text>
-                    </LinearGradient>
-                  </MaskedView>
+                  <Text style={styles.mobileActionText}>Sync Status</Text>
                 </TouchableOpacity>
               </Animated.View>
 
@@ -544,19 +487,7 @@ export default function HomeScreen() {
                       color="#FFFFFF" 
                     />
                   </LinearGradient>
-                  <MaskedView
-                    maskElement={
-                      <Text style={styles.mobileActionText}>Logout</Text>
-                    }
-                  >
-                    <LinearGradient
-                      colors={['#3B82F6', '#1E40AF']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                    >
-                      <Text style={[styles.mobileActionText, { opacity: 0 }]}>Logout</Text>
-                    </LinearGradient>
-                  </MaskedView>
+                  <Text style={styles.mobileActionText}>Logout</Text>
                 </TouchableOpacity>
               </Animated.View>
             </View>
@@ -666,10 +597,10 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     alignItems: 'center',
   },
-  mobileLogoText: {
-    fontSize: 32,
-    fontWeight: '800',
-    letterSpacing: 1,
+  mobileLogo: {
+    width: 120,
+    height: 120,
+    borderRadius: 20,
   },
   mobileStatusRow: {
     flexDirection: 'row',
@@ -799,6 +730,7 @@ const styles = StyleSheet.create({
   mobileActionText: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#1F2937',
   },
   mobileFooter: {
     flexDirection: 'row',
