@@ -12,7 +12,7 @@
         "simulator": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\" -Dkotlin.daemon.jvm.options=\"-Xmx4096m -XX:MaxMetaspaceSize=1536m\""
       }
     },
     "preview": {
@@ -22,7 +22,7 @@
         "withoutCredentials": true
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\" -Dkotlin.daemon.jvm.options=\"-Xmx4096m -XX:MaxMetaspaceSize=1536m\""
       }
     },
     "production": {
@@ -30,7 +30,7 @@
         "buildType": "apk"
       },
       "env": {
-        "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:ReservedCodeCacheSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=\"-Xmx8192m -XX:MaxMetaspaceSize=3072m -XX:ReservedCodeCacheSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8\" -Dkotlin.daemon.jvm.options=\"-Xmx4096m -XX:MaxMetaspaceSize=1536m\""
       }
     }
   },
