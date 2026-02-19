@@ -182,6 +182,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleLogoutCommand = useCallback(async (command: AppCommand) => {
     console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER CALLED =====');
     console.log('🚪 [AuthContext] Command:', command);
+    console.log('🚪 [AuthContext] Current modal states:', {
+      showPreviewModal,
+      showScreenShareModal,
+    });
     
     // Check if already logging out
     if (isLoggingOutRef.current) {
@@ -190,10 +194,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    // CRITICAL FIX: Close any open modals FIRST before logging out
+    console.log('🚪 [AuthContext] Closing any open modals before logout...');
+    setShowPreviewModal(false);
+    setShowScreenShareModal(false);
+    setDisplayContent(null);
+    console.log('🚪 [AuthContext] Modals closed');
+    
+    // Wait a moment for modals to close
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     console.log('🚪 [AuthContext] Executing logout...');
     await logout();
     console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER COMPLETE =====');
-  }, []);
+  }, [showPreviewModal, showScreenShareModal]);
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -654,10 +668,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoggingOut(true);
       setLogoutProgress('Give us a moment while we log you out...');
       
-      // Close any open modals
+      // Close any open modals IMMEDIATELY
+      console.log('┌─ CLOSING ANY OPEN MODALS');
       setShowPreviewModal(false);
       setShowScreenShareModal(false);
       setDisplayContent(null);
+      console.log('└─ ✓ Modals closed');
+      console.log('');
       
       // STEP 0: CRITICAL - Stop command listener FIRST to prevent any commands from executing
       console.log('┌─ STEP 0: STOPPING COMMAND LISTENER (CRITICAL)');
@@ -854,6 +871,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('╔════════════════════════════════════════════════════════════════╗');
       console.log('║                   LOGOUT COMPLETED SUCCESSFULLY                ║');
       console.log('║                                                                ║');
+      console.log('║  ✓ Modals closed                                              ║');
+      console.log('║  ✓ Command listener stopped                                   ║');
       console.log('║  ✓ Backend authentication cleared                             ║');
       console.log('║  ✓ Local storage cleared                                      ║');
       console.log('║  ✓ State cleared                                              ║');
@@ -878,6 +897,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // EMERGENCY CLEANUP
       console.log('┌─ EMERGENCY CLEANUP: Attempting to clear everything');
       setLogoutProgress('Emergency cleanup...');
+      
+      // Close modals
+      setShowPreviewModal(false);
+      setShowScreenShareModal(false);
+      setDisplayContent(null);
+      
       try {
         // Set logout flag with timestamp
         const now = Date.now().toString();
