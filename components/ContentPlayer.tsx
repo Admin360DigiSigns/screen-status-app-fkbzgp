@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, StyleSheet, Image, Dimensions, ActivityIndicator, Text, TouchableOpacity, Platform, Pressable, TVEventHandler } from 'react-native';
+import { View, StyleSheet, Image, Dimensions, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { colors } from '@/styles/commonStyles';
 import type { PlaylistItem, Playlist } from '@/utils/apiService';
@@ -17,12 +17,9 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   const [isLoading, setIsLoading] = useState(true);
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
-  const [showControls, setShowControls] = useState(true); // Start with controls visible
-  const [hideControlsTimeout, setHideControlsTimeout] = useState<NodeJS.Timeout | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const tvEventHandlerRef = useRef<TVEventHandler | null>(null);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isTVDevice = isTV();
@@ -42,84 +39,14 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     };
   }, []);
 
-  // TV Remote Control Handler
-  useEffect(() => {
-    if (isTVDevice && Platform.OS !== 'web') {
-      console.log('Setting up TV remote control handler');
-      
-      // Create TV event handler for remote control
-      tvEventHandlerRef.current = new TVEventHandler();
-      
-      tvEventHandlerRef.current.enable(null, (component: any, evt: any) => {
-        console.log('TV Remote Event:', evt.eventType);
-        
-        // Show controls when any button is pressed on the remote
-        if (evt && evt.eventType) {
-          // Common TV remote events: select, playPause, menu, up, down, left, right
-          if (['select', 'playPause', 'menu', 'up', 'down', 'left', 'right'].includes(evt.eventType)) {
-            console.log('TV Remote button pressed - showing controls');
-            handleShowControls();
-          }
-        }
-      });
-
-      return () => {
-        if (tvEventHandlerRef.current) {
-          console.log('Disabling TV remote control handler');
-          tvEventHandlerRef.current.disable();
-        }
-      };
-    }
-  }, [isTVDevice]);
-
-  // Handle showing controls with auto-hide
-  const handleShowControls = useCallback(() => {
-    console.log('Showing controls');
-    setShowControls(true);
-
-    // Clear existing timeout
-    if (hideControlsTimeout) {
-      clearTimeout(hideControlsTimeout);
-    }
-
-    // Auto-hide controls after 5 seconds
-    const timeout = setTimeout(() => {
-      console.log('Auto-hiding controls');
-      setShowControls(false);
-    }, 5000);
-
-    setHideControlsTimeout(timeout);
-  }, [hideControlsTimeout]);
-
-  // Handle screen tap/click for mobile
-  const handleScreenPress = useCallback(() => {
-    if (!isTVDevice) {
-      console.log('Screen pressed - toggling controls');
-      if (showControls) {
-        // If controls are visible, hide them
-        setShowControls(false);
-        if (hideControlsTimeout) {
-          clearTimeout(hideControlsTimeout);
-          setHideControlsTimeout(null);
-        }
-      } else {
-        // If controls are hidden, show them with auto-hide
-        handleShowControls();
-      }
-    }
-  }, [isTVDevice, showControls, hideControlsTimeout, handleShowControls]);
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (hideControlsTimeout) {
-        clearTimeout(hideControlsTimeout);
-      }
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current);
       }
     };
-  }, [hideControlsTimeout]);
+  }, []);
 
   // Get active playlists sorted by display order
   const activePlaylists = playlists
@@ -325,11 +252,8 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   const resizeMode = getOptimalResizeMode();
 
   return (
-    <Pressable 
-      style={styles.container}
-      onPress={handleScreenPress}
-    >
-      {/* Content display - Full screen with responsive sizing */}
+    <View style={styles.container}>
+      {/* Content display - Full screen with responsive sizing - NO UI OVERLAYS */}
       <View style={styles.contentContainer}>
         {isLoading && !loadError && (
           <View style={styles.loadingOverlay}>
@@ -394,42 +318,9 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         ) : null}
       </View>
 
-      {/* Conditional Controls Overlay - Only shown when showControls is true */}
-      {showControls && (
-        <React.Fragment>
-          {/* Close button */}
-          <TouchableOpacity 
-            style={[styles.closeButtonTop, isTVDevice && styles.closeButtonTopTV]} 
-            onPress={onClose}
-            onFocus={() => console.log('Close button focused')}
-          >
-            <Text style={[styles.closeButtonTopText, { fontSize: 16 * tvScaleFactor }]}>✕ Close Preview</Text>
-          </TouchableOpacity>
-
-          {/* Info overlay - Description */}
-          <View style={[styles.infoOverlay, isTVDevice && styles.infoOverlayTV]}>
-            <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
-              Playlist: {currentPlaylist.name} ({currentPlaylistIndex + 1}/{activePlaylists.length})
-            </Text>
-            <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
-              Item: {currentItemIndex + 1}/{currentItems.length} - {currentItem.media_type}
-            </Text>
-            <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
-              Screen: {Math.round(screenDimensions.width)}x{Math.round(screenDimensions.height)} 
-              {isTVDevice ? ' (TV)' : ' (Mobile)'}
-            </Text>
-            {imageAspectRatio && (
-              <Text style={[styles.infoText, { fontSize: 14 * tvScaleFactor }]}>
-                Image: {imageAspectRatio > 1 ? 'Landscape' : 'Portrait'} ({imageAspectRatio.toFixed(2)}) - Mode: {resizeMode}
-              </Text>
-            )}
-            <Text style={[styles.infoText, { marginTop: 8, fontStyle: 'italic', opacity: 0.8, fontSize: 12 * tvScaleFactor }]}>
-              {isTVDevice ? 'Press any button on remote to show/hide controls' : 'Tap screen to show/hide controls'}
-            </Text>
-          </View>
-        </React.Fragment>
-      )}
-    </Pressable>
+      {/* NO UI OVERLAYS - Pure fullscreen slideshow mode */}
+      {/* User requested: "When the preview is pressed it shows all the details and the close preview button, it should only show the solution in the screen no details or buttons" */}
+    </View>
   );
 }
 
