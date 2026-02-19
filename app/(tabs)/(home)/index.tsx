@@ -196,7 +196,7 @@ export default function HomeScreen() {
   };
 
   const handlePreview = async () => {
-    console.log('User tapped Preview Content button');
+    console.log('User tapped Preview Content button - entering slideshow directly');
     if (!username || !password || !screenName) {
       Alert.alert('Error', 'Missing credentials for preview');
       return;
@@ -209,8 +209,9 @@ export default function HomeScreen() {
       const result = await fetchDisplayContent(username, password, screenName);
       
       if (result.success && result.data) {
-        console.log('Preview content loaded successfully');
+        console.log('Preview content loaded successfully - opening slideshow directly');
         setDisplayContent(result.data);
+        // Directly open the slideshow modal without showing details
         setShowPreviewModal(true);
       } else {
         Alert.alert('Preview Error', result.error || 'Failed to load preview content');
@@ -224,6 +225,7 @@ export default function HomeScreen() {
   };
 
   const handleClosePreview = () => {
+    console.log('Closing preview slideshow');
     setShowPreviewModal(false);
     setDisplayContent(null);
   };
@@ -566,7 +568,7 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
-        {/* Preview Modal - Managed by AuthContext */}
+        {/* Preview Modal - Directly shows slideshow */}
         <Modal
           visible={showPreviewModal}
           animationType="slide"
@@ -839,7 +841,7 @@ export default function HomeScreen() {
         </ScrollView>
       </LinearGradient>
 
-      {/* Preview Modal - Managed by AuthContext */}
+      {/* Preview Modal - Directly shows slideshow */}
       <Modal
         visible={showPreviewModal}
         animationType="slide"
