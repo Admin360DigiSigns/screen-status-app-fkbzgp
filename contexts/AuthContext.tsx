@@ -69,6 +69,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('🎬 [AuthContext] Command:', command);
     console.log('🎬 [AuthContext] Current credentials:', { username, password: !!password, screenName });
     
+    // CRITICAL: Check if logout is in progress
+    if (isLoggingOutRef.current) {
+      console.log('🎬 [AuthContext] ⚠️ Logout in progress - ignoring preview command');
+      console.log('🎬 [AuthContext] ===== PREVIEW COMMAND HANDLER ABORTED =====');
+      return;
+    }
+    
     if (!username || !password || !screenName) {
       console.error('❌ [AuthContext] Missing credentials for preview');
       Alert.alert('Preview Error', 'Missing credentials. Please log in again.');
@@ -101,6 +108,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('📺 [AuthContext] Command:', command);
     console.log('📺 [AuthContext] Platform:', Platform.OS);
     
+    // CRITICAL: Check if logout is in progress
+    if (isLoggingOutRef.current) {
+      console.log('📺 [AuthContext] ⚠️ Logout in progress - ignoring screenshare command');
+      console.log('📺 [AuthContext] ===== SCREENSHARE COMMAND HANDLER ABORTED =====');
+      return;
+    }
+    
     if (Platform.OS === 'web') {
       console.error('❌ [AuthContext] Screen share not available on web');
       Alert.alert('Not Available', 'Screen share is not available on web platform');
@@ -123,6 +137,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('🔄 [AuthContext] ===== SYNC COMMAND HANDLER CALLED =====');
     console.log('🔄 [AuthContext] Command:', command);
     console.log('🔄 [AuthContext] Current state:', { deviceId, screenName, username, password: !!password });
+    
+    // CRITICAL: Check if logout is in progress
+    if (isLoggingOutRef.current) {
+      console.log('🔄 [AuthContext] ⚠️ Logout in progress - ignoring sync command');
+      console.log('🔄 [AuthContext] ===== SYNC COMMAND HANDLER ABORTED =====');
+      return;
+    }
     
     if (!deviceId || !screenName || !username || !password) {
       console.error('❌ [AuthContext] Missing required data for sync');
@@ -161,6 +182,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleLogoutCommand = useCallback(async (command: AppCommand) => {
     console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER CALLED =====');
     console.log('🚪 [AuthContext] Command:', command);
+    
+    // Check if already logging out
+    if (isLoggingOutRef.current) {
+      console.log('🚪 [AuthContext] ⚠️ Already logging out - ignoring duplicate logout command');
+      console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER ABORTED =====');
+      return;
+    }
+    
     console.log('🚪 [AuthContext] Executing logout...');
     await logout();
     console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER COMPLETE =====');
@@ -630,6 +659,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShowScreenShareModal(false);
       setDisplayContent(null);
       
+      // STEP 0: CRITICAL - Stop command listener FIRST to prevent any commands from executing
+      console.log('┌─ STEP 0: STOPPING COMMAND LISTENER (CRITICAL)');
+      setLogoutProgress('Stopping command listener...');
+      try {
+        await commandListener.stopListening();
+        console.log('│  ✓ Command listener stopped');
+        console.log('│  ✓ All command handlers unregistered');
+        console.log('│  ✓ Processed command tracking cleared');
+        // Wait a moment to ensure all pending command executions are aborted
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('└─ ✓ Command listener fully stopped');
+      } catch (error) {
+        console.error('└─ ✗ Failed to stop command listener:', error);
+      }
+      console.log('');
+      
       // STEP 1: Set logout flag FIRST with timestamp to prevent auto-login
       console.log('┌─ STEP 1: Setting logout flag with timestamp');
       setLogoutProgress('Setting logout flag...');
@@ -643,8 +688,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       console.log('');
       
-      // STEP 2: Clear intervals and listeners
-      console.log('┌─ STEP 2: Clearing intervals and listeners');
+      // STEP 2: Clear intervals
+      console.log('┌─ STEP 2: Clearing intervals');
       setLogoutProgress('Stopping background services...');
       if (statusIntervalRef.current) {
         clearInterval(statusIntervalRef.current);
@@ -656,8 +701,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authCheckIntervalRef.current = null;
         console.log('│  ✓ Auth check interval cleared');
       }
-      await commandListener.stopListening();
-      console.log('└─ ✓ Command listener stopped');
+      console.log('└─ ✓ All intervals cleared');
       console.log('');
 
       // STEP 3: Send offline status

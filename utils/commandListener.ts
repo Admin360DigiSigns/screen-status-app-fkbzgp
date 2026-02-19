@@ -366,6 +366,14 @@ class CommandListenerService {
     console.log('⚙️ Created At:', command.created_at);
     console.log('⚙️ ═══════════════════════════════════════════════════════════');
 
+    // CRITICAL: Check if listener is still active
+    if (!this.isListening) {
+      console.log('⏭️ [CommandListener] ⚠️ LISTENER STOPPED - Ignoring command:', command.id);
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
+      return;
+    }
+
     // Skip if already processed
     if (command.status !== 'pending') {
       console.log('⏭️ [CommandListener] Skipping non-pending command (status:', command.status, ')');
@@ -411,6 +419,10 @@ class CommandListenerService {
       console.error('❌ [CommandListener] No handler registered for command:', command.command);
       console.error('❌ [CommandListener] Available handlers:', Array.from(this.commandHandlers.keys()));
       await this.updateCommandStatus(command.id, 'failed', 'No handler registered');
+      
+      // Remove from processing set
+      this.processingCommandIds.delete(command.id);
+      
       console.log('⚙️ ═══════════════════════════════════════════════════════════');
       console.log('');
       return;
@@ -419,6 +431,15 @@ class CommandListenerService {
     console.log('✓ Handler found for command:', command.command);
 
     try {
+      // CRITICAL: Double-check listener is still active before executing
+      if (!this.isListening) {
+        console.log('⏭️ [CommandListener] ⚠️ LISTENER STOPPED DURING PROCESSING - Aborting command:', command.id);
+        this.processingCommandIds.delete(command.id);
+        console.log('⚙️ ═══════════════════════════════════════════════════════════');
+        console.log('');
+        return;
+      }
+
       // Execute the handler
       console.log('🚀 [CommandListener] Executing handler for command:', command.command);
       await handler(command);
