@@ -17,11 +17,13 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   const [isLoading, setIsLoading] = useState(true);
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
-  const [showControls, setShowControls] = useState(false);
+  const [showControls, setShowControls] = useState(true); // Start with controls visible
   const [hideControlsTimeout, setHideControlsTimeout] = useState<NodeJS.Timeout | null>(null);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const tvEventHandlerRef = useRef<TVEventHandler | null>(null);
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const isTVDevice = isTV();
 
@@ -113,6 +115,9 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
       if (hideControlsTimeout) {
         clearTimeout(hideControlsTimeout);
       }
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
     };
   }, [hideControlsTimeout]);
 
@@ -158,6 +163,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   const moveToNextItem = useCallback(() => {
     console.log('Moving to next item');
     setVideoError(null); // Clear any video errors
+    setLoadError(null); // Clear any load errors
     
     if (currentItemIndex < currentItems.length - 1) {
       // Move to next item in current playlist
@@ -199,9 +205,24 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
   // Get image dimensions when image loads
   const handleImageLoad = useCallback((uri: string) => {
     console.log('📷 [ContentPlayer] Loading image:', uri);
+    
+    // Set a timeout for image loading
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    
+    loadTimeoutRef.current = setTimeout(() => {
+      console.error('📷 [ContentPlayer] Image load timeout');
+      setLoadError('Image took too long to load');
+      setIsLoading(false);
+    }, 15000); // 15 second timeout
+    
     Image.getSize(
       uri,
       (width, height) => {
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current);
+        }
         const aspectRatio = width / height;
         console.log('📷 [ContentPlayer] Image dimensions loaded:', {
           width,
@@ -211,9 +232,14 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
         });
         setImageAspectRatio(aspectRatio);
         setIsLoading(false);
+        setLoadError(null);
       },
       (error) => {
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current);
+        }
         console.error('📷 [ContentPlayer] Failed to get image dimensions:', error);
+        setLoadError('Failed to load image');
         setImageAspectRatio(1); // Default to square aspect ratio
         setIsLoading(false);
       }
@@ -237,6 +263,7 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     setIsLoading(true);
     setImageAspectRatio(null); // Reset aspect ratio for new item
     setVideoError(null); // Clear any video errors
+    setLoadError(null); // Clear any load errors
 
     // Clear any existing timeout
     if (timeoutRef.current) {
@@ -304,10 +331,23 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
     >
       {/* Content display - Full screen with responsive sizing */}
       <View style={styles.contentContainer}>
-        {isLoading && (
+        {isLoading && !loadError && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[styles.loadingText, { fontSize: 16 * tvScaleFactor }]}>Loading content...</Text>
+          </View>
+        )}
+
+        {loadError && (
+          <View style={styles.errorOverlay}>
+            <Text style={[styles.errorText, { fontSize: 16 * tvScaleFactor }]}>⚠️ {loadError}</Text>
+            <Text style={[styles.errorSubText, { fontSize: 14 * tvScaleFactor }]}>Moving to next item...</Text>
+            <TouchableOpacity 
+              style={styles.skipButton} 
+              onPress={moveToNextItem}
+            >
+              <Text style={[styles.skipButtonText, { fontSize: 14 * tvScaleFactor }]}>Skip Now</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -315,10 +355,16 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
           <View style={styles.errorOverlay}>
             <Text style={[styles.errorText, { fontSize: 16 * tvScaleFactor }]}>⚠️ {videoError}</Text>
             <Text style={[styles.errorSubText, { fontSize: 14 * tvScaleFactor }]}>Moving to next item...</Text>
+            <TouchableOpacity 
+              style={styles.skipButton} 
+              onPress={moveToNextItem}
+            >
+              <Text style={[styles.skipButtonText, { fontSize: 14 * tvScaleFactor }]}>Skip Now</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {currentItem.media_type === 'image' ? (
+        {!loadError && currentItem.media_type === 'image' ? (
           <Image
             source={{ uri: currentItem.media_url }}
             style={styles.media}
@@ -331,10 +377,11 @@ export default function ContentPlayer({ playlists, onClose }: ContentPlayerProps
             }}
             onError={(error) => {
               console.error('📷 [ContentPlayer] Image load error:', error);
+              setLoadError('Failed to load image');
               setIsLoading(false);
             }}
           />
-        ) : currentItem.media_type === 'video' ? (
+        ) : !videoError && currentItem.media_type === 'video' ? (
           <VideoView
             player={videoPlayer}
             style={styles.media}
@@ -421,6 +468,17 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 20,
   },
+  skipButton: {
+    marginTop: 20,
+    backgroundColor: colors.secondary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  skipButtonText: {
+    color: colors.card,
+    fontWeight: '600',
+  },
   closeButtonTop: {
     position: 'absolute',
     top: 48,
@@ -430,7 +488,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     zIndex: 100,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.3)',
     elevation: 5,
   },
   closeButtonTopTV: {

@@ -427,19 +427,20 @@ export default function LoginScreen() {
     );
   }
 
-  // Calculate responsive sizes for TV
+  // Calculate responsive sizes for TV - SMALLER AUTH BOX
   const getResponsiveSizes = () => {
     const width = screenDimensions.width;
     const height = screenDimensions.height;
     
     if (isTVDevice || isLargeScreen) {
-      // TV or large screen sizes - Compact to fit without scrolling
+      // TV or large screen sizes - SMALLER auth box
       return {
-        qrSize: Math.min(width * 0.18, height * 0.35, 280),
-        codeSize: Math.min(width * 0.05, 60),
-        logoSize: Math.min(width * 0.15, height * 0.2, 200),
-        containerMaxWidth: Math.min(width * 0.9, 1200),
-        spacing: 30,
+        qrSize: Math.min(width * 0.14, height * 0.28, 220), // Reduced from 0.18 and 0.35
+        codeSize: Math.min(width * 0.04, 50), // Reduced from 0.05 and 60
+        logoSize: Math.min(width * 0.12, height * 0.16, 160), // Reduced from 0.15 and 0.2
+        containerMaxWidth: Math.min(width * 0.75, 1000), // Reduced from 0.9 and 1200
+        spacing: 24, // Reduced from 30
+        logoMarginBottom: 40, // Increased to lower the logo
       };
     } else {
       // Mobile sizes
@@ -449,13 +450,14 @@ export default function LoginScreen() {
         logoSize: Math.min(width * 0.4, 150),
         containerMaxWidth: width * 0.9,
         spacing: 24,
+        logoMarginBottom: 32,
       };
     }
   };
 
   const sizes = getResponsiveSizes();
 
-  // TV Layout - QR on left, Code on right - NO SCROLLING
+  // TV Layout - QR on left, Code on right - NO SCROLLING - SMALLER AUTH BOX
   if (isTVDevice || isLargeScreen) {
     return (
       <>
@@ -470,7 +472,7 @@ export default function LoginScreen() {
             <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
               <Image 
                 source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
-                style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize }]}
+                style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize, marginBottom: sizes.logoMarginBottom }]}
                 resizeMode="contain"
               />
               
@@ -924,7 +926,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // TV styles - Professional horizontal layout - NO SCROLLING
+  // TV styles - Professional horizontal layout - NO SCROLLING - SMALLER AUTH BOX
   tvContainer: {
     flex: 1,
   },
@@ -941,11 +943,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tvLogo: {
-    marginBottom: 24,
     borderRadius: 20,
   },
   tvConnectionBadgeContainer: {
-    marginBottom: 20,
+    marginBottom: 16, // Reduced from 20
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 6,
@@ -955,41 +956,41 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   tvConnectionBadge: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingHorizontal: 20, // Reduced from 24
+    paddingVertical: 8, // Reduced from 10
     borderRadius: 20,
   },
   tvConnectionText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16, // Reduced from 18
     fontWeight: 'bold',
     letterSpacing: 0.8,
   },
   tvErrorCard: {
     backgroundColor: '#FEE2E2',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14, // Reduced from 16
+    marginBottom: 16, // Reduced from 20
     width: '100%',
-    maxWidth: 800,
+    maxWidth: 700, // Reduced from 800
     borderWidth: 2,
     borderColor: '#FCA5A5',
   },
   tvErrorText: {
     color: '#DC2626',
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16
     fontWeight: '600',
     textAlign: 'center',
   },
   tvLoadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
+    padding: 32, // Reduced from 40
   },
   tvLoadingText: {
     color: '#333333',
-    fontSize: 18,
-    marginTop: 16,
+    fontSize: 16, // Reduced from 18
+    marginTop: 14, // Reduced from 16
     fontWeight: '600',
   },
   tvCodeContainer: {
@@ -997,8 +998,8 @@ const styles = StyleSheet.create({
   },
   tvCodeCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 32,
+    borderRadius: 16, // Reduced from 20
+    padding: 24, // Reduced from 32
     alignItems: 'center',
     elevation: 10,
     shadowColor: '#000',
@@ -1008,10 +1009,10 @@ const styles = StyleSheet.create({
   },
   tvInstructionText: {
     color: '#333333',
-    fontSize: 20,
+    fontSize: 16, // Reduced from 20
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24, // Reduced from 32
     letterSpacing: 0.5,
   },
   // NEW: Horizontal layout for QR and Code
@@ -1020,16 +1021,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    gap: 40,
+    gap: 32, // Reduced from 40
   },
   tvQRSection: {
     alignItems: 'center',
     flex: 1,
   },
   tvQRWrapper: {
-    padding: 16,
+    padding: 12, // Reduced from 16
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 14, // Reduced from 16
     elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -1038,9 +1039,9 @@ const styles = StyleSheet.create({
   },
   tvQRLabel: {
     color: '#007BFF',
-    fontSize: 14,
+    fontSize: 12, // Reduced from 14
     fontWeight: '600',
-    marginTop: 12,
+    marginTop: 10, // Reduced from 12
     textAlign: 'center',
   },
   tvDivider: {
@@ -1055,32 +1056,32 @@ const styles = StyleSheet.create({
   },
   tvCodeDisplay: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12, // Reduced from 16
     backgroundColor: '#EBF5FF',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14, // Reduced from 16
+    padding: 16, // Reduced from 20
     width: '100%',
     borderWidth: 2,
     borderColor: '#007BFF',
   },
   tvCodeLabel: {
     color: '#007BFF',
-    fontSize: 16,
+    fontSize: 14, // Reduced from 16
     fontWeight: '600',
-    marginBottom: 10,
+    marginBottom: 8, // Reduced from 10
     letterSpacing: 0.5,
   },
   tvCodeText: {
     color: '#333333',
     fontWeight: 'bold',
-    letterSpacing: 12,
+    letterSpacing: 10, // Reduced from 12
   },
   tvTimerContainer: {
-    marginBottom: 12,
+    marginBottom: 10, // Reduced from 12
   },
   tvTimerText: {
     color: '#007BFF',
-    fontSize: 14,
+    fontSize: 12, // Reduced from 14
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -1090,15 +1091,15 @@ const styles = StyleSheet.create({
   },
   tvCheckingText: {
     color: '#007BFF',
-    fontSize: 14,
-    marginLeft: 10,
+    fontSize: 12, // Reduced from 14
+    marginLeft: 8, // Reduced from 10
     fontWeight: '600',
   },
   tvInfoBox: {
-    marginTop: 24,
+    marginTop: 20, // Reduced from 24
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
+    padding: 14, // Reduced from 16
     width: '100%',
     elevation: 3,
     shadowColor: '#000',
@@ -1107,11 +1108,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   tvInfoText: {
-    fontSize: 12,
+    fontSize: 11, // Reduced from 12
     color: '#777777',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16, // Reduced from 18
     fontWeight: '500',
-    marginBottom: 3,
+    marginBottom: 2, // Reduced from 3
   },
 });

@@ -212,6 +212,7 @@ export default function HomeScreen() {
   };
 
   const handleClosePreview = () => {
+    console.log('Closing preview modal');
     setShowPreviewModal(false);
     setDisplayContent(null);
   };
