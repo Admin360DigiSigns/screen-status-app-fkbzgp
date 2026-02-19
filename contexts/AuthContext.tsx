@@ -30,6 +30,7 @@ interface AuthContextType {
   setShowScreenShareModal: (show: boolean) => void;
   displayContent: any;
   setDisplayContent: (content: any) => void;
+  refreshPreviewContent: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,7 +62,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [displayContent, setDisplayContent] = useState<any>(null);
   const statusIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const authCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const previewRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isLoggingOutRef = useRef(false);
+
+  // Function to refresh preview content
+  const refreshPreviewContent = useCallback(async () => {
+    if (!username || !password || !screenName) {
+      console.log('⏭️ [AuthContext] Cannot refresh preview - missing credentials');
+      return;
+    }
+
+    console.log('🔄 [AuthContext] Refreshing preview content...');
+    
+    try {
+      const result = await fetchDisplayContent(username, password, screenName);
+      
+      if (result.success && result.data) {
+        console.log('✅ [AuthContext] Preview content refreshed successfully');
+        setDisplayContent(result.data);
+      } else {
+        console.error('❌ [AuthContext] Failed to refresh preview content:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ [AuthContext] Error refreshing preview:', error);
+    }
+  }, [username, password, screenName]);
+
+  // Auto-refresh preview content when modal is open
+  useEffect(() => {
+    console.log('🔄 [AuthContext] Preview modal state changed:', showPreviewModal);
+    
+    // Clear any existing interval
+    if (previewRefreshIntervalRef.current) {
+      console.log('🧹 [AuthContext] Clearing existing preview refresh interval');
+      clearInterval(previewRefreshIntervalRef.current);
+      previewRefreshIntervalRef.current = null;
+    }
+
+    // If preview modal is open, set up auto-refresh every 5 seconds
+    if (showPreviewModal && username && password && screenName) {
+      console.log('✅ [AuthContext] Setting up auto-refresh for preview content (every 5 seconds)');
+      
+      // Set up interval to refresh content every 5 seconds
+      previewRefreshIntervalRef.current = setInterval(() => {
+        console.log('⏰ [AuthContext] Auto-refresh triggered for preview content');
+        refreshPreviewContent();
+      }, 5000); // 5 seconds
+      
+      console.log('✅ [AuthContext] Preview auto-refresh interval set up');
+    } else {
+      console.log('⏸️ [AuthContext] Preview modal closed or missing credentials - no auto-refresh');
+    }
+
+    // Cleanup function
+    return () => {
+      if (previewRefreshIntervalRef.current) {
+        console.log('🧹 [AuthContext] Cleaning up preview refresh interval');
+        clearInterval(previewRefreshIntervalRef.current);
+        previewRefreshIntervalRef.current = null;
+      }
+    };
+  }, [showPreviewModal, username, password, screenName, refreshPreviewContent]);
 
   // Global command handlers - defined at the context level so they work everywhere
   const handlePreviewCommand = useCallback(async (command: AppCommand) => {
@@ -705,7 +766,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       console.log('');
       
-      // STEP 2: Clear intervals
+      // STEP 2: Clear intervals (including preview refresh interval)
       console.log('┌─ STEP 2: Clearing intervals');
       setLogoutProgress('Stopping background services...');
       if (statusIntervalRef.current) {
@@ -717,6 +778,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearInterval(authCheckIntervalRef.current);
         authCheckIntervalRef.current = null;
         console.log('│  ✓ Auth check interval cleared');
+      }
+      if (previewRefreshIntervalRef.current) {
+        clearInterval(previewRefreshIntervalRef.current);
+        previewRefreshIntervalRef.current = null;
+        console.log('│  ✓ Preview refresh interval cleared');
       }
       console.log('└─ ✓ All intervals cleared');
       console.log('');
@@ -994,6 +1060,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setShowScreenShareModal,
       displayContent,
       setDisplayContent,
+      refreshPreviewContent,
     }}>
       {children}
     </AuthContext.Provider>
