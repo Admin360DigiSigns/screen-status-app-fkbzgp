@@ -2,7 +2,7 @@
 {
   "expo": {
     "name": "360Digisigns",
-    "slug": "360digisigns",
+    "slug": "screen-status-app-fkbzgp",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
@@ -44,7 +44,7 @@
       "newArchEnabled": true
     },
     "web": {
-      "favicon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
+      "favicon": "./assets/images/f00132ac-4fc2-4a61-9e8b-112862f17436.jpeg",
       "bundler": "metro"
     },
     "plugins": [
