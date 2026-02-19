@@ -196,9 +196,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('⚠️ ═══════════════════════════════════════════════════════════');
         
         if (logoutTimestamp) {
-          const logoutTime = new Date(logoutTimestamp);
-          const now = new Date();
-          const timeSinceLogout = (now.getTime() - logoutTime.getTime()) / 1000;
+          const logoutTime = parseInt(logoutTimestamp, 10);
+          const now = Date.now();
+          const timeSinceLogout = (now - logoutTime) / 1000;
           console.log('⚠️  Logout occurred:', timeSinceLogout.toFixed(1), 'seconds ago');
           
           // Keep the logout flag for 30 seconds to prevent any auto-login attempts
@@ -634,7 +634,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('┌─ STEP 1: Setting logout flag with timestamp');
       setLogoutProgress('Setting logout flag...');
       try {
-        const now = new Date().toISOString();
+        const now = Date.now().toString();
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
         console.log('└─ ✓ Logout flag set with timestamp:', now);
@@ -836,7 +836,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLogoutProgress('Emergency cleanup...');
       try {
         // Set logout flag with timestamp
-        const now = new Date().toISOString();
+        const now = Date.now().toString();
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
         await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
         console.log('│  ✓ Logout flag set');

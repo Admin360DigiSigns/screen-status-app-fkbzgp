@@ -24,6 +24,8 @@ class CommandListenerService {
   private lastProcessedCommandId: string | null = null;
   private connectionStatus: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
   private pollCount: number = 0;
+  private processedCommandIds: Set<string> = new Set();
+  private processingCommandIds: Set<string> = new Set();
 
   /**
    * Initialize the command listener with device ID
@@ -133,6 +135,14 @@ class CommandListenerService {
       this.pollInterval = null;
       console.log('✓ Poll interval cleared');
     }
+    
+    // Clear processed command tracking
+    console.log('🛑 [CommandListener] Clearing processed command tracking...');
+    console.log('   Total commands processed in this session:', this.processedCommandIds.size);
+    this.processedCommandIds.clear();
+    this.processingCommandIds.clear();
+    this.lastProcessedCommandId = null;
+    console.log('✓ Command tracking cleared');
     
     console.log('✅ [CommandListener] Listening stopped');
     console.log('🛑 ═══════════════════════════════════════════════════════════');
@@ -364,13 +374,25 @@ class CommandListenerService {
       return;
     }
 
-    // Skip if we've already processed this command
-    if (command.id === this.lastProcessedCommandId) {
-      console.log('⏭️ [CommandListener] Skipping already processed command:', command.id);
+    // CRITICAL: Check if we've already processed this command ID
+    if (this.processedCommandIds.has(command.id)) {
+      console.log('⏭️ [CommandListener] ⚠️ DUPLICATE DETECTED - Already processed command:', command.id);
       console.log('⚙️ ═══════════════════════════════════════════════════════════');
       console.log('');
       return;
     }
+
+    // CRITICAL: Check if this command is currently being processed
+    if (this.processingCommandIds.has(command.id)) {
+      console.log('⏭️ [CommandListener] ⚠️ DUPLICATE DETECTED - Command is currently being processed:', command.id);
+      console.log('⚙️ ═══════════════════════════════════════════════════════════');
+      console.log('');
+      return;
+    }
+
+    // Mark as currently processing
+    this.processingCommandIds.add(command.id);
+    console.log('✓ Marked command as processing:', command.id);
 
     // Update last processed command ID
     this.lastProcessedCommandId = command.id;
@@ -403,13 +425,24 @@ class CommandListenerService {
 
       // Mark command as completed
       await this.updateCommandStatus(command.id, 'completed');
+      
+      // Add to processed set and remove from processing set
+      this.processedCommandIds.add(command.id);
+      this.processingCommandIds.delete(command.id);
+      
       console.log('✅ [CommandListener] Command completed successfully:', command.id);
+      console.log('✅ [CommandListener] Total processed commands:', this.processedCommandIds.size);
       console.log('⚙️ ═══════════════════════════════════════════════════════════');
       console.log('');
     } catch (error) {
       console.error('❌ [CommandListener] Error executing command handler:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.updateCommandStatus(command.id, 'failed', errorMessage);
+      
+      // Add to processed set and remove from processing set even on failure
+      this.processedCommandIds.add(command.id);
+      this.processingCommandIds.delete(command.id);
+      
       console.log('❌ [CommandListener] Command failed:', command.id);
       console.log('⚙️ ═══════════════════════════════════════════════════════════');
       console.log('');
