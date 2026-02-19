@@ -1,7 +1,8 @@
+
 {
   "expo": {
-    "name": "Screen Status",
-    "slug": "Screen Status",
+    "name": "360Digisigns",
+    "slug": "360digisigns",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
@@ -51,7 +52,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Screen Status",
+    "scheme": "digisigns360",
     "experiments": {
       "typedRoutes": true
     },
