@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView, Animated, Image, Dimensions } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendDeviceStatus, fetchDisplayContent, DisplayConnectResponse } from '@/utils/apiService';
@@ -50,9 +50,43 @@ export default function HomeScreen() {
   }).current;
 
   const isTVDevice = isTV();
+  const screenDimensions = Dimensions.get('window');
 
-  // TV-specific scaling factor to make content smaller
-  const tvScale = isTVDevice ? 0.75 : 1;
+  // Calculate responsive sizes for TV - PROPERLY SCALED
+  const getResponsiveSizes = () => {
+    const width = screenDimensions.width;
+    const height = screenDimensions.height;
+    
+    if (isTVDevice) {
+      // TV sizes - Scale down to fit within screen
+      const scaleFactor = Math.min(width / 1920, height / 1080, 1);
+      
+      return {
+        logoSize: Math.floor(100 * scaleFactor),
+        fontSize: Math.floor(12 * scaleFactor),
+        titleSize: Math.floor(14 * scaleFactor),
+        iconSize: Math.floor(20 * scaleFactor),
+        padding: Math.floor(20 * scaleFactor),
+        cardPadding: Math.floor(18 * scaleFactor),
+        spacing: Math.floor(12 * scaleFactor),
+        maxWidth: Math.floor(Math.min(width * 0.9, 1100)),
+      };
+    } else {
+      // Mobile sizes
+      return {
+        logoSize: 120,
+        fontSize: 12,
+        titleSize: 14,
+        iconSize: 24,
+        padding: 20,
+        cardPadding: 20,
+        spacing: 12,
+        maxWidth: width * 0.95,
+      };
+    }
+  };
+
+  const sizes = getResponsiveSizes();
 
   // Pulse animation for status indicator
   useEffect(() => {
@@ -271,7 +305,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { fontSize: 16 * tvScale }]}>Initializing device...</Text>
+        <Text style={[styles.loadingText, { fontSize: sizes.fontSize }]}>Initializing device...</Text>
       </View>
     );
   }
@@ -311,7 +345,7 @@ export default function HomeScreen() {
     }
   };
 
-  // TV Layout - Centered design matching the image - NO SCROLLING
+  // TV Layout - Centered design matching the image - PROPERLY SCALED
   if (isTVDevice) {
     const lastSyncFormatted = lastSyncTime ? lastSyncTime.toLocaleString('en-US', { 
       month: 'short', 
@@ -331,32 +365,35 @@ export default function HomeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         >
-          <View style={styles.tvScrollContent}>
+          <ScrollView 
+            contentContainerStyle={[styles.tvScrollContent, { paddingHorizontal: sizes.padding, paddingVertical: sizes.padding }]}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Logo */}
-            <View style={styles.tvLogoContainer}>
+            <View style={[styles.tvLogoContainer, { marginBottom: sizes.spacing * 1.5 }]}>
               <Image 
                 source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
-                style={styles.tvLogo}
+                style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize }]}
                 resizeMode="contain"
               />
             </View>
 
             {/* Status Banner */}
-            <View style={styles.tvStatusRow}>
+            <View style={[styles.tvStatusRow, { marginBottom: sizes.spacing * 1.5, gap: sizes.spacing }]}>
               <View style={styles.tvStatusItem}>
-                <Text style={styles.tvStatusItemLabel}>Remote Commands</Text>
-                <View style={styles.tvStatusBadge}>
-                  <View style={[styles.tvStatusDot, { backgroundColor: getCommandListenerStatusColor() }]} />
-                  <Text style={[styles.tvStatusBadgeText, { color: getCommandListenerStatusColor() }]}>
+                <Text style={[styles.tvStatusItemLabel, { fontSize: sizes.fontSize }]}>Remote Commands</Text>
+                <View style={[styles.tvStatusBadge, { paddingHorizontal: sizes.spacing, paddingVertical: sizes.spacing * 0.5 }]}>
+                  <View style={[styles.tvStatusDot, { width: sizes.fontSize * 0.6, height: sizes.fontSize * 0.6, backgroundColor: getCommandListenerStatusColor() }]} />
+                  <Text style={[styles.tvStatusBadgeText, { fontSize: sizes.fontSize, color: getCommandListenerStatusColor() }]}>
                     {commandListenerStatus === 'connected' ? 'Connected' : commandListenerStatus === 'connecting' ? 'Connecting' : 'Disconnected'}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.tvStatusItem}>
-                <Text style={styles.tvStatusItemLabel}>{screenName}</Text>
-                <View style={[styles.tvStatusBadge, { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2' }]}>
-                  <Text style={[styles.tvStatusBadgeText, { color: isOnline ? '#10B981' : '#EF4444' }]}>
+                <Text style={[styles.tvStatusItemLabel, { fontSize: sizes.fontSize }]}>{screenName}</Text>
+                <View style={[styles.tvStatusBadge, { backgroundColor: isOnline ? '#D1FAE5' : '#FEE2E2', paddingHorizontal: sizes.spacing, paddingVertical: sizes.spacing * 0.5 }]}>
+                  <Text style={[styles.tvStatusBadgeText, { fontSize: sizes.fontSize, color: isOnline ? '#10B981' : '#EF4444' }]}>
                     {isOnline ? 'ONLINE' : 'OFFLINE'}
                   </Text>
                 </View>
@@ -364,47 +401,47 @@ export default function HomeScreen() {
             </View>
 
             {/* Main Content - Two Column Layout */}
-            <View style={styles.tvMainLayout}>
+            <View style={[styles.tvMainLayout, { maxWidth: sizes.maxWidth, gap: sizes.spacing * 2, marginBottom: sizes.spacing * 1.5 }]}>
               {/* Left Column - Display Information */}
               <View style={styles.tvLeftColumn}>
-                <View style={styles.tvCard}>
-                  <View style={styles.tvCardHeader}>
+                <View style={[styles.tvCard, { padding: sizes.cardPadding }]}>
+                  <View style={[styles.tvCardHeader, { marginBottom: sizes.spacing, gap: sizes.spacing * 0.75 }]}>
                     <LinearGradient
                       colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
-                      style={styles.tvCardHeaderLine}
+                      style={[styles.tvCardHeaderLine, { width: 3, height: sizes.titleSize }]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 0, y: 1 }}
                     />
-                    <Text style={styles.tvCardTitle}>DISPLAY INFORMATION</Text>
+                    <Text style={[styles.tvCardTitle, { fontSize: sizes.titleSize }]}>DISPLAY INFORMATION</Text>
                   </View>
 
-                  <View style={styles.tvInfoRow}>
-                    <Text style={styles.tvInfoLabel}>Username</Text>
-                    <Text style={styles.tvInfoValue}>{username}</Text>
+                  <View style={[styles.tvInfoRow, { paddingVertical: sizes.spacing * 0.75 }]}>
+                    <Text style={[styles.tvInfoLabel, { fontSize: sizes.fontSize }]}>Username</Text>
+                    <Text style={[styles.tvInfoValue, { fontSize: sizes.fontSize }]}>{username}</Text>
                   </View>
 
-                  <View style={styles.tvInfoRow}>
-                    <Text style={styles.tvInfoLabel}>Screen Name</Text>
-                    <Text style={styles.tvInfoValue}>{screenName}</Text>
+                  <View style={[styles.tvInfoRow, { paddingVertical: sizes.spacing * 0.75 }]}>
+                    <Text style={[styles.tvInfoLabel, { fontSize: sizes.fontSize }]}>Screen Name</Text>
+                    <Text style={[styles.tvInfoValue, { fontSize: sizes.fontSize }]}>{screenName}</Text>
                   </View>
 
-                  <View style={styles.tvInfoRow}>
-                    <Text style={styles.tvInfoLabel}>Device ID</Text>
-                    <Text style={styles.tvInfoValue} numberOfLines={1} ellipsizeMode="middle">
+                  <View style={[styles.tvInfoRow, { paddingVertical: sizes.spacing * 0.75 }]}>
+                    <Text style={[styles.tvInfoLabel, { fontSize: sizes.fontSize }]}>Device ID</Text>
+                    <Text style={[styles.tvInfoValue, { fontSize: sizes.fontSize }]} numberOfLines={1} ellipsizeMode="middle">
                       {deviceId}
                     </Text>
                   </View>
 
-                  <View style={styles.tvInfoRow}>
-                    <Text style={styles.tvInfoLabel}>Last Sync</Text>
-                    <Text style={styles.tvInfoValue}>{lastSyncFormatted}</Text>
+                  <View style={[styles.tvInfoRow, { paddingVertical: sizes.spacing * 0.75 }]}>
+                    <Text style={[styles.tvInfoLabel, { fontSize: sizes.fontSize }]}>Last Sync</Text>
+                    <Text style={[styles.tvInfoValue, { fontSize: sizes.fontSize }]}>{lastSyncFormatted}</Text>
                   </View>
 
-                  <View style={styles.tvInfoRow}>
-                    <Text style={styles.tvInfoLabel}>Sync Status</Text>
-                    <View style={styles.tvSyncStatusBadge}>
-                      <Text style={styles.tvSyncStatusIcon}>✓</Text>
-                      <Text style={styles.tvSyncStatusText}>{syncStatusText}</Text>
+                  <View style={[styles.tvInfoRow, { paddingVertical: sizes.spacing * 0.75 }]}>
+                    <Text style={[styles.tvInfoLabel, { fontSize: sizes.fontSize }]}>Sync Status</Text>
+                    <View style={[styles.tvSyncStatusBadge, { paddingHorizontal: sizes.spacing * 0.6, paddingVertical: sizes.spacing * 0.3 }]}>
+                      <Text style={[styles.tvSyncStatusIcon, { fontSize: sizes.fontSize }]}>✓</Text>
+                      <Text style={[styles.tvSyncStatusText, { fontSize: sizes.fontSize }]}>{syncStatusText}</Text>
                     </View>
                   </View>
                 </View>
@@ -412,21 +449,22 @@ export default function HomeScreen() {
 
               {/* Right Column - Quick Actions */}
               <View style={styles.tvRightColumn}>
-                <View style={styles.tvCard}>
-                  <View style={styles.tvCardHeader}>
+                <View style={[styles.tvCard, { padding: sizes.cardPadding }]}>
+                  <View style={[styles.tvCardHeader, { marginBottom: sizes.spacing, gap: sizes.spacing * 0.75 }]}>
                     <LinearGradient
                       colors={['#3B82F6', '#1E40AF', '#1E3A8A']}
-                      style={styles.tvCardHeaderLine}
+                      style={[styles.tvCardHeaderLine, { width: 3, height: sizes.titleSize }]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 0, y: 1 }}
                     />
-                    <Text style={styles.tvCardTitle}>QUICK ACTIONS</Text>
+                    <Text style={[styles.tvCardTitle, { fontSize: sizes.titleSize }]}>QUICK ACTIONS</Text>
                   </View>
 
                   <Animated.View style={{ transform: [{ scale: focusedButton === 'preview' ? 1.08 : 1 }] }}>
                     <TouchableOpacity 
                       style={[
                         styles.tvActionButton,
+                        { paddingVertical: sizes.spacing, paddingHorizontal: sizes.spacing, gap: sizes.spacing * 0.75, marginBottom: sizes.spacing * 0.3 },
                         focusedButton === 'preview' && styles.tvActionButtonFocused
                       ]}
                       onPress={() => {
@@ -444,18 +482,18 @@ export default function HomeScreen() {
                         <React.Fragment>
                           <LinearGradient
                             colors={['#3B82F6', '#1E40AF']}
-                            style={styles.tvActionIconContainer}
+                            style={[styles.tvActionIconContainer, { width: sizes.iconSize * 1.6, height: sizes.iconSize * 1.6, borderRadius: sizes.iconSize * 0.8 }]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                           >
                             <IconSymbol 
                               ios_icon_name="eye.fill" 
                               android_material_icon_name="visibility" 
-                              size={24} 
+                              size={sizes.iconSize} 
                               color="#FFFFFF" 
                             />
                           </LinearGradient>
-                          <Text style={styles.tvActionText}>Preview Content</Text>
+                          <Text style={[styles.tvActionText, { fontSize: sizes.fontSize * 1.2 }]}>Preview Content</Text>
                         </React.Fragment>
                       )}
                     </TouchableOpacity>
@@ -466,6 +504,7 @@ export default function HomeScreen() {
                       <TouchableOpacity 
                         style={[
                           styles.tvActionButton,
+                          { paddingVertical: sizes.spacing, paddingHorizontal: sizes.spacing, gap: sizes.spacing * 0.75, marginBottom: sizes.spacing * 0.3 },
                           focusedButton === 'screenshare' && styles.tvActionButtonFocused
                         ]}
                         onPress={() => {
@@ -478,18 +517,18 @@ export default function HomeScreen() {
                       >
                         <LinearGradient
                           colors={['#3B82F6', '#1E40AF']}
-                          style={styles.tvActionIconContainer}
+                          style={[styles.tvActionIconContainer, { width: sizes.iconSize * 1.6, height: sizes.iconSize * 1.6, borderRadius: sizes.iconSize * 0.8 }]}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                         >
                           <IconSymbol 
                             ios_icon_name="tv" 
                             android_material_icon_name="cast" 
-                            size={24} 
+                            size={sizes.iconSize} 
                             color="#FFFFFF" 
                           />
                         </LinearGradient>
-                        <Text style={styles.tvActionText}>Screen Share</Text>
+                        <Text style={[styles.tvActionText, { fontSize: sizes.fontSize * 1.2 }]}>Screen Share</Text>
                       </TouchableOpacity>
                     </Animated.View>
                   )}
@@ -498,6 +537,7 @@ export default function HomeScreen() {
                     <TouchableOpacity 
                       style={[
                         styles.tvActionButton,
+                        { paddingVertical: sizes.spacing, paddingHorizontal: sizes.spacing, gap: sizes.spacing * 0.75, marginBottom: sizes.spacing * 0.3 },
                         focusedButton === 'sync' && styles.tvActionButtonFocused
                       ]}
                       onPress={() => {
@@ -510,18 +550,18 @@ export default function HomeScreen() {
                     >
                       <LinearGradient
                         colors={['#3B82F6', '#1E40AF']}
-                        style={styles.tvActionIconContainer}
+                        style={[styles.tvActionIconContainer, { width: sizes.iconSize * 1.6, height: sizes.iconSize * 1.6, borderRadius: sizes.iconSize * 0.8 }]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       >
                         <IconSymbol 
                           ios_icon_name="arrow.clockwise" 
                           android_material_icon_name="sync" 
-                          size={24} 
+                          size={sizes.iconSize} 
                           color="#FFFFFF" 
                         />
                       </LinearGradient>
-                      <Text style={styles.tvActionText}>Sync Status</Text>
+                      <Text style={[styles.tvActionText, { fontSize: sizes.fontSize * 1.2 }]}>Sync Status</Text>
                     </TouchableOpacity>
                   </Animated.View>
 
@@ -529,6 +569,7 @@ export default function HomeScreen() {
                     <TouchableOpacity 
                       style={[
                         styles.tvActionButton,
+                        { paddingVertical: sizes.spacing, paddingHorizontal: sizes.spacing, gap: sizes.spacing * 0.75, marginBottom: sizes.spacing * 0.3 },
                         focusedButton === 'logout' && styles.tvActionButtonFocused
                       ]}
                       onPress={() => {
@@ -541,18 +582,18 @@ export default function HomeScreen() {
                     >
                       <LinearGradient
                         colors={['#3B82F6', '#1E40AF']}
-                        style={styles.tvActionIconContainer}
+                        style={[styles.tvActionIconContainer, { width: sizes.iconSize * 1.6, height: sizes.iconSize * 1.6, borderRadius: sizes.iconSize * 0.8 }]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                       >
                         <IconSymbol 
                           ios_icon_name="rectangle.portrait.and.arrow.right" 
                           android_material_icon_name="logout" 
-                          size={24} 
+                          size={sizes.iconSize} 
                           color="#FFFFFF" 
                         />
                       </LinearGradient>
-                      <Text style={styles.tvActionText}>Logout</Text>
+                      <Text style={[styles.tvActionText, { fontSize: sizes.fontSize * 1.2 }]}>Logout</Text>
                     </TouchableOpacity>
                   </Animated.View>
                 </View>
@@ -560,12 +601,12 @@ export default function HomeScreen() {
             </View>
 
             {/* Footer */}
-            <View style={styles.tvFooter}>
-              <Text style={styles.tvFooterText}>Status updates every 20s</Text>
-              <Text style={styles.tvFooterText}>Remote commands enabled</Text>
-              <Text style={styles.tvFooterText}>Updates only on this screen</Text>
+            <View style={[styles.tvFooter, { maxWidth: sizes.maxWidth, paddingVertical: sizes.spacing, paddingHorizontal: sizes.padding }]}>
+              <Text style={[styles.tvFooterText, { fontSize: sizes.fontSize * 0.9 }]}>Status updates every 20s</Text>
+              <Text style={[styles.tvFooterText, { fontSize: sizes.fontSize * 0.9 }]}>Remote commands enabled</Text>
+              <Text style={[styles.tvFooterText, { fontSize: sizes.fontSize * 0.9 }]}>Updates only on this screen</Text>
             </View>
-          </View>
+          </ScrollView>
         </LinearGradient>
 
         {/* Preview Modal - Directly shows slideshow */}
@@ -583,9 +624,9 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.container}>
               <View style={styles.content}>
-                <Text style={[styles.errorText, { fontSize: 18 * tvScale }]}>No content available</Text>
+                <Text style={[styles.errorText, { fontSize: sizes.fontSize * 1.5 }]}>No content available</Text>
                 <TouchableOpacity style={styles.logoutButton} onPress={handleClosePreview}>
-                  <Text style={[styles.logoutButtonText, { fontSize: 18 * tvScale }]}>Close</Text>
+                  <Text style={[styles.logoutButtonText, { fontSize: sizes.fontSize * 1.5 }]}>Close</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1089,45 +1130,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // TV styles - Clean centered design - NO SCROLLING
+  // TV styles - Clean centered design - PROPERLY SCALED
   tvContainer: {
     flex: 1,
   },
   tvGradientBackground: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   tvScrollContent: {
-    flex: 1,
-    paddingHorizontal: 40,
-    paddingVertical: 30,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
   },
   tvLogoContainer: {
-    marginBottom: 20,
     alignItems: 'center',
   },
   tvLogo: {
-    width: 150,
-    height: 150,
     borderRadius: 20,
   },
   tvStatusRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     width: '100%',
-    maxWidth: 1100,
-    marginBottom: 24,
-    gap: 32,
   },
   tvStatusItem: {
     alignItems: 'center',
   },
   tvStatusItemLabel: {
-    fontSize: 12,
     color: '#1F2937',
     marginBottom: 8,
     fontWeight: '600',
@@ -1135,26 +1164,19 @@ const styles = StyleSheet.create({
   tvStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
     borderRadius: 14,
     gap: 6,
   },
   tvStatusDot: {
-    width: 8,
-    height: 8,
     borderRadius: 4,
   },
   tvStatusBadgeText: {
-    fontSize: 12,
     fontWeight: '600',
   },
   tvMainLayout: {
     flexDirection: 'row',
     width: '100%',
-    maxWidth: 1100,
-    gap: 32,
-    marginBottom: 24,
+    alignSelf: 'center',
   },
   tvLeftColumn: {
     flex: 1,
@@ -1165,7 +1187,6 @@ const styles = StyleSheet.create({
   tvCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -1175,16 +1196,11 @@ const styles = StyleSheet.create({
   tvCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    gap: 12,
   },
   tvCardHeaderLine: {
-    width: 4,
-    height: 20,
     borderRadius: 2,
   },
   tvCardTitle: {
-    fontSize: 14,
     fontWeight: '700',
     color: '#1F2937',
     letterSpacing: 0.6,
@@ -1193,17 +1209,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   tvInfoLabel: {
-    fontSize: 14,
     color: '#6B7280',
     fontWeight: '500',
   },
   tvInfoValue: {
-    fontSize: 14,
     color: '#1F2937',
     fontWeight: '600',
     textAlign: 'right',
@@ -1214,35 +1227,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#D1FAE5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     borderRadius: 8,
     gap: 4,
   },
   tvSyncStatusIcon: {
-    fontSize: 12,
     color: '#10B981',
   },
   tvSyncStatusText: {
-    fontSize: 12,
     color: '#10B981',
     fontWeight: '600',
   },
   tvActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    gap: 12,
     backgroundColor: '#FFFFFF',
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
-    marginBottom: 2,
     borderRadius: 8,
   },
   tvActionButtonFocused: {
@@ -1254,14 +1259,10 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tvActionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tvActionText: {
-    fontSize: 16,
     fontWeight: '600',
     color: '#1F2937',
   },
@@ -1269,14 +1270,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    maxWidth: 1100,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
+    alignSelf: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 12,
   },
   tvFooterText: {
-    fontSize: 11,
     color: '#1F2937',
     textAlign: 'center',
     fontWeight: '600',

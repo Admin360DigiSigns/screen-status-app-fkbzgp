@@ -427,20 +427,23 @@ export default function LoginScreen() {
     );
   }
 
-  // Calculate responsive sizes for TV - CENTERED LAYOUT
+  // Calculate responsive sizes for TV - PROPERLY SCALED
   const getResponsiveSizes = () => {
     const width = screenDimensions.width;
     const height = screenDimensions.height;
     
     if (isTVDevice || isLargeScreen) {
-      // TV or large screen sizes - Centered and responsive
+      // TV or large screen sizes - Scale down to fit within screen
+      const scaleFactor = Math.min(width / 1920, height / 1080, 1);
+      
       return {
-        qrSize: Math.min(width * 0.12, height * 0.24, 200),
-        codeSize: Math.min(width * 0.035, 45),
-        logoSize: Math.min(width * 0.15, height * 0.2, 180),
-        containerMaxWidth: Math.min(width * 0.7, 900),
-        spacing: 20,
-        logoMarginBottom: Math.min(height * 0.05, 50),
+        qrSize: Math.floor(180 * scaleFactor),
+        codeSize: Math.floor(32 * scaleFactor),
+        logoSize: Math.floor(120 * scaleFactor),
+        containerMaxWidth: Math.floor(Math.min(width * 0.85, 1000)),
+        spacing: Math.floor(16 * scaleFactor),
+        fontSize: Math.floor(14 * scaleFactor),
+        titleSize: Math.floor(16 * scaleFactor),
       };
     } else {
       // Mobile sizes
@@ -450,14 +453,15 @@ export default function LoginScreen() {
         logoSize: Math.min(width * 0.4, 150),
         containerMaxWidth: width * 0.9,
         spacing: 24,
-        logoMarginBottom: 32,
+        fontSize: 14,
+        titleSize: 16,
       };
     }
   };
 
   const sizes = getResponsiveSizes();
 
-  // TV Layout - CENTERED AFTER LOGO
+  // TV Layout - PROPERLY SCALED TO FIT SCREEN
   if (isTVDevice || isLargeScreen) {
     return (
       <>
@@ -469,102 +473,107 @@ export default function LoginScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
           >
-            <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
-              <Image 
-                source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
-                style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize, marginBottom: sizes.logoMarginBottom }]}
-                resizeMode="contain"
-              />
-              
-              <View style={styles.tvConnectionBadgeContainer}>
-                <View style={[styles.tvConnectionBadge, { backgroundColor: isOnline ? '#10B981' : '#EF4444' }]}>
-                  <Text style={styles.tvConnectionText}>
-                    {isOnline ? '● Connected' : '● Offline'}
-                  </Text>
-                </View>
-              </View>
-
-              {errorMessage && (
-                <View style={styles.tvErrorCard}>
-                  <Text style={styles.tvErrorText}>⚠️ {errorMessage}</Text>
-                </View>
-              )}
-
-              {isLoading ? (
-                <View style={styles.tvLoadingContainer}>
-                  <ActivityIndicator size="large" color="#007BFF" />
-                  <Text style={styles.tvLoadingText}>Generating code...</Text>
-                </View>
-              ) : authCode ? (
-                <View style={styles.tvCodeContainer}>
-                  <View style={styles.tvCodeCard}>
-                    <Text style={styles.tvInstructionText}>
-                      Scan QR Code or Enter Code on Web App
+            <ScrollView 
+              contentContainerStyle={[styles.tvContent, { maxWidth: sizes.containerMaxWidth }]}
+              showsVerticalScrollIndicator={false}
+            >
+              <Animated.View style={{ transform: [{ translateY: slideUpAnim }], alignItems: 'center', width: '100%' }}>
+                <Image 
+                  source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
+                  style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize, marginBottom: sizes.spacing }]}
+                  resizeMode="contain"
+                />
+                
+                <View style={[styles.tvConnectionBadgeContainer, { marginBottom: sizes.spacing }]}>
+                  <View style={[styles.tvConnectionBadge, { backgroundColor: isOnline ? '#10B981' : '#EF4444' }]}>
+                    <Text style={[styles.tvConnectionText, { fontSize: sizes.fontSize }]}>
+                      {isOnline ? '● Connected' : '● Offline'}
                     </Text>
-                    
-                    {/* QR Code on Left, Code on Right - Horizontal Layout */}
-                    <View style={styles.tvHorizontalLayout}>
-                      {/* QR Code Section - Left */}
-                      <View style={styles.tvQRSection}>
-                        <View style={styles.tvQRWrapper}>
-                          <QRCode
-                            value={authCode}
-                            size={sizes.qrSize}
-                            backgroundColor="white"
-                            color="black"
-                          />
-                        </View>
-                        <Text style={styles.tvQRLabel}>Scan with your device</Text>
-                      </View>
+                  </View>
+                </View>
 
-                      {/* Divider */}
-                      <View style={styles.tvDivider} />
+                {errorMessage && (
+                  <View style={[styles.tvErrorCard, { marginBottom: sizes.spacing }]}>
+                    <Text style={[styles.tvErrorText, { fontSize: sizes.fontSize }]}>⚠️ {errorMessage}</Text>
+                  </View>
+                )}
 
-                      {/* Code Section - Right */}
-                      <View style={styles.tvCodeSection}>
-                        <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
-                          <Text style={styles.tvCodeLabel}>Authentication Code</Text>
-                          <Text style={[styles.tvCodeText, { fontSize: sizes.codeSize }]}>{authCode}</Text>
-                        </Animated.View>
-
-                        <View style={styles.tvTimerContainer}>
-                          <Text style={styles.tvTimerText}>
-                            {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
-                          </Text>
-                        </View>
-
-                        {isCheckingAuth && (
-                          <View style={styles.tvCheckingContainer}>
-                            <ActivityIndicator size="small" color="#007BFF" />
-                            <Text style={styles.tvCheckingText}>Waiting for authentication...</Text>
+                {isLoading ? (
+                  <View style={styles.tvLoadingContainer}>
+                    <ActivityIndicator size="large" color="#007BFF" />
+                    <Text style={[styles.tvLoadingText, { fontSize: sizes.fontSize }]}>Generating code...</Text>
+                  </View>
+                ) : authCode ? (
+                  <View style={[styles.tvCodeContainer, { width: '100%' }]}>
+                    <View style={[styles.tvCodeCard, { padding: sizes.spacing * 1.5 }]}>
+                      <Text style={[styles.tvInstructionText, { fontSize: sizes.titleSize, marginBottom: sizes.spacing * 1.5 }]}>
+                        Scan QR Code or Enter Code on Web App
+                      </Text>
+                      
+                      {/* QR Code on Left, Code on Right - Horizontal Layout */}
+                      <View style={[styles.tvHorizontalLayout, { gap: sizes.spacing * 2 }]}>
+                        {/* QR Code Section - Left */}
+                        <View style={styles.tvQRSection}>
+                          <View style={[styles.tvQRWrapper, { padding: sizes.spacing }]}>
+                            <QRCode
+                              value={authCode}
+                              size={sizes.qrSize}
+                              backgroundColor="white"
+                              color="black"
+                            />
                           </View>
-                        )}
+                          <Text style={[styles.tvQRLabel, { fontSize: sizes.fontSize, marginTop: sizes.spacing * 0.75 }]}>Scan with your device</Text>
+                        </View>
+
+                        {/* Divider */}
+                        <View style={styles.tvDivider} />
+
+                        {/* Code Section - Right */}
+                        <View style={styles.tvCodeSection}>
+                          <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }], padding: sizes.spacing }]}>
+                            <Text style={[styles.tvCodeLabel, { fontSize: sizes.fontSize, marginBottom: sizes.spacing * 0.5 }]}>Authentication Code</Text>
+                            <Text style={[styles.tvCodeText, { fontSize: sizes.codeSize, letterSpacing: sizes.codeSize * 0.3 }]}>{authCode}</Text>
+                          </Animated.View>
+
+                          <View style={[styles.tvTimerContainer, { marginTop: sizes.spacing }]}>
+                            <Text style={[styles.tvTimerText, { fontSize: sizes.fontSize }]}>
+                              {timeRemaining === 'Expired' ? '⚠️ Code Expired - Generating new code...' : `⏱️ Expires in: ${timeRemaining}`}
+                            </Text>
+                          </View>
+
+                          {isCheckingAuth && (
+                            <View style={[styles.tvCheckingContainer, { marginTop: sizes.spacing }]}>
+                              <ActivityIndicator size="small" color="#007BFF" />
+                              <Text style={[styles.tvCheckingText, { fontSize: sizes.fontSize, marginLeft: sizes.spacing * 0.5 }]}>Waiting for authentication...</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-              ) : (
-                <View style={styles.tvLoadingContainer}>
-                  <ActivityIndicator size="large" color="#007BFF" />
-                  <Text style={styles.tvLoadingText}>Preparing login...</Text>
-                </View>
-              )}
+                ) : (
+                  <View style={styles.tvLoadingContainer}>
+                    <ActivityIndicator size="large" color="#007BFF" />
+                    <Text style={[styles.tvLoadingText, { fontSize: sizes.fontSize }]}>Preparing login...</Text>
+                  </View>
+                )}
 
-              <View style={styles.tvInfoBox}>
-                <Text style={styles.tvInfoText}>
-                  Device ID: {deviceId || 'Loading...'}
-                </Text>
-                <Text style={styles.tvInfoText}>
-                  🔒 Fresh authentication session - No auto-login
-                </Text>
-                <Text style={styles.tvInfoText}>
-                  🛡️ 30-second logout protection active
-                </Text>
-                <Text style={styles.tvInfoText}>
-                  🔄 Code will automatically regenerate when expired
-                </Text>
-              </View>
-            </Animated.View>
+                <View style={[styles.tvInfoBox, { marginTop: sizes.spacing * 1.5, padding: sizes.spacing }]}>
+                  <Text style={[styles.tvInfoText, { fontSize: sizes.fontSize * 0.85 }]}>
+                    Device ID: {deviceId || 'Loading...'}
+                  </Text>
+                  <Text style={[styles.tvInfoText, { fontSize: sizes.fontSize * 0.85 }]}>
+                    🔒 Fresh authentication session - No auto-login
+                  </Text>
+                  <Text style={[styles.tvInfoText, { fontSize: sizes.fontSize * 0.85 }]}>
+                    🛡️ 30-second logout protection active
+                  </Text>
+                  <Text style={[styles.tvInfoText, { fontSize: sizes.fontSize * 0.85 }]}>
+                    🔄 Code will automatically regenerate when expired
+                  </Text>
+                </View>
+              </Animated.View>
+            </ScrollView>
           </LinearGradient>
         </Animated.View>
       </>
@@ -926,27 +935,25 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // TV styles - CENTERED LAYOUT AFTER LOGO
+  // TV styles - PROPERLY SCALED TO FIT SCREEN
   tvContainer: {
     flex: 1,
   },
   tvGradientBackground: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 30,
   },
   tvContent: {
-    width: '100%',
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    alignSelf: 'center',
   },
   tvLogo: {
     borderRadius: 20,
   },
   tvConnectionBadgeContainer: {
-    marginBottom: 20,
     borderRadius: 20,
     overflow: 'hidden',
     elevation: 6,
@@ -956,63 +963,56 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   tvConnectionBadge: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
     borderRadius: 20,
   },
   tvConnectionText: {
     color: '#FFFFFF',
-    fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.8,
   },
   tvErrorCard: {
     backgroundColor: '#FEE2E2',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
     width: '100%',
-    maxWidth: 700,
     borderWidth: 2,
     borderColor: '#FCA5A5',
   },
   tvErrorText: {
     color: '#DC2626',
-    fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
   },
   tvLoadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
+    padding: 30,
   },
   tvLoadingText: {
     color: '#333333',
-    fontSize: 18,
-    marginTop: 16,
+    marginTop: 14,
     fontWeight: '600',
   },
   tvCodeContainer: {
-    width: '100%',
+    alignItems: 'center',
   },
   tvCodeCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 32,
     alignItems: 'center',
     elevation: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
+    width: '100%',
   },
   tvInstructionText: {
     color: '#333333',
-    fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 32,
     letterSpacing: 0.5,
   },
   // Horizontal layout for QR and Code - CENTERED
@@ -1021,14 +1021,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    gap: 40,
   },
   tvQRSection: {
     alignItems: 'center',
     flex: 1,
   },
   tvQRWrapper: {
-    padding: 16,
     backgroundColor: 'white',
     borderRadius: 16,
     elevation: 6,
@@ -1039,9 +1037,7 @@ const styles = StyleSheet.create({
   },
   tvQRLabel: {
     color: '#007BFF',
-    fontSize: 14,
     fontWeight: '600',
-    marginTop: 12,
     textAlign: 'center',
   },
   tvDivider: {
@@ -1056,50 +1052,41 @@ const styles = StyleSheet.create({
   },
   tvCodeDisplay: {
     alignItems: 'center',
-    marginBottom: 16,
     backgroundColor: '#EBF5FF',
     borderRadius: 16,
-    padding: 20,
     width: '100%',
     borderWidth: 2,
     borderColor: '#007BFF',
   },
   tvCodeLabel: {
     color: '#007BFF',
-    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 10,
     letterSpacing: 0.5,
   },
   tvCodeText: {
     color: '#333333',
     fontWeight: 'bold',
-    letterSpacing: 12,
   },
   tvTimerContainer: {
-    marginBottom: 12,
+    width: '100%',
   },
   tvTimerText: {
     color: '#007BFF',
-    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
   },
   tvCheckingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tvCheckingText: {
     color: '#007BFF',
-    fontSize: 14,
-    marginLeft: 10,
     fontWeight: '600',
   },
   tvInfoBox: {
-    marginTop: 24,
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
     width: '100%',
     elevation: 3,
     shadowColor: '#000',
@@ -1108,11 +1095,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   tvInfoText: {
-    fontSize: 12,
     color: '#777777',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16,
     fontWeight: '500',
-    marginBottom: 3,
+    marginBottom: 2,
   },
 });
