@@ -849,6 +849,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (storedUsername && storedPassword && storedScreenName) {
+        console.log('✓ Found stored credentials - setting authenticated state');
         setUsername(storedUsername);
         setPassword(storedPassword);
         setScreenName(storedScreenName);
@@ -955,28 +956,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, authenticated: false, error: 'No device ID available' };
       }
 
-      console.log('Polling for credentials...');
+      console.log('🔍 [AuthContext] Polling for credentials...');
       const response = await apiService.getDisplayCredentials(deviceId);
       
+      console.log('🔍 [AuthContext] Poll response:', response);
+      
       if (response.success && response.data) {
+        console.log('🔍 [AuthContext] Response status:', response.data.status);
+        
         if (response.data.status === 'authenticated' && response.data.credentials) {
           const creds = response.data.credentials;
           
+          console.log('');
+          console.log('╔════════════════════════════════════════════════════════════════╗');
+          console.log('║          🎉 AUTHENTICATION SUCCESSFUL VIA CODE 🎉             ║');
+          console.log('╚════════════════════════════════════════════════════════════════╝');
+          console.log('Screen Name:', creds.screen_name);
+          console.log('Username:', creds.screen_username);
+          console.log('');
+          
           // Store credentials
+          console.log('💾 Storing credentials in AsyncStorage...');
           await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, creds.screen_username);
           await AsyncStorage.setItem(STORAGE_KEYS.PASSWORD, creds.screen_password);
           await AsyncStorage.setItem(STORAGE_KEYS.SCREEN_NAME, creds.screen_name);
+          console.log('✓ Credentials stored');
           
+          // Update state
+          console.log('🔄 Updating authentication state...');
           setUsername(creds.screen_username);
           setPassword(creds.screen_password);
           setScreenName(creds.screen_name);
           setIsAuthenticated(true);
+          console.log('✓ State updated - isAuthenticated: true');
           
           // Clear auth code
           setAuthCode(null);
           setAuthCodeExpiry(null);
+          console.log('✓ Auth code cleared');
           
-          console.log('✓ Authentication successful via display code');
+          console.log('');
+          console.log('╔════════════════════════════════════════════════════════════════╗');
+          console.log('║              ✅ READY TO NAVIGATE TO HOME SCREEN              ║');
+          console.log('╚════════════════════════════════════════════════════════════════╝');
+          console.log('');
+          
           return { 
             success: true, 
             authenticated: true,
@@ -989,13 +1013,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (response.data.status === 'expired') {
           setAuthCode(null);
           setAuthCodeExpiry(null);
-          console.log('Code expired');
+          console.log('⏰ Code expired');
           return { success: true, authenticated: false, error: 'Code expired' };
         } else {
           // Still pending
+          console.log('⏳ Still pending authentication...');
           return { success: true, authenticated: false };
         }
       } else {
+        console.error('❌ Failed to check credentials:', response.error);
         return { success: false, authenticated: false, error: response.error };
       }
     } catch (error) {

@@ -73,13 +73,36 @@ export default function LoginScreen() {
     }
   }, [isLoggingOut, logoutModalAnim]);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - WITH DETAILED LOGGING
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('User is authenticated, redirecting to home');
-      router.replace('/(tabs)/(home)');
+    console.log('');
+    console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
+    console.log('🔐 [LoginScreen] AUTHENTICATION STATE CHECK');
+    console.log('🔐 [LoginScreen] isAuthenticated:', isAuthenticated);
+    console.log('🔐 [LoginScreen] isInitializing:', isInitializing);
+    console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
+    console.log('');
+    
+    if (isAuthenticated && !isInitializing) {
+      console.log('');
+      console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
+      console.log('🚀 [LoginScreen] USER IS AUTHENTICATED - REDIRECTING TO HOME');
+      console.log('🚀 [LoginScreen] Calling router.replace("/(tabs)/(home)")');
+      console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
+      console.log('');
+      
+      try {
+        router.replace('/(tabs)/(home)');
+        console.log('✅ [LoginScreen] Navigation initiated successfully');
+      } catch (error) {
+        console.error('❌ [LoginScreen] Navigation error:', error);
+      }
+    } else {
+      console.log('⏸️ [LoginScreen] Not redirecting - conditions not met');
+      console.log('   isAuthenticated:', isAuthenticated);
+      console.log('   isInitializing:', isInitializing);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isInitializing]);
 
   // Sync with context auth code
   useEffect(() => {
@@ -316,7 +339,14 @@ export default function LoginScreen() {
   };
 
   const startAuthenticationCheck = (code: string) => {
-    console.log('Starting authentication check for code:', code);
+    console.log('');
+    console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
+    console.log('🔍 [LoginScreen] STARTING AUTHENTICATION CHECK');
+    console.log('🔍 [LoginScreen] Code:', code);
+    console.log('🔍 [LoginScreen] Will poll every 3 seconds');
+    console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
+    console.log('');
+    
     setIsCheckingAuth(true);
 
     if (authCheckIntervalRef.current) {
@@ -324,23 +354,50 @@ export default function LoginScreen() {
     }
 
     authCheckIntervalRef.current = setInterval(async () => {
-      console.log('Checking authentication status...');
+      console.log('');
+      console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
+      console.log('🔍 [LoginScreen] POLLING FOR AUTHENTICATION STATUS');
+      console.log('🔍 [LoginScreen] Time:', new Date().toISOString());
+      console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
       
       try {
         const result = await checkAuthenticationStatus();
+        console.log('🔍 [LoginScreen] Poll result:', result);
         
         if (result.authenticated && result.credentials) {
-          console.log('✓ Authentication successful!');
+          console.log('');
+          console.log('🎉 [LoginScreen] ═══════════════════════════════════════════════');
+          console.log('🎉 [LoginScreen] ✅ AUTHENTICATION SUCCESSFUL!');
+          console.log('🎉 [LoginScreen] Credentials received:', {
+            username: result.credentials.username,
+            screenName: result.credentials.screenName,
+          });
+          console.log('🎉 [LoginScreen] ═══════════════════════════════════════════════');
+          console.log('');
           
           if (authCheckIntervalRef.current) {
+            console.log('🔍 [LoginScreen] Clearing auth check interval');
             clearInterval(authCheckIntervalRef.current);
             authCheckIntervalRef.current = null;
           }
           
           setIsCheckingAuth(false);
-          router.replace('/(tabs)/(home)');
+          
+          console.log('');
+          console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
+          console.log('🚀 [LoginScreen] NAVIGATING TO HOME SCREEN');
+          console.log('🚀 [LoginScreen] Calling router.replace("/(tabs)/(home)")');
+          console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
+          console.log('');
+          
+          try {
+            router.replace('/(tabs)/(home)');
+            console.log('✅ [LoginScreen] Navigation initiated');
+          } catch (navError) {
+            console.error('❌ [LoginScreen] Navigation error:', navError);
+          }
         } else if (result.error === 'Code expired') {
-          console.log('Code expired, generating new one...');
+          console.log('⏰ [LoginScreen] Code expired, generating new one...');
           
           if (authCheckIntervalRef.current) {
             clearInterval(authCheckIntervalRef.current);
@@ -352,9 +409,14 @@ export default function LoginScreen() {
           isGeneratingRef.current = false;
           setAuthCode(null);
           handleGenerateCode();
+        } else {
+          console.log('⏳ [LoginScreen] Still waiting for authentication...');
         }
+        
+        console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
+        console.log('');
       } catch (error) {
-        console.error('Error checking authentication:', error);
+        console.error('❌ [LoginScreen] Error checking authentication:', error);
       }
     }, 3000);
   };
