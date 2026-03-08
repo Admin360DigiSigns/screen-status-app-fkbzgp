@@ -6,7 +6,7 @@ import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert, Platform } from "react-native";
+import { useColorScheme, Alert } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -18,7 +18,6 @@ import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { commandListener } from "@/utils/commandListener";
-import { isTV } from "@/utils/deviceUtils";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,8 +28,6 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
-  const isTVDevice = isTV();
-  
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
@@ -40,13 +37,6 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
-
-  useEffect(() => {
-    console.log('=== APP LAYOUT MOUNTED ===');
-    console.log('Platform:', Platform.OS);
-    console.log('Is TV:', isTVDevice);
-    console.log('Platform.isTV:', Platform.isTV);
-  }, [isTVDevice]);
 
   React.useEffect(() => {
     if (
@@ -91,71 +81,48 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="auto" animated hidden={isTVDevice} />
+      <StatusBar style="auto" animated />
       <ThemeProvider
         value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
       >
         <AuthProvider>
           <WidgetProvider>
             <GestureHandlerRootView>
-              <Stack screenOptions={{ headerShown: false }}>
-                {isTVDevice ? (
-                  // TV-specific routing - no tabs, direct screens
-                  <>
-                    <Stack.Screen 
-                      name="login" 
-                      options={{ 
-                        headerShown: false,
-                        presentation: 'card',
-                      }} 
-                    />
-                    <Stack.Screen 
-                      name="(tabs)/(home)/index" 
-                      options={{ 
-                        headerShown: false,
-                        presentation: 'card',
-                      }} 
-                    />
-                  </>
-                ) : (
-                  // Mobile routing with tabs
-                  <>
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    <Stack.Screen 
-                      name="login" 
-                      options={{ 
-                        headerShown: false,
-                        presentation: 'card',
-                      }} 
-                    />
-                    <Stack.Screen
-                      name="modal"
-                      options={{
-                        presentation: "modal",
-                        title: "Standard Modal",
-                      }}
-                    />
-                    <Stack.Screen
-                      name="formsheet"
-                      options={{
-                        presentation: "formSheet",
-                        title: "Form Sheet Modal",
-                        sheetGrabberVisible: true,
-                        sheetAllowedDetents: [0.5, 0.8, 1.0],
-                        sheetCornerRadius: 20,
-                      }}
-                    />
-                    <Stack.Screen
-                      name="transparent-modal"
-                      options={{
-                        presentation: "transparentModal",
-                        headerShown: false,
-                      }}
-                    />
-                  </>
-                )}
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen 
+                  name="login" 
+                  options={{ 
+                    headerShown: false,
+                    presentation: 'card',
+                  }} 
+                />
+                <Stack.Screen
+                  name="modal"
+                  options={{
+                    presentation: "modal",
+                    title: "Standard Modal",
+                  }}
+                />
+                <Stack.Screen
+                  name="formsheet"
+                  options={{
+                    presentation: "formSheet",
+                    title: "Form Sheet Modal",
+                    sheetGrabberVisible: true,
+                    sheetAllowedDetents: [0.5, 0.8, 1.0],
+                    sheetCornerRadius: 20,
+                  }}
+                />
+                <Stack.Screen
+                  name="transparent-modal"
+                  options={{
+                    presentation: "transparentModal",
+                    headerShown: false,
+                  }}
+                />
               </Stack>
-              {!isTVDevice && <SystemBars style={"auto"} />}
+              <SystemBars style={"auto"} />
             </GestureHandlerRootView>
           </WidgetProvider>
         </AuthProvider>

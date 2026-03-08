@@ -1,6 +1,5 @@
 
 import * as Application from 'expo-application';
-import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
 export const getDeviceId = async (): Promise<string> => {
@@ -23,61 +22,31 @@ export const getDeviceId = async (): Promise<string> => {
   }
 };
 
-// TV detection utility - FIXED FOR ANDROID TV
+// TV detection utility
 export const isTV = (): boolean => {
-  console.log('🔍 [isTV] Starting TV detection...');
-  console.log('🔍 [isTV] Platform.OS:', Platform.OS);
-  console.log('🔍 [isTV] Platform.isTV:', Platform.isTV);
-  
-  // Check if running on TV platform (most reliable)
+  // Check if running on TV platform
   if (Platform.isTV) {
-    console.log('✅ [isTV] Device detected as TV via Platform.isTV');
-    return true;
-  }
-
-  // Check Device.deviceType for TV
-  if (Device.deviceType === Device.DeviceType.TV) {
-    console.log('✅ [isTV] Device detected as TV via Device.deviceType');
+    console.log('Device detected as TV via Platform.isTV');
     return true;
   }
 
   // Additional heuristic checks for Android TV
   if (Platform.OS === 'android') {
-    const model = (Device.modelName || '').toLowerCase();
-    const brand = (Device.brand || '').toLowerCase();
-    const deviceName = (Device.deviceName || '').toLowerCase();
+    const model = Platform.constants?.Model || '';
+    const brand = Platform.constants?.Brand || '';
     
-    console.log('🔍 [isTV] Android device info:', {
-      model,
-      brand,
-      deviceName,
-      deviceType: Device.deviceType,
-    });
-    
-    // Check for TV-specific keywords in model, brand, or device name
-    const tvKeywords = ['tv', 'aftm', 'aftb', 'firetv', 'chromecast', 'shield', 'mibox', 'androidtv'];
-    const isTVModel = tvKeywords.some(keyword => 
-      model.includes(keyword) || 
-      brand.includes(keyword) || 
-      deviceName.includes(keyword)
-    );
+    const isTVModel = model.toLowerCase().includes('tv') || 
+                      brand.toLowerCase().includes('tv') ||
+                      model.toLowerCase().includes('aftm') || // Fire TV
+                      model.toLowerCase().includes('aftb'); // Fire TV
     
     if (isTVModel) {
-      console.log('✅ [isTV] Device detected as TV via model/brand heuristics');
+      console.log('Device detected as TV via model/brand heuristics:', { model, brand });
       return true;
     }
   }
 
-  // Check for iOS/tvOS
-  if (Platform.OS === 'ios') {
-    const model = (Device.modelName || '').toLowerCase();
-    if (model.includes('appletv') || model.includes('tv')) {
-      console.log('✅ [isTV] Device detected as Apple TV');
-      return true;
-    }
-  }
-
-  console.log('❌ [isTV] Device detected as mobile/tablet');
+  console.log('Device detected as mobile/tablet');
   return false;
 };
 

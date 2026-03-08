@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
@@ -13,7 +13,11 @@ export default function DiagnosticsScreen() {
   const [commandHistory, setCommandHistory] = useState<any[]>([]);
   const [displayInfo, setDisplayInfo] = useState<any>(null);
 
-  const runDiagnostics = useCallback(async () => {
+  useEffect(() => {
+    runDiagnostics();
+  }, []);
+
+  const runDiagnostics = async () => {
     setIsLoading(true);
     const results: any = {};
 
@@ -92,9 +96,9 @@ export default function DiagnosticsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [deviceId, screenName]);
+  };
 
-  const testCommandListener = useCallback(async () => {
+  const testCommandListener = async () => {
     setIsLoading(true);
     try {
       const success = await commandListener.testCommandListener();
@@ -110,11 +114,7 @@ export default function DiagnosticsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [runDiagnostics]);
-
-  useEffect(() => {
-    runDiagnostics();
-  }, [runDiagnostics]);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -221,7 +221,7 @@ export default function DiagnosticsScreen() {
               <Text style={styles.sectionTitle}>Troubleshooting Tips</Text>
               <View style={styles.tipBox}>
                 <Text style={styles.tipText}>
-                  1. Make sure you&apos;re logged in and the device is registered
+                  1. Make sure you're logged in and the device is registered
                 </Text>
                 <Text style={styles.tipText}>
                   2. Check that the device ID matches in both the app and your web app

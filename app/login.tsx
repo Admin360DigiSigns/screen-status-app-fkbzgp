@@ -45,7 +45,6 @@ export default function LoginScreen() {
   const hasGeneratedCodeRef = useRef(false);
   const isGeneratingRef = useRef(false);
   const mountedRef = useRef(false);
-  const hasNavigatedRef = useRef(false);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -72,52 +71,13 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }).start();
     }
-  }, [isLoggingOut, logoutModalAnim]);
+  }, [isLoggingOut]);
 
-  // CRITICAL: Redirect if already authenticated
+  // Redirect if already authenticated
   useEffect(() => {
-    console.log('');
-    console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
-    console.log('🔐 [LoginScreen] AUTHENTICATION STATE CHECK');
-    console.log('🔐 [LoginScreen] isAuthenticated:', isAuthenticated);
-    console.log('🔐 [LoginScreen] isInitializing:', isInitializing);
-    console.log('🔐 [LoginScreen] hasNavigated:', hasNavigatedRef.current);
-    console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
-    console.log('');
-    
-    // Navigate when authenticated and not already navigated
-    if (isAuthenticated && !hasNavigatedRef.current) {
-      console.log('');
-      console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
-      console.log('🚀 [LoginScreen] USER IS AUTHENTICATED - REDIRECTING TO HOME');
-      console.log('🚀 [LoginScreen] Calling router.replace("/(tabs)/(home)")');
-      console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
-      console.log('');
-      
-      hasNavigatedRef.current = true;
-      
-      // Clear any polling intervals before navigation
-      if (authCheckIntervalRef.current) {
-        console.log('🔍 [LoginScreen] Clearing auth check interval before navigation');
-        clearInterval(authCheckIntervalRef.current);
-        authCheckIntervalRef.current = null;
-      }
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-        timerIntervalRef.current = null;
-      }
-      
-      try {
-        router.replace('/(tabs)/(home)');
-        console.log('✅ [LoginScreen] Navigation initiated successfully');
-      } catch (error) {
-        console.error('❌ [LoginScreen] Navigation error:', error);
-        hasNavigatedRef.current = false;
-      }
-    } else if (!isAuthenticated) {
-      // Reset navigation flag if user is not authenticated
-      hasNavigatedRef.current = false;
-      console.log('⏸️ [LoginScreen] Not authenticated - staying on login screen');
+    if (isAuthenticated) {
+      console.log('User is authenticated, redirecting to home');
+      router.replace('/(tabs)/(home)');
     }
   }, [isAuthenticated]);
 
@@ -136,7 +96,7 @@ export default function LoginScreen() {
         startAuthenticationCheck(contextAuthCode);
       }
     }
-  }, [contextAuthCode, contextAuthCodeExpiry, authCode]);
+  }, [contextAuthCode, contextAuthCodeExpiry]);
 
   useEffect(() => {
     console.log('=== LOGIN SCREEN MOUNTED ===');
@@ -145,7 +105,6 @@ export default function LoginScreen() {
     console.log('Is Initializing:', isInitializing);
     console.log('Network Connected:', networkState.isConnected);
     console.log('Context Auth Code:', contextAuthCode);
-    console.log('Is TV Device:', isTVDevice);
     
     mountedRef.current = true;
     
@@ -172,23 +131,10 @@ export default function LoginScreen() {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, [deviceId, isAuthenticated, isInitializing, networkState.isConnected, contextAuthCode, fadeInAnim, slideUpAnim, isTVDevice]);
+  }, []);
 
-  // Generate code after initialization completes
+  // Generate code after initialization completes - SIMPLIFIED LOGIC
   useEffect(() => {
-    console.log('🔄 [LoginScreen] Code generation check triggered');
-    console.log('🔄 [LoginScreen] Current state:', {
-      isInitializing,
-      isAuthenticated,
-      hasDeviceId: !!deviceId,
-      isConnected: networkState.isConnected,
-      hasContextCode: !!contextAuthCode,
-      hasLocalCode: !!authCode,
-      hasGenerated: hasGeneratedCodeRef.current,
-      isGenerating: isGeneratingRef.current,
-      isMounted: mountedRef.current,
-    });
-    
     const shouldGenerate = 
       !isInitializing && 
       !isAuthenticated && 
@@ -201,10 +147,31 @@ export default function LoginScreen() {
       mountedRef.current;
 
     if (shouldGenerate) {
-      console.log('✅ [LoginScreen] All conditions met - generating code');
+      console.log('✓ All conditions met - generating code');
+      console.log('Conditions:', {
+        isInitializing,
+        isAuthenticated,
+        hasDeviceId: !!deviceId,
+        isConnected: networkState.isConnected,
+        hasContextCode: !!contextAuthCode,
+        hasLocalCode: !!authCode,
+        hasGenerated: hasGeneratedCodeRef.current,
+        isGenerating: isGeneratingRef.current,
+        isMounted: mountedRef.current,
+      });
       handleGenerateCode();
     } else {
-      console.log('⏸️ [LoginScreen] Not generating code - waiting for conditions');
+      console.log('✗ Not generating code - conditions not met:', {
+        isInitializing,
+        isAuthenticated,
+        hasDeviceId: !!deviceId,
+        isConnected: networkState.isConnected,
+        hasContextCode: !!contextAuthCode,
+        hasLocalCode: !!authCode,
+        hasGenerated: hasGeneratedCodeRef.current,
+        isGenerating: isGeneratingRef.current,
+        isMounted: mountedRef.current,
+      });
     }
   }, [isInitializing, isAuthenticated, deviceId, networkState.isConnected, contextAuthCode, authCode]);
 
@@ -226,7 +193,7 @@ export default function LoginScreen() {
         ])
       ).start();
     }
-  }, [authCode, pulseAnim]);
+  }, [authCode]);
 
   // Timer countdown
   useEffect(() => {
@@ -266,32 +233,23 @@ export default function LoginScreen() {
   }, [expiryTime]);
 
   const handleGenerateCode = async () => {
-    console.log('');
-    console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
-    console.log('🔑 [LoginScreen] HANDLE GENERATE CODE CALLED');
-    console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
-    console.log('');
-    
     if (isGeneratingRef.current) {
-      console.log('⏸️ [LoginScreen] Code generation already in progress, skipping');
+      console.log('Code generation already in progress, skipping');
       return;
     }
 
     if (isAuthenticated) {
-      console.log('⏸️ [LoginScreen] User is authenticated, skipping code generation');
+      console.log('User is authenticated, skipping code generation');
       return;
     }
 
-    console.log('📊 [LoginScreen] Current state:');
-    console.log('   Network connected:', networkState.isConnected);
-    console.log('   Device ID:', deviceId);
-    console.log('   isGenerating:', isGeneratingRef.current);
-    console.log('   hasGenerated:', hasGeneratedCodeRef.current);
-    console.log('');
+    console.log('=== HANDLE GENERATE CODE ===');
+    console.log('Network connected:', networkState.isConnected);
+    console.log('Device ID:', deviceId);
     
     if (!networkState.isConnected) {
       const errorMsg = 'No Internet Connection - Please connect to the internet to generate a login code.';
-      console.error('❌ [LoginScreen]', errorMsg);
+      console.error(errorMsg);
       setErrorMessage(errorMsg);
       Alert.alert(
         'No Internet Connection',
@@ -303,7 +261,7 @@ export default function LoginScreen() {
 
     if (!deviceId) {
       const errorMsg = 'Device ID not available yet. Please wait...';
-      console.error('❌ [LoginScreen]', errorMsg);
+      console.error(errorMsg);
       setErrorMessage(errorMsg);
       return;
     }
@@ -312,27 +270,25 @@ export default function LoginScreen() {
     hasGeneratedCodeRef.current = true;
     setIsLoading(true);
     setErrorMessage(null);
-    
-    console.log('🔄 [LoginScreen] Calling loginWithCode()...');
+    console.log('Generating authentication code...');
 
     try {
       const result = await loginWithCode();
-      console.log('📥 [LoginScreen] loginWithCode result:', JSON.stringify(result, null, 2));
+      console.log('loginWithCode result:', result);
       
       if (result.success && result.code) {
-        console.log('✅ [LoginScreen] Code generated successfully:', result.code);
+        console.log('✓ Code generated successfully:', result.code);
         setAuthCode(result.code);
         
         const expiry = new Date();
         expiry.setMinutes(expiry.getMinutes() + 10);
         setExpiryTime(expiry);
-        console.log('⏰ [LoginScreen] Code expires at:', expiry.toISOString());
-        console.log('');
-        console.log('🔍 [LoginScreen] Starting authentication check...');
+        console.log('Code expires at:', expiry.toISOString());
+
         startAuthenticationCheck(result.code);
       } else {
         const errorMsg = result.error || 'Failed to generate authentication code. Please try again.';
-        console.error('❌ [LoginScreen] Failed to generate code:', errorMsg);
+        console.error('✗ Failed to generate code:', errorMsg);
         setErrorMessage(errorMsg);
         Alert.alert(
           'Error',
@@ -343,11 +299,7 @@ export default function LoginScreen() {
         isGeneratingRef.current = false;
       }
     } catch (error) {
-      console.error('❌ [LoginScreen] Exception while generating code:', error);
-      if (error instanceof Error) {
-        console.error('❌ [LoginScreen] Error message:', error.message);
-        console.error('❌ [LoginScreen] Error stack:', error.stack);
-      }
+      console.error('✗ Exception while generating code:', error);
       const errorMsg = 'An error occurred while generating the code. Please try again.';
       setErrorMessage(errorMsg);
       Alert.alert(
@@ -360,85 +312,35 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
       isGeneratingRef.current = false;
-      console.log('');
-      console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
-      console.log('🔑 [LoginScreen] HANDLE GENERATE CODE COMPLETE');
-      console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
-      console.log('');
     }
   };
 
   const startAuthenticationCheck = (code: string) => {
-    console.log('');
-    console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
-    console.log('🔍 [LoginScreen] STARTING AUTHENTICATION CHECK');
-    console.log('🔍 [LoginScreen] Code:', code);
-    console.log('🔍 [LoginScreen] Device ID:', deviceId);
-    console.log('🔍 [LoginScreen] Will poll every 3 seconds');
-    console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
-    console.log('');
-    
+    console.log('Starting authentication check for code:', code);
     setIsCheckingAuth(true);
 
     if (authCheckIntervalRef.current) {
-      console.log('🔍 [LoginScreen] Clearing existing auth check interval');
       clearInterval(authCheckIntervalRef.current);
     }
 
-    // Do an immediate check first
-    console.log('🔍 [LoginScreen] Performing immediate authentication check...');
-    checkAuthenticationStatus().then(result => {
-      console.log('🔍 [LoginScreen] Immediate check result:', result);
-      
-      if (result.authenticated && result.credentials) {
-        console.log('🎉 [LoginScreen] Already authenticated! Credentials:', {
-          username: result.credentials.username,
-          screenName: result.credentials.screenName,
-        });
-        setIsCheckingAuth(false);
-        return;
-      }
-    }).catch(error => {
-      console.error('❌ [LoginScreen] Immediate check error:', error);
-    });
-
     authCheckIntervalRef.current = setInterval(async () => {
-      console.log('');
-      console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
-      console.log('🔍 [LoginScreen] POLLING FOR AUTHENTICATION STATUS');
-      console.log('🔍 [LoginScreen] Time:', new Date().toISOString());
-      console.log('🔍 [LoginScreen] Device ID:', deviceId);
-      console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
+      console.log('Checking authentication status...');
       
       try {
         const result = await checkAuthenticationStatus();
-        console.log('🔍 [LoginScreen] Poll result:', JSON.stringify(result, null, 2));
         
         if (result.authenticated && result.credentials) {
-          console.log('');
-          console.log('🎉 [LoginScreen] ═══════════════════════════════════════════════');
-          console.log('🎉 [LoginScreen] ✅ AUTHENTICATION SUCCESSFUL!');
-          console.log('🎉 [LoginScreen] Credentials received:', {
-            username: result.credentials.username,
-            screenName: result.credentials.screenName,
-          });
-          console.log('🎉 [LoginScreen] ═══════════════════════════════════════════════');
-          console.log('');
+          console.log('✓ Authentication successful!');
           
           if (authCheckIntervalRef.current) {
-            console.log('🔍 [LoginScreen] Clearing auth check interval');
             clearInterval(authCheckIntervalRef.current);
             authCheckIntervalRef.current = null;
           }
           
           setIsCheckingAuth(false);
-          
-          // The useEffect hook will handle navigation when isAuthenticated becomes true
-          console.log('🔍 [LoginScreen] Waiting for AuthContext to update isAuthenticated state...');
-          console.log('🔍 [LoginScreen] Current isAuthenticated:', isAuthenticated);
-          console.log('🔍 [LoginScreen] Navigation will happen automatically via useEffect');
+          router.replace('/(tabs)/(home)');
         } else if (result.error === 'Code expired') {
-          console.log('⏰ [LoginScreen] Code expired, generating new one...');
+          console.log('Code expired, generating new one...');
           
           if (authCheckIntervalRef.current) {
             clearInterval(authCheckIntervalRef.current);
@@ -450,19 +352,9 @@ export default function LoginScreen() {
           isGeneratingRef.current = false;
           setAuthCode(null);
           handleGenerateCode();
-        } else {
-          console.log('⏳ [LoginScreen] Still waiting for authentication...');
-          console.log('⏳ [LoginScreen] Result status:', result.success ? 'success' : 'failed');
         }
-        
-        console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
-        console.log('');
       } catch (error) {
-        console.error('❌ [LoginScreen] Error checking authentication:', error);
-        if (error instanceof Error) {
-          console.error('❌ [LoginScreen] Error message:', error.message);
-          console.error('❌ [LoginScreen] Error stack:', error.stack);
-        }
+        console.error('Error checking authentication:', error);
       }
     }, 3000);
   };
@@ -535,27 +427,28 @@ export default function LoginScreen() {
     );
   }
 
-  // Calculate responsive sizes
+  // Calculate responsive sizes for TV - CENTERED LAYOUT
   const getResponsiveSizes = () => {
     const width = screenDimensions.width;
     const height = screenDimensions.height;
     
     if (isTVDevice || isLargeScreen) {
-      const baseSize = Math.min(width, height);
+      // TV or large screen sizes - Centered and responsive
       return {
-        qrSize: Math.max(Math.min(baseSize * 0.15, 200), 150),
-        codeSize: Math.max(Math.min(width * 0.025, 40), 28),
-        logoSize: Math.max(Math.min(baseSize * 0.12, 180), 120),
-        containerMaxWidth: Math.min(width * 0.8, 1000),
+        qrSize: Math.min(width * 0.12, height * 0.24, 200),
+        codeSize: Math.min(width * 0.035, 45),
+        logoSize: Math.min(width * 0.15, height * 0.2, 180),
+        containerMaxWidth: Math.min(width * 0.7, 900),
         spacing: 20,
-        logoMarginBottom: Math.max(Math.min(height * 0.03, 40), 20),
+        logoMarginBottom: Math.min(height * 0.05, 50),
       };
     } else {
+      // Mobile sizes
       return {
-        qrSize: Math.max(Math.min(width * 0.5, 200), 150),
-        codeSize: Math.max(Math.min(width * 0.08, 36), 24),
-        logoSize: Math.max(Math.min(width * 0.4, 150), 100),
-        containerMaxWidth: Math.min(width * 0.9, 500),
+        qrSize: Math.min(width * 0.5, 200),
+        codeSize: 36,
+        logoSize: Math.min(width * 0.4, 150),
+        containerMaxWidth: width * 0.9,
         spacing: 24,
         logoMarginBottom: 32,
       };
@@ -564,7 +457,7 @@ export default function LoginScreen() {
 
   const sizes = getResponsiveSizes();
 
-  // TV Layout
+  // TV Layout - CENTERED AFTER LOGO
   if (isTVDevice || isLargeScreen) {
     return (
       <>
@@ -576,19 +469,10 @@ export default function LoginScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
           >
-            <Animated.View style={[styles.tvContent, { 
-              transform: [{ translateY: slideUpAnim }], 
-              maxWidth: sizes.containerMaxWidth,
-              width: '100%',
-              alignSelf: 'center',
-            }]}>
+            <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
               <Image 
                 source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
-                style={[styles.tvLogo, { 
-                  width: sizes.logoSize, 
-                  height: sizes.logoSize, 
-                  marginBottom: sizes.logoMarginBottom 
-                }]}
+                style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize, marginBottom: sizes.logoMarginBottom }]}
                 resizeMode="contain"
               />
               
@@ -618,7 +502,9 @@ export default function LoginScreen() {
                       Scan QR Code or Enter Code on Web App
                     </Text>
                     
+                    {/* QR Code on Left, Code on Right - Horizontal Layout */}
                     <View style={styles.tvHorizontalLayout}>
+                      {/* QR Code Section - Left */}
                       <View style={styles.tvQRSection}>
                         <View style={styles.tvQRWrapper}>
                           <QRCode
@@ -631,8 +517,10 @@ export default function LoginScreen() {
                         <Text style={styles.tvQRLabel}>Scan with your device</Text>
                       </View>
 
+                      {/* Divider */}
                       <View style={styles.tvDivider} />
 
+                      {/* Code Section - Right */}
                       <View style={styles.tvCodeSection}>
                         <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
                           <Text style={styles.tvCodeLabel}>Authentication Code</Text>
@@ -683,7 +571,7 @@ export default function LoginScreen() {
     );
   }
 
-  // Mobile Layout
+  // Mobile Layout - Vertical stacking
   return (
     <>
       <LogoutModal />
@@ -804,6 +692,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Logout Modal Styles
   logoutModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -856,6 +745,8 @@ const styles = StyleSheet.create({
     color: '#777777',
     textAlign: 'center',
   },
+
+  // Mobile styles
   mobileContainer: {
     flex: 1,
   },
@@ -1034,6 +925,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 4,
   },
+
+  // TV styles - CENTERED LAYOUT AFTER LOGO
   tvContainer: {
     flex: 1,
   },
@@ -1122,6 +1015,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     letterSpacing: 0.5,
   },
+  // Horizontal layout for QR and Code - CENTERED
   tvHorizontalLayout: {
     flexDirection: 'row',
     alignItems: 'center',
