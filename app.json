@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "360Digisigns",
-    "slug": "screen-status-app-fkbzgp",
+    "name": "Screen Status",
+    "slug": "screen-status",
     "version": "1.0.1",
     "orientation": "landscape",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
@@ -37,7 +37,8 @@
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
         "BLUETOOTH",
-        "BLUETOOTH_CONNECT"
+        "BLUETOOTH_CONNECT",
+        "RECEIVE_BOOT_COMPLETED"
       ],
       "versionCode": 2,
       "newArchEnabled": true,
@@ -68,7 +69,7 @@
         }
       ]
     ],
-    "scheme": "digisigns360",
+    "scheme": "screenstatus",
     "experiments": {
       "typedRoutes": true
     },

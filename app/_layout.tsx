@@ -6,7 +6,7 @@ import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Alert } from "react-native";
+import { useColorScheme, Alert, Platform } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -81,7 +81,8 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="auto" animated />
+      {/* Hide status bar on Android for immersive kiosk mode */}
+      <StatusBar style="auto" animated hidden={Platform.OS === 'android'} />
       <ThemeProvider
         value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
       >
@@ -122,7 +123,8 @@ export default function RootLayout() {
                   }}
                 />
               </Stack>
-              <SystemBars style={"auto"} />
+              {/* Hide system bars on Android for immersive mode */}
+              <SystemBars style={Platform.OS === 'android' ? 'hidden' : 'auto'} />
             </GestureHandlerRootView>
           </WidgetProvider>
         </AuthProvider>
