@@ -4,7 +4,7 @@
     "name": "360Digisigns",
     "slug": "screen-status-app-fkbzgp",
     "version": "1.0.1",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "icon": "./assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -41,7 +41,15 @@
         "BLUETOOTH_CONNECT"
       ],
       "versionCode": 2,
-      "newArchEnabled": true
+      "newArchEnabled": true,
+      "intentFilters": [
+        {
+          "action": "android.intent.action.MAIN",
+          "category": [
+            "android.intent.category.LEANBACK_LAUNCHER"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/images/f00132ac-4fc2-4a61-9e8b-112862f17436.jpeg",
@@ -50,7 +58,16 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/withAndroidTV",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "scheme": "digisigns360",
     "experiments": {
