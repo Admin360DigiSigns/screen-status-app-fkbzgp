@@ -952,17 +952,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error?: string 
   }> => {
     try {
+      console.log('');
+      console.log('🔍 [AuthContext] ═══════════════════════════════════════════════');
+      console.log('🔍 [AuthContext] CHECK AUTHENTICATION STATUS CALLED');
+      console.log('🔍 [AuthContext] Device ID:', deviceId);
+      console.log('🔍 [AuthContext] ═══════════════════════════════════════════════');
+      console.log('');
+      
       if (!deviceId) {
+        console.error('❌ [AuthContext] No device ID available');
         return { success: false, authenticated: false, error: 'No device ID available' };
       }
 
-      console.log('🔍 [AuthContext] Polling for credentials...');
+      console.log('📡 [AuthContext] Calling apiService.getDisplayCredentials...');
       const response = await apiService.getDisplayCredentials(deviceId);
       
-      console.log('🔍 [AuthContext] Poll response:', response);
+      console.log('📥 [AuthContext] API response:', JSON.stringify(response, null, 2));
       
       if (response.success && response.data) {
-        console.log('🔍 [AuthContext] Response status:', response.data.status);
+        console.log('✅ [AuthContext] API call successful');
+        console.log('📊 [AuthContext] Response status:', response.data.status);
         
         if (response.data.status === 'authenticated' && response.data.credentials) {
           const creds = response.data.credentials;
@@ -976,24 +985,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('');
           
           // Store credentials
-          console.log('💾 Storing credentials in AsyncStorage...');
+          console.log('💾 [AuthContext] Storing credentials in AsyncStorage...');
           await AsyncStorage.setItem(STORAGE_KEYS.USERNAME, creds.screen_username);
           await AsyncStorage.setItem(STORAGE_KEYS.PASSWORD, creds.screen_password);
           await AsyncStorage.setItem(STORAGE_KEYS.SCREEN_NAME, creds.screen_name);
-          console.log('✓ Credentials stored');
+          console.log('✅ [AuthContext] Credentials stored');
           
           // Update state
-          console.log('🔄 Updating authentication state...');
+          console.log('🔄 [AuthContext] Updating authentication state...');
+          console.log('   Setting username:', creds.screen_username);
+          console.log('   Setting screenName:', creds.screen_name);
+          console.log('   Setting isAuthenticated: true');
+          
           setUsername(creds.screen_username);
           setPassword(creds.screen_password);
           setScreenName(creds.screen_name);
           setIsAuthenticated(true);
-          console.log('✓ State updated - isAuthenticated: true');
+          
+          console.log('✅ [AuthContext] State updated');
+          console.log('   Current isAuthenticated:', true);
           
           // Clear auth code
           setAuthCode(null);
           setAuthCodeExpiry(null);
-          console.log('✓ Auth code cleared');
+          console.log('✅ [AuthContext] Auth code cleared');
           
           console.log('');
           console.log('╔════════════════════════════════════════════════════════════════╗');
@@ -1011,21 +1026,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           };
         } else if (response.data.status === 'expired') {
+          console.log('⏰ [AuthContext] Code expired');
           setAuthCode(null);
           setAuthCodeExpiry(null);
-          console.log('⏰ Code expired');
           return { success: true, authenticated: false, error: 'Code expired' };
         } else {
           // Still pending
-          console.log('⏳ Still pending authentication...');
+          console.log('⏳ [AuthContext] Still pending authentication...');
+          console.log('⏳ [AuthContext] Status:', response.data.status);
           return { success: true, authenticated: false };
         }
       } else {
-        console.error('❌ Failed to check credentials:', response.error);
+        console.error('❌ [AuthContext] API call failed');
+        console.error('❌ [AuthContext] Error:', response.error);
         return { success: false, authenticated: false, error: response.error };
       }
     } catch (error) {
-      console.error('Error checking authentication status:', error);
+      console.error('❌ [AuthContext] Exception in checkAuthenticationStatus:', error);
+      if (error instanceof Error) {
+        console.error('❌ [AuthContext] Error message:', error.message);
+        console.error('❌ [AuthContext] Error stack:', error.stack);
+      }
       return { 
         success: false, 
         authenticated: false,

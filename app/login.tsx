@@ -74,7 +74,7 @@ export default function LoginScreen() {
     }
   }, [isLoggingOut, logoutModalAnim]);
 
-  // CRITICAL: Redirect if already authenticated - FIXED VERSION
+  // CRITICAL: Redirect if already authenticated
   useEffect(() => {
     console.log('');
     console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
@@ -85,7 +85,7 @@ export default function LoginScreen() {
     console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
     console.log('');
     
-    // CRITICAL FIX: Navigate immediately when authenticated, regardless of initialization state
+    // Navigate when authenticated and not already navigated
     if (isAuthenticated && !hasNavigatedRef.current) {
       console.log('');
       console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
@@ -101,6 +101,10 @@ export default function LoginScreen() {
         console.log('🔍 [LoginScreen] Clearing auth check interval before navigation');
         clearInterval(authCheckIntervalRef.current);
         authCheckIntervalRef.current = null;
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
       }
       
       try {
@@ -172,6 +176,19 @@ export default function LoginScreen() {
 
   // Generate code after initialization completes
   useEffect(() => {
+    console.log('🔄 [LoginScreen] Code generation check triggered');
+    console.log('🔄 [LoginScreen] Current state:', {
+      isInitializing,
+      isAuthenticated,
+      hasDeviceId: !!deviceId,
+      isConnected: networkState.isConnected,
+      hasContextCode: !!contextAuthCode,
+      hasLocalCode: !!authCode,
+      hasGenerated: hasGeneratedCodeRef.current,
+      isGenerating: isGeneratingRef.current,
+      isMounted: mountedRef.current,
+    });
+    
     const shouldGenerate = 
       !isInitializing && 
       !isAuthenticated && 
@@ -184,31 +201,10 @@ export default function LoginScreen() {
       mountedRef.current;
 
     if (shouldGenerate) {
-      console.log('✓ All conditions met - generating code');
-      console.log('Conditions:', {
-        isInitializing,
-        isAuthenticated,
-        hasDeviceId: !!deviceId,
-        isConnected: networkState.isConnected,
-        hasContextCode: !!contextAuthCode,
-        hasLocalCode: !!authCode,
-        hasGenerated: hasGeneratedCodeRef.current,
-        isGenerating: isGeneratingRef.current,
-        isMounted: mountedRef.current,
-      });
+      console.log('✅ [LoginScreen] All conditions met - generating code');
       handleGenerateCode();
     } else {
-      console.log('✗ Not generating code - conditions not met:', {
-        isInitializing,
-        isAuthenticated,
-        hasDeviceId: !!deviceId,
-        isConnected: networkState.isConnected,
-        hasContextCode: !!contextAuthCode,
-        hasLocalCode: !!authCode,
-        hasGenerated: hasGeneratedCodeRef.current,
-        isGenerating: isGeneratingRef.current,
-        isMounted: mountedRef.current,
-      });
+      console.log('⏸️ [LoginScreen] Not generating code - waiting for conditions');
     }
   }, [isInitializing, isAuthenticated, deviceId, networkState.isConnected, contextAuthCode, authCode]);
 
@@ -270,23 +266,32 @@ export default function LoginScreen() {
   }, [expiryTime]);
 
   const handleGenerateCode = async () => {
+    console.log('');
+    console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
+    console.log('🔑 [LoginScreen] HANDLE GENERATE CODE CALLED');
+    console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
+    console.log('');
+    
     if (isGeneratingRef.current) {
-      console.log('Code generation already in progress, skipping');
+      console.log('⏸️ [LoginScreen] Code generation already in progress, skipping');
       return;
     }
 
     if (isAuthenticated) {
-      console.log('User is authenticated, skipping code generation');
+      console.log('⏸️ [LoginScreen] User is authenticated, skipping code generation');
       return;
     }
 
-    console.log('=== HANDLE GENERATE CODE ===');
-    console.log('Network connected:', networkState.isConnected);
-    console.log('Device ID:', deviceId);
+    console.log('📊 [LoginScreen] Current state:');
+    console.log('   Network connected:', networkState.isConnected);
+    console.log('   Device ID:', deviceId);
+    console.log('   isGenerating:', isGeneratingRef.current);
+    console.log('   hasGenerated:', hasGeneratedCodeRef.current);
+    console.log('');
     
     if (!networkState.isConnected) {
       const errorMsg = 'No Internet Connection - Please connect to the internet to generate a login code.';
-      console.error(errorMsg);
+      console.error('❌ [LoginScreen]', errorMsg);
       setErrorMessage(errorMsg);
       Alert.alert(
         'No Internet Connection',
@@ -298,7 +303,7 @@ export default function LoginScreen() {
 
     if (!deviceId) {
       const errorMsg = 'Device ID not available yet. Please wait...';
-      console.error(errorMsg);
+      console.error('❌ [LoginScreen]', errorMsg);
       setErrorMessage(errorMsg);
       return;
     }
@@ -307,25 +312,27 @@ export default function LoginScreen() {
     hasGeneratedCodeRef.current = true;
     setIsLoading(true);
     setErrorMessage(null);
-    console.log('Generating authentication code...');
+    
+    console.log('🔄 [LoginScreen] Calling loginWithCode()...');
 
     try {
       const result = await loginWithCode();
-      console.log('loginWithCode result:', result);
+      console.log('📥 [LoginScreen] loginWithCode result:', JSON.stringify(result, null, 2));
       
       if (result.success && result.code) {
-        console.log('✓ Code generated successfully:', result.code);
+        console.log('✅ [LoginScreen] Code generated successfully:', result.code);
         setAuthCode(result.code);
         
         const expiry = new Date();
         expiry.setMinutes(expiry.getMinutes() + 10);
         setExpiryTime(expiry);
-        console.log('Code expires at:', expiry.toISOString());
-
+        console.log('⏰ [LoginScreen] Code expires at:', expiry.toISOString());
+        console.log('');
+        console.log('🔍 [LoginScreen] Starting authentication check...');
         startAuthenticationCheck(result.code);
       } else {
         const errorMsg = result.error || 'Failed to generate authentication code. Please try again.';
-        console.error('✗ Failed to generate code:', errorMsg);
+        console.error('❌ [LoginScreen] Failed to generate code:', errorMsg);
         setErrorMessage(errorMsg);
         Alert.alert(
           'Error',
@@ -336,7 +343,11 @@ export default function LoginScreen() {
         isGeneratingRef.current = false;
       }
     } catch (error) {
-      console.error('✗ Exception while generating code:', error);
+      console.error('❌ [LoginScreen] Exception while generating code:', error);
+      if (error instanceof Error) {
+        console.error('❌ [LoginScreen] Error message:', error.message);
+        console.error('❌ [LoginScreen] Error stack:', error.stack);
+      }
       const errorMsg = 'An error occurred while generating the code. Please try again.';
       setErrorMessage(errorMsg);
       Alert.alert(
@@ -349,6 +360,11 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
       isGeneratingRef.current = false;
+      console.log('');
+      console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
+      console.log('🔑 [LoginScreen] HANDLE GENERATE CODE COMPLETE');
+      console.log('🔑 [LoginScreen] ═══════════════════════════════════════════════');
+      console.log('');
     }
   };
 
@@ -357,6 +373,7 @@ export default function LoginScreen() {
     console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
     console.log('🔍 [LoginScreen] STARTING AUTHENTICATION CHECK');
     console.log('🔍 [LoginScreen] Code:', code);
+    console.log('🔍 [LoginScreen] Device ID:', deviceId);
     console.log('🔍 [LoginScreen] Will poll every 3 seconds');
     console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
     console.log('');
@@ -364,19 +381,38 @@ export default function LoginScreen() {
     setIsCheckingAuth(true);
 
     if (authCheckIntervalRef.current) {
+      console.log('🔍 [LoginScreen] Clearing existing auth check interval');
       clearInterval(authCheckIntervalRef.current);
     }
+
+    // Do an immediate check first
+    console.log('🔍 [LoginScreen] Performing immediate authentication check...');
+    checkAuthenticationStatus().then(result => {
+      console.log('🔍 [LoginScreen] Immediate check result:', result);
+      
+      if (result.authenticated && result.credentials) {
+        console.log('🎉 [LoginScreen] Already authenticated! Credentials:', {
+          username: result.credentials.username,
+          screenName: result.credentials.screenName,
+        });
+        setIsCheckingAuth(false);
+        return;
+      }
+    }).catch(error => {
+      console.error('❌ [LoginScreen] Immediate check error:', error);
+    });
 
     authCheckIntervalRef.current = setInterval(async () => {
       console.log('');
       console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
       console.log('🔍 [LoginScreen] POLLING FOR AUTHENTICATION STATUS');
       console.log('🔍 [LoginScreen] Time:', new Date().toISOString());
+      console.log('🔍 [LoginScreen] Device ID:', deviceId);
       console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
       
       try {
         const result = await checkAuthenticationStatus();
-        console.log('🔍 [LoginScreen] Poll result:', result);
+        console.log('🔍 [LoginScreen] Poll result:', JSON.stringify(result, null, 2));
         
         if (result.authenticated && result.credentials) {
           console.log('');
@@ -399,6 +435,7 @@ export default function LoginScreen() {
           
           // The useEffect hook will handle navigation when isAuthenticated becomes true
           console.log('🔍 [LoginScreen] Waiting for AuthContext to update isAuthenticated state...');
+          console.log('🔍 [LoginScreen] Current isAuthenticated:', isAuthenticated);
           console.log('🔍 [LoginScreen] Navigation will happen automatically via useEffect');
         } else if (result.error === 'Code expired') {
           console.log('⏰ [LoginScreen] Code expired, generating new one...');
@@ -415,12 +452,17 @@ export default function LoginScreen() {
           handleGenerateCode();
         } else {
           console.log('⏳ [LoginScreen] Still waiting for authentication...');
+          console.log('⏳ [LoginScreen] Result status:', result.success ? 'success' : 'failed');
         }
         
         console.log('🔍 [LoginScreen] ═══════════════════════════════════════════════');
         console.log('');
       } catch (error) {
         console.error('❌ [LoginScreen] Error checking authentication:', error);
+        if (error instanceof Error) {
+          console.error('❌ [LoginScreen] Error message:', error.message);
+          console.error('❌ [LoginScreen] Error stack:', error.stack);
+        }
       }
     }, 3000);
   };
