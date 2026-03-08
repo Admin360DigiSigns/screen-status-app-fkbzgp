@@ -45,6 +45,7 @@ export default function LoginScreen() {
   const hasGeneratedCodeRef = useRef(false);
   const isGeneratingRef = useRef(false);
   const mountedRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
 
   // Animation values
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -73,17 +74,18 @@ export default function LoginScreen() {
     }
   }, [isLoggingOut, logoutModalAnim]);
 
-  // Redirect if already authenticated - WITH DETAILED LOGGING
+  // CRITICAL: Redirect if already authenticated
   useEffect(() => {
     console.log('');
     console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
     console.log('🔐 [LoginScreen] AUTHENTICATION STATE CHECK');
     console.log('🔐 [LoginScreen] isAuthenticated:', isAuthenticated);
     console.log('🔐 [LoginScreen] isInitializing:', isInitializing);
+    console.log('🔐 [LoginScreen] hasNavigated:', hasNavigatedRef.current);
     console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
     console.log('');
     
-    if (isAuthenticated && !isInitializing) {
+    if (isAuthenticated && !isInitializing && !hasNavigatedRef.current) {
       console.log('');
       console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
       console.log('🚀 [LoginScreen] USER IS AUTHENTICATED - REDIRECTING TO HOME');
@@ -91,16 +93,20 @@ export default function LoginScreen() {
       console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
       console.log('');
       
+      hasNavigatedRef.current = true;
+      
       try {
         router.replace('/(tabs)/(home)');
         console.log('✅ [LoginScreen] Navigation initiated successfully');
       } catch (error) {
         console.error('❌ [LoginScreen] Navigation error:', error);
+        hasNavigatedRef.current = false;
       }
     } else {
       console.log('⏸️ [LoginScreen] Not redirecting - conditions not met');
       console.log('   isAuthenticated:', isAuthenticated);
       console.log('   isInitializing:', isInitializing);
+      console.log('   hasNavigated:', hasNavigatedRef.current);
     }
   }, [isAuthenticated, isInitializing]);
 
@@ -128,6 +134,7 @@ export default function LoginScreen() {
     console.log('Is Initializing:', isInitializing);
     console.log('Network Connected:', networkState.isConnected);
     console.log('Context Auth Code:', contextAuthCode);
+    console.log('Is TV Device:', isTVDevice);
     
     mountedRef.current = true;
     
@@ -154,9 +161,9 @@ export default function LoginScreen() {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, [deviceId, isAuthenticated, isInitializing, networkState.isConnected, contextAuthCode, fadeInAnim, slideUpAnim]);
+  }, [deviceId, isAuthenticated, isInitializing, networkState.isConnected, contextAuthCode, fadeInAnim, slideUpAnim, isTVDevice]);
 
-  // Generate code after initialization completes - SIMPLIFIED LOGIC
+  // Generate code after initialization completes
   useEffect(() => {
     const shouldGenerate = 
       !isInitializing && 
@@ -383,19 +390,8 @@ export default function LoginScreen() {
           
           setIsCheckingAuth(false);
           
-          console.log('');
-          console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
-          console.log('🚀 [LoginScreen] NAVIGATING TO HOME SCREEN');
-          console.log('🚀 [LoginScreen] Calling router.replace("/(tabs)/(home)")');
-          console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
-          console.log('');
-          
-          try {
-            router.replace('/(tabs)/(home)');
-            console.log('✅ [LoginScreen] Navigation initiated');
-          } catch (navError) {
-            console.error('❌ [LoginScreen] Navigation error:', navError);
-          }
+          // The useEffect hook will handle navigation when isAuthenticated becomes true
+          console.log('🔍 [LoginScreen] Waiting for AuthContext to update isAuthenticated state...');
         } else if (result.error === 'Code expired') {
           console.log('⏰ [LoginScreen] Code expired, generating new one...');
           
@@ -489,13 +485,12 @@ export default function LoginScreen() {
     );
   }
 
-  // Calculate responsive sizes - FIXED FOR ALL SCREEN SIZES
+  // Calculate responsive sizes
   const getResponsiveSizes = () => {
     const width = screenDimensions.width;
     const height = screenDimensions.height;
     
     if (isTVDevice || isLargeScreen) {
-      // TV or large screen sizes - Centered and responsive
       const baseSize = Math.min(width, height);
       return {
         qrSize: Math.max(Math.min(baseSize * 0.15, 200), 150),
@@ -506,7 +501,6 @@ export default function LoginScreen() {
         logoMarginBottom: Math.max(Math.min(height * 0.03, 40), 20),
       };
     } else {
-      // Mobile sizes - ensure minimum sizes
       return {
         qrSize: Math.max(Math.min(width * 0.5, 200), 150),
         codeSize: Math.max(Math.min(width * 0.08, 36), 24),
@@ -520,7 +514,7 @@ export default function LoginScreen() {
 
   const sizes = getResponsiveSizes();
 
-  // TV Layout - CENTERED AFTER LOGO WITH FIXED DIMENSIONS
+  // TV Layout
   if (isTVDevice || isLargeScreen) {
     return (
       <>
@@ -574,9 +568,7 @@ export default function LoginScreen() {
                       Scan QR Code or Enter Code on Web App
                     </Text>
                     
-                    {/* QR Code on Left, Code on Right - Horizontal Layout */}
                     <View style={styles.tvHorizontalLayout}>
-                      {/* QR Code Section - Left */}
                       <View style={styles.tvQRSection}>
                         <View style={styles.tvQRWrapper}>
                           <QRCode
@@ -589,10 +581,8 @@ export default function LoginScreen() {
                         <Text style={styles.tvQRLabel}>Scan with your device</Text>
                       </View>
 
-                      {/* Divider */}
                       <View style={styles.tvDivider} />
 
-                      {/* Code Section - Right */}
                       <View style={styles.tvCodeSection}>
                         <Animated.View style={[styles.tvCodeDisplay, { transform: [{ scale: pulseAnim }] }]}>
                           <Text style={styles.tvCodeLabel}>Authentication Code</Text>
@@ -643,7 +633,7 @@ export default function LoginScreen() {
     );
   }
 
-  // Mobile Layout - Vertical stacking
+  // Mobile Layout
   return (
     <>
       <LogoutModal />
@@ -764,7 +754,6 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Logout Modal Styles
   logoutModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -817,8 +806,6 @@ const styles = StyleSheet.create({
     color: '#777777',
     textAlign: 'center',
   },
-
-  // Mobile styles
   mobileContainer: {
     flex: 1,
   },
@@ -997,8 +984,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 4,
   },
-
-  // TV styles - CENTERED LAYOUT AFTER LOGO
   tvContainer: {
     flex: 1,
   },
@@ -1087,7 +1072,6 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     letterSpacing: 0.5,
   },
-  // Horizontal layout for QR and Code - CENTERED
   tvHorizontalLayout: {
     flexDirection: 'row',
     alignItems: 'center',
