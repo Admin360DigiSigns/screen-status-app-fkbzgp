@@ -124,6 +124,299 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [showPreviewModal, username, password, screenName, refreshPreviewContent]);
 
+  // Logout function - defined early so it can be used in command handlers
+  const logout = useCallback(async () => {
+    // Set the logout ref immediately to prevent any status updates
+    isLoggingOutRef.current = true;
+    
+    try {
+      console.log('');
+      console.log('╔════════════════════════════════════════════════════════════════╗');
+      console.log('║                    LOGOUT INITIATED                            ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
+      console.log('');
+      
+      setIsLoggingOut(true);
+      setLogoutProgress('Give us a moment while we log you out...');
+      
+      // Close any open modals IMMEDIATELY
+      console.log('┌─ CLOSING ANY OPEN MODALS');
+      setShowPreviewModal(false);
+      setShowScreenShareModal(false);
+      setDisplayContent(null);
+      console.log('└─ ✓ Modals closed');
+      console.log('');
+      
+      // STEP 0: CRITICAL - Stop command listener FIRST to prevent any commands from executing
+      console.log('┌─ STEP 0: STOPPING COMMAND LISTENER (CRITICAL)');
+      setLogoutProgress('Stopping command listener...');
+      try {
+        await commandListener.stopListening();
+        console.log('│  ✓ Command listener stopped');
+        console.log('│  ✓ All command handlers unregistered');
+        console.log('│  ✓ Processed command tracking cleared');
+        // Wait a moment to ensure all pending command executions are aborted
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('└─ ✓ Command listener fully stopped');
+      } catch (error) {
+        console.error('└─ ✗ Failed to stop command listener:', error);
+      }
+      console.log('');
+      
+      // STEP 1: Set logout flag FIRST with timestamp to prevent auto-login
+      console.log('┌─ STEP 1: Setting logout flag with timestamp');
+      setLogoutProgress('Setting logout flag...');
+      try {
+        const now = Date.now().toString();
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
+        console.log('└─ ✓ Logout flag set with timestamp:', now);
+      } catch (error) {
+        console.error('└─ ✗ Failed to set logout flag:', error);
+      }
+      console.log('');
+      
+      // STEP 2: Clear intervals (including preview refresh interval)
+      console.log('┌─ STEP 2: Clearing intervals');
+      setLogoutProgress('Stopping background services...');
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+        statusIntervalRef.current = null;
+        console.log('│  ✓ Status interval cleared');
+      }
+      if (authCheckIntervalRef.current) {
+        clearInterval(authCheckIntervalRef.current);
+        authCheckIntervalRef.current = null;
+        console.log('│  ✓ Auth check interval cleared');
+      }
+      if (previewRefreshIntervalRef.current) {
+        clearInterval(previewRefreshIntervalRef.current);
+        previewRefreshIntervalRef.current = null;
+        console.log('│  ✓ Preview refresh interval cleared');
+      }
+      console.log('└─ ✓ All intervals cleared');
+      console.log('');
+
+      // STEP 3: Send offline status
+      if (deviceId && screenName && username && password) {
+        console.log('┌─ STEP 3: Sending offline status to backend');
+        setLogoutProgress('Sending offline status...');
+        try {
+          await apiService.sendDeviceStatus({
+            deviceId,
+            screenName,
+            screen_username: username,
+            screen_password: password,
+            screen_name: screenName,
+            status: 'offline',
+            timestamp: new Date().toISOString(),
+          });
+          console.log('└─ ✓ Offline status sent successfully');
+        } catch (error) {
+          console.error('└─ ✗ Failed to send offline status:', error);
+        }
+      } else {
+        console.log('└─ ⊘ Skipping offline status (missing credentials)');
+      }
+      console.log('');
+
+      // STEP 4: CRITICAL - Clear backend authentication state with extended retry
+      if (deviceId) {
+        console.log('┌─ STEP 4: Clearing backend authentication state');
+        setLogoutProgress('Clearing backend authentication...');
+        console.log('│  This is CRITICAL to prevent auto-login after app restart');
+        
+        let backendCleared = false;
+        const maxAttempts = 5;
+        
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            console.log(`│  Attempt ${attempt}/${maxAttempts}...`);
+            const clearResult = await apiService.clearDeviceAuthentication(deviceId, 1);
+            if (clearResult.success) {
+              console.log('└─ ✓ Backend authentication cleared successfully');
+              console.log('   Device will NOT auto-login on next app start');
+              backendCleared = true;
+              break;
+            } else {
+              console.error(`│  ✗ Attempt ${attempt} failed:`, clearResult.error);
+              if (attempt < maxAttempts) {
+                const waitTime = attempt * 500;
+                console.log(`│  Waiting ${waitTime}ms before retry...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+              }
+            }
+          } catch (error) {
+            console.error(`│  ✗ Attempt ${attempt} exception:`, error);
+            if (attempt < maxAttempts) {
+              const waitTime = attempt * 500;
+              console.log(`│  Waiting ${waitTime}ms before retry...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+          }
+        }
+        
+        if (!backendCleared) {
+          console.error('└─ ✗ FAILED to clear backend after all attempts');
+          console.error('   ⚠️ WARNING: Device may auto-login on next app start!');
+        }
+      } else {
+        console.log('└─ ⊘ Skipping backend clear (no device ID)');
+      }
+      console.log('');
+
+      // STEP 5: Clear ALL local storage
+      console.log('┌─ STEP 5: Clearing ALL local storage');
+      setLogoutProgress('Clearing local data...');
+      const keysToRemove = [
+        STORAGE_KEYS.USERNAME,
+        STORAGE_KEYS.PASSWORD,
+        STORAGE_KEYS.SCREEN_NAME,
+      ];
+      
+      try {
+        await AsyncStorage.multiRemove(keysToRemove);
+        console.log('│  ✓ AsyncStorage cleared (multiRemove)');
+      } catch (error) {
+        console.error('│  ✗ multiRemove failed, trying individual removal:', error);
+        // Fallback to individual removal
+        for (const key of keysToRemove) {
+          try {
+            await AsyncStorage.removeItem(key);
+            console.log(`│  ✓ Removed ${key}`);
+          } catch (removeError) {
+            console.error(`│  ✗ Failed to remove ${key}:`, removeError);
+          }
+        }
+      }
+      
+      // Verify storage is cleared
+      try {
+        const remainingUsername = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
+        const remainingPassword = await AsyncStorage.getItem(STORAGE_KEYS.PASSWORD);
+        const remainingScreenName = await AsyncStorage.getItem(STORAGE_KEYS.SCREEN_NAME);
+        
+        if (!remainingUsername && !remainingPassword && !remainingScreenName) {
+          console.log('└─ ✓ Verified: All credentials removed from storage');
+        } else {
+          console.error('└─ ✗ WARNING: Some credentials still in storage!');
+          console.error('   Username:', !!remainingUsername);
+          console.error('   Password:', !!remainingPassword);
+          console.error('   ScreenName:', !!remainingScreenName);
+        }
+      } catch (error) {
+        console.error('└─ ✗ Failed to verify storage clear:', error);
+      }
+      console.log('');
+      
+      // STEP 6: Clear state
+      console.log('┌─ STEP 6: Clearing authentication state');
+      setLogoutProgress('Clearing session...');
+      setUsername(null);
+      setPassword(null);
+      setScreenName(null);
+      setAuthCode(null);
+      setAuthCodeExpiry(null);
+      setIsAuthenticated(false);
+      setIsScreenActive(false);
+      console.log('└─ ✓ All state variables cleared');
+      console.log('');
+      
+      // STEP 7: Wait for async operations
+      console.log('┌─ STEP 7: Waiting for async operations to complete');
+      setLogoutProgress('Finalizing logout...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Increased to 2 seconds
+      console.log('└─ ✓ Wait complete');
+      console.log('');
+      
+      console.log('╔════════════════════════════════════════════════════════════════╗');
+      console.log('║                   LOGOUT COMPLETED SUCCESSFULLY                ║');
+      console.log('║                                                                ║');
+      console.log('║  ✓ Modals closed                                              ║');
+      console.log('║  ✓ Command listener stopped                                   ║');
+      console.log('║  ✓ Backend authentication cleared                             ║');
+      console.log('║  ✓ Local storage cleared                                      ║');
+      console.log('║  ✓ State cleared                                              ║');
+      console.log('║  ✓ Logout flag set with 30-second protection                  ║');
+      console.log('║                                                                ║');
+      console.log('║  User is now on login screen with fresh code                  ║');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
+      console.log('');
+      
+      setIsLoggingOut(false);
+      setLogoutProgress('');
+      
+    } catch (error) {
+      console.error('');
+      console.error('╔════════════════════════════════════════════════════════════════╗');
+      console.error('║                  ✗ CRITICAL ERROR DURING LOGOUT               ║');
+      console.error('╚════════════════════════════════════════════════════════════════╝');
+      console.error('Error:', error);
+      console.error('');
+      
+      // EMERGENCY CLEANUP
+      console.log('┌─ EMERGENCY CLEANUP: Attempting to clear everything');
+      setLogoutProgress('Emergency cleanup...');
+      
+      // Close modals
+      setShowPreviewModal(false);
+      setShowScreenShareModal(false);
+      setDisplayContent(null);
+      
+      try {
+        // Set logout flag with timestamp
+        const now = Date.now().toString();
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
+        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
+        console.log('│  ✓ Logout flag set');
+        
+        // Clear storage
+        await AsyncStorage.multiRemove([
+          STORAGE_KEYS.USERNAME,
+          STORAGE_KEYS.PASSWORD,
+          STORAGE_KEYS.SCREEN_NAME,
+        ]);
+        console.log('│  ✓ Storage cleared');
+        
+        // Clear backend if possible - multiple attempts
+        if (deviceId) {
+          for (let i = 0; i < 3; i++) {
+            try {
+              await apiService.clearDeviceAuthentication(deviceId, 1);
+              console.log('│  ✓ Backend cleared');
+              break;
+            } catch (clearError) {
+              console.error(`│  ✗ Backend clear attempt ${i + 1} failed`);
+              if (i < 2) await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
+        }
+      } catch (cleanupError) {
+        console.error('│  ✗ Emergency cleanup failed:', cleanupError);
+      }
+      
+      // Clear state regardless
+      setUsername(null);
+      setPassword(null);
+      setScreenName(null);
+      setAuthCode(null);
+      setAuthCodeExpiry(null);
+      setIsAuthenticated(false);
+      setIsScreenActive(false);
+      setShowPreviewModal(false);
+      setShowScreenShareModal(false);
+      setDisplayContent(null);
+      console.log('└─ ✓ State cleared');
+      console.log('');
+      
+      setIsLoggingOut(false);
+      setLogoutProgress('');
+    } finally {
+      // Reset the logout ref
+      isLoggingOutRef.current = false;
+    }
+  }, [deviceId, screenName, username, password]);
+
   // Global command handlers - defined at the context level so they work everywhere
   const handlePreviewCommand = useCallback(async (command: AppCommand) => {
     console.log('🎬 [AuthContext] ===== PREVIEW COMMAND HANDLER CALLED =====');
@@ -268,7 +561,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('🚪 [AuthContext] Executing logout...');
     await logout();
     console.log('🚪 [AuthContext] ===== LOGOUT COMMAND HANDLER COMPLETE =====');
-  }, [showPreviewModal, showScreenShareModal]);
+  }, [showPreviewModal, showScreenShareModal, logout]);
 
   const initializeAuth = useCallback(async () => {
     try {
@@ -712,323 +1005,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authenticated: false,
         error: error instanceof Error ? error.message : 'An unexpected error occurred' 
       };
-    }
-  };
-
-  const logout = async () => {
-    // Set the logout ref immediately to prevent any status updates
-    isLoggingOutRef.current = true;
-    
-    try {
-      console.log('');
-      console.log('╔════════════════════════════════════════════════════════════════╗');
-      console.log('║                    LOGOUT INITIATED                            ║');
-      console.log('╚════════════════════════════════════════════════════════════════╝');
-      console.log('');
-      
-      setIsLoggingOut(true);
-      setLogoutProgress('Give us a moment while we log you out...');
-      
-      // Close any open modals IMMEDIATELY
-      console.log('┌─ CLOSING ANY OPEN MODALS');
-      setShowPreviewModal(false);
-      setShowScreenShareModal(false);
-      setDisplayContent(null);
-      console.log('└─ ✓ Modals closed');
-      console.log('');
-      
-      // STEP 0: CRITICAL - Stop command listener FIRST to prevent any commands from executing
-      console.log('┌─ STEP 0: STOPPING COMMAND LISTENER (CRITICAL)');
-      setLogoutProgress('Stopping command listener...');
-      try {
-        await commandListener.stopListening();
-        console.log('│  ✓ Command listener stopped');
-        console.log('│  ✓ All command handlers unregistered');
-        console.log('│  ✓ Processed command tracking cleared');
-        // Wait a moment to ensure all pending command executions are aborted
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('└─ ✓ Command listener fully stopped');
-      } catch (error) {
-        console.error('└─ ✗ Failed to stop command listener:', error);
-      }
-      console.log('');
-      
-      // STEP 1: Set logout flag FIRST with timestamp to prevent auto-login
-      console.log('┌─ STEP 1: Setting logout flag with timestamp');
-      setLogoutProgress('Setting logout flag...');
-      try {
-        const now = Date.now().toString();
-        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
-        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
-        console.log('└─ ✓ Logout flag set with timestamp:', now);
-      } catch (error) {
-        console.error('└─ ✗ Failed to set logout flag:', error);
-      }
-      console.log('');
-      
-      // STEP 2: Clear intervals (including preview refresh interval)
-      console.log('┌─ STEP 2: Clearing intervals');
-      setLogoutProgress('Stopping background services...');
-      if (statusIntervalRef.current) {
-        clearInterval(statusIntervalRef.current);
-        statusIntervalRef.current = null;
-        console.log('│  ✓ Status interval cleared');
-      }
-      if (authCheckIntervalRef.current) {
-        clearInterval(authCheckIntervalRef.current);
-        authCheckIntervalRef.current = null;
-        console.log('│  ✓ Auth check interval cleared');
-      }
-      if (previewRefreshIntervalRef.current) {
-        clearInterval(previewRefreshIntervalRef.current);
-        previewRefreshIntervalRef.current = null;
-        console.log('│  ✓ Preview refresh interval cleared');
-      }
-      console.log('└─ ✓ All intervals cleared');
-      console.log('');
-
-      // STEP 3: Send offline status
-      if (deviceId && screenName && username && password) {
-        console.log('┌─ STEP 3: Sending offline status to backend');
-        setLogoutProgress('Sending offline status...');
-        try {
-          await apiService.sendDeviceStatus({
-            deviceId,
-            screenName,
-            screen_username: username,
-            screen_password: password,
-            screen_name: screenName,
-            status: 'offline',
-            timestamp: new Date().toISOString(),
-          });
-          console.log('└─ ✓ Offline status sent successfully');
-        } catch (error) {
-          console.error('└─ ✗ Failed to send offline status:', error);
-        }
-      } else {
-        console.log('└─ ⊘ Skipping offline status (missing credentials)');
-      }
-      console.log('');
-
-      // STEP 4: CRITICAL - Clear backend authentication state with extended retry
-      if (deviceId) {
-        console.log('┌─ STEP 4: Clearing backend authentication state');
-        setLogoutProgress('Clearing backend authentication...');
-        console.log('│  This is CRITICAL to prevent auto-login after app restart');
-        
-        let backendCleared = false;
-        const maxAttempts = 5;
-        
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            console.log(`│  Attempt ${attempt}/${maxAttempts}...`);
-            const clearResult = await apiService.clearDeviceAuthentication(deviceId, 1);
-            if (clearResult.success) {
-              console.log('└─ ✓ Backend authentication cleared successfully');
-              console.log('   Device will NOT auto-login on next app start');
-              backendCleared = true;
-              break;
-            } else {
-              console.error(`│  ✗ Attempt ${attempt} failed:`, clearResult.error);
-              if (attempt < maxAttempts) {
-                const waitTime = attempt * 500;
-                console.log(`│  Waiting ${waitTime}ms before retry...`);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-              }
-            }
-          } catch (error) {
-            console.error(`│  ✗ Attempt ${attempt} exception:`, error);
-            if (attempt < maxAttempts) {
-              const waitTime = attempt * 500;
-              console.log(`│  Waiting ${waitTime}ms before retry...`);
-              await new Promise(resolve => setTimeout(resolve, waitTime));
-            }
-          }
-        }
-        
-        if (!backendCleared) {
-          console.error('└─ ✗ FAILED to clear backend after all attempts');
-          console.error('   ⚠️ WARNING: Device may auto-login on next app start!');
-        }
-      } else {
-        console.log('└─ ⊘ Skipping backend clear (no device ID)');
-      }
-      console.log('');
-
-      // STEP 5: Clear ALL local storage
-      console.log('┌─ STEP 5: Clearing ALL local storage');
-      setLogoutProgress('Clearing local data...');
-      const keysToRemove = [
-        STORAGE_KEYS.USERNAME,
-        STORAGE_KEYS.PASSWORD,
-        STORAGE_KEYS.SCREEN_NAME,
-      ];
-      
-      try {
-        await AsyncStorage.multiRemove(keysToRemove);
-        console.log('│  ✓ AsyncStorage cleared (multiRemove)');
-      } catch (error) {
-        console.error('│  ✗ multiRemove failed, trying individual removal:', error);
-        // Fallback to individual removal
-        for (const key of keysToRemove) {
-          try {
-            await AsyncStorage.removeItem(key);
-            console.log(`│  ✓ Removed ${key}`);
-          } catch (removeError) {
-            console.error(`│  ✗ Failed to remove ${key}:`, removeError);
-          }
-        }
-      }
-      
-      // Verify storage is cleared
-      try {
-        const remainingUsername = await AsyncStorage.getItem(STORAGE_KEYS.USERNAME);
-        const remainingPassword = await AsyncStorage.getItem(STORAGE_KEYS.PASSWORD);
-        const remainingScreenName = await AsyncStorage.getItem(STORAGE_KEYS.SCREEN_NAME);
-        
-        if (!remainingUsername && !remainingPassword && !remainingScreenName) {
-          console.log('└─ ✓ Verified: All credentials removed from storage');
-        } else {
-          console.error('└─ ✗ WARNING: Some credentials still in storage!');
-          console.error('   Username:', !!remainingUsername);
-          console.error('   Password:', !!remainingPassword);
-          console.error('   ScreenName:', !!remainingScreenName);
-        }
-      } catch (error) {
-        console.error('└─ ✗ Failed to verify storage clear:', error);
-      }
-      console.log('');
-      
-      // STEP 6: Clear state
-      console.log('┌─ STEP 6: Clearing authentication state');
-      setLogoutProgress('Clearing session...');
-      setUsername(null);
-      setPassword(null);
-      setScreenName(null);
-      setAuthCode(null);
-      setAuthCodeExpiry(null);
-      setIsAuthenticated(false);
-      setIsScreenActive(false);
-      console.log('└─ ✓ All state variables cleared');
-      console.log('');
-      
-      // STEP 7: Wait for async operations
-      console.log('┌─ STEP 7: Waiting for async operations to complete');
-      setLogoutProgress('Finalizing logout...');
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Increased to 2 seconds
-      console.log('└─ ✓ Wait complete');
-      console.log('');
-      
-      // STEP 8: Generate new authentication code
-      console.log('┌─ STEP 8: Generating new authentication code');
-      setLogoutProgress('Generating new authentication code...');
-      try {
-        const codeResult = await loginWithCode();
-        if (codeResult.success && codeResult.code) {
-          console.log('└─ ✓ New authentication code generated:', codeResult.code);
-        } else {
-          console.error('└─ ✗ Failed to generate new code:', codeResult.error);
-        }
-      } catch (error) {
-        console.error('└─ ✗ Exception while generating new code:', error);
-      }
-      console.log('');
-      
-      console.log('╔════════════════════════════════════════════════════════════════╗');
-      console.log('║                   LOGOUT COMPLETED SUCCESSFULLY                ║');
-      console.log('║                                                                ║');
-      console.log('║  ✓ Modals closed                                              ║');
-      console.log('║  ✓ Command listener stopped                                   ║');
-      console.log('║  ✓ Backend authentication cleared                             ║');
-      console.log('║  ✓ Local storage cleared                                      ║');
-      console.log('║  ✓ State cleared                                              ║');
-      console.log('║  ✓ New authentication code generated                          ║');
-      console.log('║  ✓ Logout flag set with 30-second protection                  ║');
-      console.log('║                                                                ║');
-      console.log('║  User is now on login screen with fresh code                  ║');
-      console.log('╚════════════════════════════════════════════════════════════════╝');
-      console.log('');
-      
-      setIsLoggingOut(false);
-      setLogoutProgress('');
-      
-    } catch (error) {
-      console.error('');
-      console.error('╔════════════════════════════════════════════════════════════════╗');
-      console.error('║                  ✗ CRITICAL ERROR DURING LOGOUT               ║');
-      console.error('╚════════════════════════════════════════════════════════════════╝');
-      console.error('Error:', error);
-      console.error('');
-      
-      // EMERGENCY CLEANUP
-      console.log('┌─ EMERGENCY CLEANUP: Attempting to clear everything');
-      setLogoutProgress('Emergency cleanup...');
-      
-      // Close modals
-      setShowPreviewModal(false);
-      setShowScreenShareModal(false);
-      setDisplayContent(null);
-      
-      try {
-        // Set logout flag with timestamp
-        const now = Date.now().toString();
-        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_FLAG, 'true');
-        await AsyncStorage.setItem(STORAGE_KEYS.LOGOUT_TIMESTAMP, now);
-        console.log('│  ✓ Logout flag set');
-        
-        // Clear storage
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.USERNAME,
-          STORAGE_KEYS.PASSWORD,
-          STORAGE_KEYS.SCREEN_NAME,
-        ]);
-        console.log('│  ✓ Storage cleared');
-        
-        // Clear backend if possible - multiple attempts
-        if (deviceId) {
-          for (let i = 0; i < 3; i++) {
-            try {
-              await apiService.clearDeviceAuthentication(deviceId, 1);
-              console.log('│  ✓ Backend cleared');
-              break;
-            } catch (clearError) {
-              console.error(`│  ✗ Backend clear attempt ${i + 1} failed`);
-              if (i < 2) await new Promise(resolve => setTimeout(resolve, 500));
-            }
-          }
-        }
-      } catch (cleanupError) {
-        console.error('│  ✗ Emergency cleanup failed:', cleanupError);
-      }
-      
-      // Clear state regardless
-      setUsername(null);
-      setPassword(null);
-      setScreenName(null);
-      setAuthCode(null);
-      setAuthCodeExpiry(null);
-      setIsAuthenticated(false);
-      setIsScreenActive(false);
-      setShowPreviewModal(false);
-      setShowScreenShareModal(false);
-      setDisplayContent(null);
-      console.log('└─ ✓ State cleared');
-      console.log('');
-      
-      // Try to generate new code
-      try {
-        console.log('Attempting to generate new code after error...');
-        setLogoutProgress('Generating new code...');
-        await loginWithCode();
-      } catch (codeError) {
-        console.error('Failed to generate new code:', codeError);
-      }
-      
-      setIsLoggingOut(false);
-      setLogoutProgress('');
-    } finally {
-      // Reset the logout ref
-      isLoggingOutRef.current = false;
     }
   };
 

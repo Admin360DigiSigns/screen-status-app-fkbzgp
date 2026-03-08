@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, Platform, ScrollView, Animated, Image, Dimensions } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
@@ -37,6 +37,7 @@ export default function HomeScreen() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isTVDevice = isTV();
+  const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
 
   // Button animation states - ALL HOOKS AT TOP LEVEL
   const buttonScaleAnims = {
@@ -45,6 +46,31 @@ export default function HomeScreen() {
     preview: useRef(new Animated.Value(1)).current,
     screenShare: useRef(new Animated.Value(1)).current,
   };
+
+  const animateButtonPress = useCallback((buttonKey: keyof typeof buttonScaleAnims) => {
+    Animated.sequence([
+      Animated.timing(buttonScaleAnims[buttonKey], {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScaleAnims[buttonKey], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [buttonScaleAnims]);
+
+  // Update screen dimensions on change
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('Screen dimensions changed:', window);
+      setScreenDimensions(window);
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   // Sync device status function
   const syncDeviceStatus = useCallback(async () => {
@@ -129,13 +155,13 @@ export default function HomeScreen() {
     console.log('User initiated manual sync');
     animateButtonPress('sync');
     await syncDeviceStatus();
-  }, [syncDeviceStatus]);
+  }, [syncDeviceStatus, animateButtonPress]);
 
   const handlePreview = useCallback(() => {
     console.log('User opened preview modal');
     animateButtonPress('preview');
     setShowPreviewModal(true);
-  }, [setShowPreviewModal]);
+  }, [setShowPreviewModal, animateButtonPress]);
 
   const handleClosePreview = useCallback(() => {
     console.log('User closed preview modal');
@@ -146,41 +172,20 @@ export default function HomeScreen() {
     console.log('User opened screen share modal');
     animateButtonPress('screenShare');
     setShowScreenShareModal(true);
-  }, [setShowScreenShareModal]);
+  }, [setShowScreenShareModal, animateButtonPress]);
 
   const handleCloseScreenShare = useCallback(() => {
     console.log('User closed screen share modal');
     setShowScreenShareModal(false);
   }, [setShowScreenShareModal]);
 
-  const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
-    Animated.sequence([
-      Animated.timing(buttonScaleAnims[buttonKey], {
-        toValue: 0.9,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScaleAnims[buttonKey], {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const getCommandListenerStatusColor = () => {
+  const getCommandListenerStatusColor = useCallback(() => {
     return commandListener.isConnected() ? '#10B981' : '#EF4444';
-  };
+  }, []);
 
-  const getCommandListenerStatusText = () => {
+  const getCommandListenerStatusText = useCallback(() => {
     return commandListener.isConnected() ? 'Command Listener: Active' : 'Command Listener: Disconnected';
-  };
-
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    console.log('User not authenticated, redirecting to login');
-    return <Redirect href="/login" />;
-  }
+  }, []);
 
   // Log device ID on mount
   useEffect(() => {
@@ -263,6 +268,44 @@ export default function HomeScreen() {
     };
   }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
 
+  // Calculate responsive sizes for TV
+  const getTVSizes = useCallback(() => {
+    const width = screenDimensions.width;
+    const height = screenDimensions.height;
+    const isLargeScreen = width >= 1024;
+    
+    return {
+      logoSize: isLargeScreen ? 80 : 60,
+      titleSize: isLargeScreen ? 36 : 28,
+      subtitleSize: isLargeScreen ? 20 : 16,
+      padding: isLargeScreen ? 40 : 24,
+      cardPadding: isLargeScreen ? 30 : 20,
+      buttonHeight: isLargeScreen ? 56 : 48,
+      fontSize: isLargeScreen ? 18 : 16,
+    };
+  }, [screenDimensions]);
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/login" />;
+  }
+
+  // Safety check - ensure we have minimum required data
+  if (!deviceId || !username || !screenName) {
+    console.log('Missing required data, showing loading state');
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#007BFF" />
+        <Text style={{ marginTop: 16, fontSize: 16, color: '#333333' }}>
+          Loading device information...
+        </Text>
+      </View>
+    );
+  }
+
+  const tvSizes = getTVSizes();
+
   // TV Layout - Full screen, no tabs
   if (isTVDevice) {
     return (
@@ -273,15 +316,15 @@ export default function HomeScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
         >
-          <View style={styles.tvHeader}>
+          <View style={[styles.tvHeader, { padding: tvSizes.padding }]}>
             <Image 
               source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
-              style={styles.tvLogo}
+              style={[styles.tvLogo, { width: tvSizes.logoSize, height: tvSizes.logoSize }]}
               resizeMode="contain"
             />
             <View style={styles.tvHeaderInfo}>
-              <Text style={styles.tvTitle}>360Digisigns TV</Text>
-              <Text style={styles.tvSubtitle}>{screenName}</Text>
+              <Text style={[styles.tvTitle, { fontSize: tvSizes.titleSize }]}>360Digisigns TV</Text>
+              <Text style={[styles.tvSubtitle, { fontSize: tvSizes.subtitleSize }]}>{screenName}</Text>
             </View>
           </View>
 
@@ -303,9 +346,9 @@ export default function HomeScreen() {
             )}
           </View>
 
-          <View style={styles.tvContent}>
-            <View style={styles.tvInfoCard}>
-              <Text style={styles.tvInfoTitle}>Device Information</Text>
+          <View style={[styles.tvContent, { padding: tvSizes.padding, gap: tvSizes.padding }]}>
+            <View style={[styles.tvInfoCard, { padding: tvSizes.cardPadding }]}>
+              <Text style={[styles.tvInfoTitle, { fontSize: tvSizes.titleSize * 0.67 }]}>Device Information</Text>
               <View style={styles.tvInfoRow}>
                 <Text style={styles.tvInfoLabel}>Device ID:</Text>
                 <Text style={styles.tvInfoValue}>{deviceId}</Text>
@@ -325,12 +368,12 @@ export default function HomeScreen() {
               )}
             </View>
 
-            <View style={styles.tvActionsCard}>
-              <Text style={styles.tvActionsTitle}>Actions</Text>
+            <View style={[styles.tvActionsCard, { padding: tvSizes.cardPadding }]}>
+              <Text style={[styles.tvActionsTitle, { fontSize: tvSizes.titleSize * 0.67 }]}>Actions</Text>
               
               <Animated.View style={{ transform: [{ scale: buttonScaleAnims.sync }] }}>
                 <TouchableOpacity
-                  style={[styles.tvButton, styles.tvButtonPrimary]}
+                  style={[styles.tvButton, styles.tvButtonPrimary, { height: tvSizes.buttonHeight }]}
                   onPress={handleManualSync}
                   disabled={isSyncing || !isOnline}
                 >
@@ -341,10 +384,10 @@ export default function HomeScreen() {
                       <IconSymbol 
                         ios_icon_name="arrow.clockwise" 
                         android_material_icon_name="refresh" 
-                        size={24} 
+                        size={tvSizes.fontSize + 4} 
                         color="#FFFFFF" 
                       />
-                      <Text style={styles.tvButtonText}>Sync Now</Text>
+                      <Text style={[styles.tvButtonText, { fontSize: tvSizes.fontSize }]}>Sync Now</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -352,47 +395,47 @@ export default function HomeScreen() {
 
               <Animated.View style={{ transform: [{ scale: buttonScaleAnims.preview }] }}>
                 <TouchableOpacity
-                  style={[styles.tvButton, styles.tvButtonSecondary]}
+                  style={[styles.tvButton, styles.tvButtonSecondary, { height: tvSizes.buttonHeight }]}
                   onPress={handlePreview}
                   disabled={!displayContent}
                 >
                   <IconSymbol 
                     ios_icon_name="play.circle" 
                     android_material_icon_name="play-arrow" 
-                    size={24} 
+                    size={tvSizes.fontSize + 4} 
                     color="#007BFF" 
                   />
-                  <Text style={[styles.tvButtonText, { color: '#007BFF' }]}>Preview Content</Text>
+                  <Text style={[styles.tvButtonText, { color: '#007BFF', fontSize: tvSizes.fontSize }]}>Preview Content</Text>
                 </TouchableOpacity>
               </Animated.View>
 
               <Animated.View style={{ transform: [{ scale: buttonScaleAnims.screenShare }] }}>
                 <TouchableOpacity
-                  style={[styles.tvButton, styles.tvButtonSecondary]}
+                  style={[styles.tvButton, styles.tvButtonSecondary, { height: tvSizes.buttonHeight }]}
                   onPress={handleScreenShare}
                 >
                   <IconSymbol 
                     ios_icon_name="tv" 
                     android_material_icon_name="cast" 
-                    size={24} 
+                    size={tvSizes.fontSize + 4} 
                     color="#007BFF" 
                   />
-                  <Text style={[styles.tvButtonText, { color: '#007BFF' }]}>Screen Share</Text>
+                  <Text style={[styles.tvButtonText, { color: '#007BFF', fontSize: tvSizes.fontSize }]}>Screen Share</Text>
                 </TouchableOpacity>
               </Animated.View>
 
               <Animated.View style={{ transform: [{ scale: buttonScaleAnims.logout }] }}>
                 <TouchableOpacity
-                  style={[styles.tvButton, styles.tvButtonDanger]}
+                  style={[styles.tvButton, styles.tvButtonDanger, { height: tvSizes.buttonHeight }]}
                   onPress={handleLogout}
                 >
                   <IconSymbol 
                     ios_icon_name="rectangle.portrait.and.arrow.right" 
                     android_material_icon_name="logout" 
-                    size={24} 
+                    size={tvSizes.fontSize + 4} 
                     color="#FFFFFF" 
                   />
-                  <Text style={styles.tvButtonText}>Logout</Text>
+                  <Text style={[styles.tvButtonText, { fontSize: tvSizes.fontSize }]}>Logout</Text>
                 </TouchableOpacity>
               </Animated.View>
             </View>
@@ -586,22 +629,21 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  // TV Styles
+  // TV Styles - Dynamic sizing applied via inline styles
   tvContainer: {
     flex: 1,
+    minHeight: 400,
+    minWidth: 600,
   },
   tvGradient: {
     flex: 1,
-    padding: 40,
   },
   tvHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   tvLogo: {
-    width: 80,
-    height: 80,
     borderRadius: 16,
     marginRight: 20,
   },
@@ -609,13 +651,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tvTitle: {
-    fontSize: 36,
     fontWeight: 'bold',
     color: '#333333',
     marginBottom: 4,
   },
   tvSubtitle: {
-    fontSize: 20,
     color: '#666666',
   },
   tvStatusBar: {
@@ -642,13 +682,12 @@ const styles = StyleSheet.create({
   tvContent: {
     flex: 1,
     flexDirection: 'row',
-    gap: 30,
+    minHeight: 300,
   },
   tvInfoCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 30,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -656,7 +695,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   tvInfoTitle: {
-    fontSize: 24,
     fontWeight: 'bold',
     color: '#333333',
     marginBottom: 20,
@@ -693,7 +731,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 30,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -701,7 +738,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   tvActionsTitle: {
-    fontSize: 24,
     fontWeight: 'bold',
     color: '#333333',
     marginBottom: 20,
@@ -710,11 +746,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
     marginBottom: 16,
     gap: 12,
+    minHeight: 48,
   },
   tvButtonPrimary: {
     backgroundColor: '#007BFF',
@@ -726,7 +762,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   tvButtonText: {
-    fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },

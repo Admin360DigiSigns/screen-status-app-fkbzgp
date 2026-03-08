@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, ScrollView, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Modal, Alert, ScrollView, Animated, Image, Dimensions } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { colors } from '@/styles/commonStyles';
 import { Redirect, useFocusEffect } from 'expo-router';
@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const [syncError, setSyncError] = useState<string | null>(null);
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isTVDevice = isTV();
+  const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
 
   // Button animation states - ALL HOOKS AT TOP LEVEL
   const buttonScaleAnims = {
@@ -43,6 +44,31 @@ export default function HomeScreen() {
     preview: useRef(new Animated.Value(1)).current,
     screenShare: useRef(new Animated.Value(1)).current,
   };
+
+  const animateButtonPress = useCallback((buttonKey: keyof typeof buttonScaleAnims) => {
+    Animated.sequence([
+      Animated.timing(buttonScaleAnims[buttonKey], {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(buttonScaleAnims[buttonKey], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [buttonScaleAnims]);
+
+  // Update screen dimensions on change
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('Screen dimensions changed:', window);
+      setScreenDimensions(window);
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   // Sync device status function
   const syncDeviceStatus = useCallback(async () => {
@@ -127,13 +153,13 @@ export default function HomeScreen() {
     console.log('User initiated manual sync');
     animateButtonPress('sync');
     await syncDeviceStatus();
-  }, [syncDeviceStatus]);
+  }, [syncDeviceStatus, animateButtonPress]);
 
   const handlePreview = useCallback(() => {
     console.log('User opened preview modal');
     animateButtonPress('preview');
     setShowPreviewModal(true);
-  }, [setShowPreviewModal]);
+  }, [setShowPreviewModal, animateButtonPress]);
 
   const handleClosePreview = useCallback(() => {
     console.log('User closed preview modal');
@@ -144,33 +170,12 @@ export default function HomeScreen() {
     console.log('User opened screen share modal');
     animateButtonPress('screenShare');
     setShowScreenShareModal(true);
-  }, [setShowScreenShareModal]);
+  }, [setShowScreenShareModal, animateButtonPress]);
 
   const handleCloseScreenShare = useCallback(() => {
     console.log('User closed screen share modal');
     setShowScreenShareModal(false);
   }, [setShowScreenShareModal]);
-
-  const animateButtonPress = (buttonKey: keyof typeof buttonScaleAnims) => {
-    Animated.sequence([
-      Animated.timing(buttonScaleAnims[buttonKey], {
-        toValue: 0.9,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(buttonScaleAnims[buttonKey], {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  // Redirect to login if not authenticated
-  if (!isAuthenticated) {
-    console.log('User not authenticated, redirecting to login');
-    return <Redirect href="/login" />;
-  }
 
   // Log device ID on mount
   useEffect(() => {
@@ -208,6 +213,25 @@ export default function HomeScreen() {
       }
     };
   }, [deviceId, screenName, username, password, networkState.isConnected, syncDeviceStatus]);
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    console.log('User not authenticated, redirecting to login');
+    return <Redirect href="/login" />;
+  }
+
+  // Safety check - ensure we have minimum required data
+  if (!deviceId || !username || !screenName) {
+    console.log('Missing required data, showing loading state');
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#007BFF" />
+        <Text style={{ marginTop: 16, fontSize: 16, color: '#333333' }}>
+          Loading device information...
+        </Text>
+      </View>
+    );
+  }
 
   // Apple TV Layout - Full screen, no tabs
   if (isTVDevice) {

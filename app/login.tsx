@@ -71,7 +71,7 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }).start();
     }
-  }, [isLoggingOut]);
+  }, [isLoggingOut, logoutModalAnim]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function LoginScreen() {
         startAuthenticationCheck(contextAuthCode);
       }
     }
-  }, [contextAuthCode, contextAuthCodeExpiry]);
+  }, [contextAuthCode, contextAuthCodeExpiry, authCode]);
 
   useEffect(() => {
     console.log('=== LOGIN SCREEN MOUNTED ===');
@@ -131,7 +131,7 @@ export default function LoginScreen() {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, []);
+  }, [deviceId, isAuthenticated, isInitializing, networkState.isConnected, contextAuthCode, fadeInAnim, slideUpAnim]);
 
   // Generate code after initialization completes - SIMPLIFIED LOGIC
   useEffect(() => {
@@ -193,7 +193,7 @@ export default function LoginScreen() {
         ])
       ).start();
     }
-  }, [authCode]);
+  }, [authCode, pulseAnim]);
 
   // Timer countdown
   useEffect(() => {
@@ -427,28 +427,29 @@ export default function LoginScreen() {
     );
   }
 
-  // Calculate responsive sizes for TV - CENTERED LAYOUT
+  // Calculate responsive sizes - FIXED FOR ALL SCREEN SIZES
   const getResponsiveSizes = () => {
     const width = screenDimensions.width;
     const height = screenDimensions.height;
     
     if (isTVDevice || isLargeScreen) {
       // TV or large screen sizes - Centered and responsive
+      const baseSize = Math.min(width, height);
       return {
-        qrSize: Math.min(width * 0.12, height * 0.24, 200),
-        codeSize: Math.min(width * 0.035, 45),
-        logoSize: Math.min(width * 0.15, height * 0.2, 180),
-        containerMaxWidth: Math.min(width * 0.7, 900),
+        qrSize: Math.max(Math.min(baseSize * 0.15, 200), 150),
+        codeSize: Math.max(Math.min(width * 0.025, 40), 28),
+        logoSize: Math.max(Math.min(baseSize * 0.12, 180), 120),
+        containerMaxWidth: Math.min(width * 0.8, 1000),
         spacing: 20,
-        logoMarginBottom: Math.min(height * 0.05, 50),
+        logoMarginBottom: Math.max(Math.min(height * 0.03, 40), 20),
       };
     } else {
-      // Mobile sizes
+      // Mobile sizes - ensure minimum sizes
       return {
-        qrSize: Math.min(width * 0.5, 200),
-        codeSize: 36,
-        logoSize: Math.min(width * 0.4, 150),
-        containerMaxWidth: width * 0.9,
+        qrSize: Math.max(Math.min(width * 0.5, 200), 150),
+        codeSize: Math.max(Math.min(width * 0.08, 36), 24),
+        logoSize: Math.max(Math.min(width * 0.4, 150), 100),
+        containerMaxWidth: Math.min(width * 0.9, 500),
         spacing: 24,
         logoMarginBottom: 32,
       };
@@ -457,7 +458,7 @@ export default function LoginScreen() {
 
   const sizes = getResponsiveSizes();
 
-  // TV Layout - CENTERED AFTER LOGO
+  // TV Layout - CENTERED AFTER LOGO WITH FIXED DIMENSIONS
   if (isTVDevice || isLargeScreen) {
     return (
       <>
@@ -469,10 +470,19 @@ export default function LoginScreen() {
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
           >
-            <Animated.View style={[styles.tvContent, { transform: [{ translateY: slideUpAnim }], maxWidth: sizes.containerMaxWidth }]}>
+            <Animated.View style={[styles.tvContent, { 
+              transform: [{ translateY: slideUpAnim }], 
+              maxWidth: sizes.containerMaxWidth,
+              width: '100%',
+              alignSelf: 'center',
+            }]}>
               <Image 
                 source={require('@/assets/images/ded86abe-6a7d-491d-80a5-adc8948ee47e.jpeg')}
-                style={[styles.tvLogo, { width: sizes.logoSize, height: sizes.logoSize, marginBottom: sizes.logoMarginBottom }]}
+                style={[styles.tvLogo, { 
+                  width: sizes.logoSize, 
+                  height: sizes.logoSize, 
+                  marginBottom: sizes.logoMarginBottom 
+                }]}
                 resizeMode="contain"
               />
               
