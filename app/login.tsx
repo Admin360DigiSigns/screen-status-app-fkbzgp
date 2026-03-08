@@ -74,7 +74,7 @@ export default function LoginScreen() {
     }
   }, [isLoggingOut, logoutModalAnim]);
 
-  // CRITICAL: Redirect if already authenticated
+  // CRITICAL: Redirect if already authenticated - FIXED VERSION
   useEffect(() => {
     console.log('');
     console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
@@ -85,7 +85,8 @@ export default function LoginScreen() {
     console.log('🔐 [LoginScreen] ═══════════════════════════════════════════════');
     console.log('');
     
-    if (isAuthenticated && !isInitializing && !hasNavigatedRef.current) {
+    // CRITICAL FIX: Navigate immediately when authenticated, regardless of initialization state
+    if (isAuthenticated && !hasNavigatedRef.current) {
       console.log('');
       console.log('🚀 [LoginScreen] ═══════════════════════════════════════════════');
       console.log('🚀 [LoginScreen] USER IS AUTHENTICATED - REDIRECTING TO HOME');
@@ -95,6 +96,13 @@ export default function LoginScreen() {
       
       hasNavigatedRef.current = true;
       
+      // Clear any polling intervals before navigation
+      if (authCheckIntervalRef.current) {
+        console.log('🔍 [LoginScreen] Clearing auth check interval before navigation');
+        clearInterval(authCheckIntervalRef.current);
+        authCheckIntervalRef.current = null;
+      }
+      
       try {
         router.replace('/(tabs)/(home)');
         console.log('✅ [LoginScreen] Navigation initiated successfully');
@@ -102,13 +110,12 @@ export default function LoginScreen() {
         console.error('❌ [LoginScreen] Navigation error:', error);
         hasNavigatedRef.current = false;
       }
-    } else {
-      console.log('⏸️ [LoginScreen] Not redirecting - conditions not met');
-      console.log('   isAuthenticated:', isAuthenticated);
-      console.log('   isInitializing:', isInitializing);
-      console.log('   hasNavigated:', hasNavigatedRef.current);
+    } else if (!isAuthenticated) {
+      // Reset navigation flag if user is not authenticated
+      hasNavigatedRef.current = false;
+      console.log('⏸️ [LoginScreen] Not authenticated - staying on login screen');
     }
-  }, [isAuthenticated, isInitializing]);
+  }, [isAuthenticated]);
 
   // Sync with context auth code
   useEffect(() => {
@@ -392,6 +399,7 @@ export default function LoginScreen() {
           
           // The useEffect hook will handle navigation when isAuthenticated becomes true
           console.log('🔍 [LoginScreen] Waiting for AuthContext to update isAuthenticated state...');
+          console.log('🔍 [LoginScreen] Navigation will happen automatically via useEffect');
         } else if (result.error === 'Code expired') {
           console.log('⏰ [LoginScreen] Code expired, generating new one...');
           
